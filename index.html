@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeskPartner — 给你手下那几个 AI 共用的本地看板</title>
-  <meta name="description" content="DeskPartner：给你手下那几个 AI 共用的本地桌面看板。它们自己记事、交活，你只管看和拍板。100% 本地 SQLite 存储，支持 69 个 MCP 工具与 76 条 CLI 命令。" />
+  <title>DeskPartner — 多 AI 的本地工作控制台，让协作可交接、可验收、可追责</title>
+  <meta name="description" content="DeskPartner：把多个 AI 的工作变成可交接、可验收、可追责的本地工作控制台。内置项目接手说明（Handoff）、7 态验收状态机、15 道仓储层护栏与单次授权代执行，支持 69 个 MCP 工具与 76 条 CLI 命令，100% 本地 SQLite 存储。" />
   <link rel="icon" type="image/svg+xml" href="assets/partner-badge.svg" />
   <script>
     (function () {
@@ -131,6 +131,14 @@
       font-family: var(--font-mono);
     }
 
+    p code, li code {
+      font-size: 12px;
+      padding: 1px 6px;
+      border-radius: var(--radius-xs);
+      background: var(--color-column-surface);
+      border: 1px solid var(--color-border);
+    }
+
     a {
       color: var(--color-text-primary);
       text-decoration: underline;
@@ -200,7 +208,7 @@
     .nav-links {
       display: none;
       align-items: center;
-      gap: 22px;
+      gap: 20px;
     }
 
     .nav-links a {
@@ -293,7 +301,7 @@
 
     /* ── Hero ── */
     .hero {
-      padding: 56px 0 48px;
+      padding: 52px 0 44px;
       border-bottom: 1px solid var(--color-border);
     }
 
@@ -302,7 +310,7 @@
       border: 1px solid var(--color-border);
       background: var(--color-bg-card);
       box-shadow: var(--shadow-soft);
-      padding: 40px 28px;
+      padding: 38px 26px;
       text-align: center;
     }
 
@@ -317,7 +325,7 @@
       font-size: 12px;
       color: var(--color-text-secondary);
       font-family: var(--font-mono);
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .status-dot {
@@ -338,27 +346,27 @@
     .hero-logo {
       width: 64px;
       height: 64px;
-      margin: 0 auto 16px;
+      margin: 0 auto 14px;
       display: block;
       border-radius: 50%;
       box-shadow: var(--shadow-card);
     }
 
     .hero h1 {
-      font-size: clamp(26px, 3.6vw, 36px);
+      font-size: clamp(24px, 3.4vw, 34px);
       font-weight: 600;
       letter-spacing: -0.02em;
-      line-height: 1.25;
-      max-width: 42rem;
+      line-height: 1.28;
+      max-width: 46rem;
       margin: 0 auto 14px;
     }
 
     .hero p.lead {
-      font-size: 15px;
+      font-size: 14px;
       color: var(--color-text-secondary);
-      max-width: 40rem;
-      margin: 0 auto 24px;
-      line-height: 1.65;
+      max-width: 46rem;
+      margin: 0 auto 22px;
+      line-height: 1.7;
     }
 
     /* 7 态看板状态条（与产品同物同形） */
@@ -368,7 +376,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin: 0 auto 28px;
+      margin: 0 auto 26px;
     }
 
     .status-pill {
@@ -406,12 +414,12 @@
 
     /* ── 通用区块 ── */
     section.section {
-      padding: 56px 0;
+      padding: 52px 0;
       border-bottom: 1px solid var(--color-border);
     }
 
     .section-header {
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
 
     .eyebrow {
@@ -435,7 +443,7 @@
     .section-subtitle {
       font-size: 13px;
       color: var(--color-text-secondary);
-      max-width: 46rem;
+      max-width: 48rem;
     }
 
     /* ── 痛点场景引用卡 ── */
@@ -444,8 +452,8 @@
       border: 1px solid var(--color-border);
       background: var(--color-bg-card);
       box-shadow: var(--shadow-card);
-      padding: 20px 24px;
-      margin-bottom: 20px;
+      padding: 18px 22px;
+      margin-bottom: 18px;
     }
 
     .scenario-card p {
@@ -496,12 +504,41 @@
       font-size: 15px;
       font-weight: 600;
       color: var(--color-text-primary);
+      line-height: 1.4;
     }
 
     .card p {
       font-size: 13px;
       color: var(--color-text-secondary);
       line-height: 1.65;
+    }
+
+    .feature-points {
+      list-style: none;
+      margin-top: 4px;
+      padding-top: 10px;
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+
+    .feature-points li {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      line-height: 1.55;
+    }
+
+    .feature-points li .status-dot {
+      margin-top: 6px;
+    }
+
+    .feature-points strong {
+      color: var(--color-text-primary);
+      font-weight: 600;
     }
 
     /* ── 人机协同模型三栏框（复刻产品 QuickStartView） ── */
@@ -570,6 +607,54 @@
       font-size: 12px;
       font-weight: 500;
       color: var(--color-text-primary);
+    }
+
+    /* ── 6 步完整人机闭环网格 ── */
+    .loop-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .loop-step {
+      min-width: 0;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .loop-step-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .loop-actor {
+      padding: 2px 8px;
+      border-radius: var(--radius-tag);
+      background: var(--color-column-surface);
+      border: 1px solid var(--color-border);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+
+    .loop-step h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .loop-step p {
+      font-size: 12.5px;
+      color: var(--color-text-secondary);
+      line-height: 1.6;
     }
 
     /* ── 界面截图切换 ── */
@@ -800,12 +885,15 @@
         display: flex;
       }
       .hero-panel {
-        padding: 48px 40px;
+        padding: 44px 38px;
       }
       .grid-2 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .loop-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
       .arch-grid {
@@ -832,8 +920,9 @@
         <span>DeskPartner</span>
       </a>
       <nav class="nav-links" aria-label="主导航">
-        <a href="#why">痛点场景</a>
-        <a href="#tour">界面图览</a>
+        <a href="#why">三大痛点</a>
+        <a href="#loop">协作闭环</a>
+        <a href="#tour">真实界面</a>
         <a href="#quickstart">3 步接入 AI</a>
         <a href="#privacy">数据与隐私</a>
         <a href="#sponsor">支持项目</a>
@@ -859,8 +948,8 @@
             <span>v1.0.134 · Windows 10/11 x64 · MIT License</span>
           </div>
           <img src="assets/partner-badge.svg" alt="DeskPartner 伙伴徽章" class="hero-logo" />
-          <h1>给你手下那几个 AI 共用的本地看板</h1>
-          <p class="lead">它们自己记事、交活，你只管看和拍板。内置 69 个 MCP 工具与 76 条 CLI 命令，15 道仓储层护栏，100% 本地 SQLite 存储。</p>
+          <h1>把多个 AI 的工作，变成可交接、可验收、可追责的本地工作台</h1>
+          <p class="lead">不只是给 AI 读写的看板。DeskPartner 用<strong>项目接手说明（Handoff）</strong>、<strong>7 态验收状态机</strong>、<strong>15 道仓储层护栏</strong>与<strong>单次授权代执行</strong>，把分散在多个聊天窗口里的 AI 会话，收拢进一个由你握紧最终决定权的本机 SQLite 事实源。</p>
 
           <div class="status-strip" aria-label="事项状态流转">
             <span class="status-pill"><span class="status-dot dot-proposed"></span>待确认</span>
@@ -888,7 +977,7 @@
             <a href="https://github.com/lynnnn928/deskpartner/releases/latest" class="btn btn-secondary" target="_blank" rel="noopener">Release 说明与历史版本</a>
             <a href="#quickstart" class="btn btn-secondary">3 步接入 AI 指南</a>
           </div>
-          <p class="hero-meta">安装包 88.9 MB · 支持应用内自动检查更新 · 无需注册账号</p>
+          <p class="hero-meta">69 个 MCP 工具 · 76 条 CLI 命令 · 安装包 88.9 MB · 支持应用内自动检查更新</p>
         </div>
       </div>
     </section>
@@ -896,66 +985,149 @@
     <section id="why" class="section">
       <div class="container">
         <div class="section-header">
-          <div class="eyebrow">REAL-WORLD WORKFLOW</div>
-          <h2 class="section-title">当你同时开了三个 AI 会话，进度去了哪？</h2>
-          <p class="section-subtitle">传统待办软件是给人手点的（AI 看不见），而团队协作软件默认每个协作者都是人类。</p>
+          <div class="eyebrow">THREE CORE QUESTIONS</div>
+          <h2 class="section-title">当你同时开了三个 AI 会话，DeskPartner 替你守住哪三件事？</h2>
+          <p class="section-subtitle">传统待办软件是给人手点的（AI 看不见），而团队项目软件默认每个协作者都是人类（没有防越权护栏）。</p>
         </div>
 
         <div class="scenario-card">
-          <p><strong>真实场景：</strong>你有三个 AI 同时在做三个项目——Claude Desktop 在帮你梳理架构、Cursor 在改前端组件、另一个终端 Agent 在跑回归测试。半小时后你切回电脑，十几个聊天窗口滚了上千行：<strong>谁做完了？谁卡住了？哪条改动还没验收？下一次开新会话怎么接着干？</strong></p>
+          <p><strong>真实场景：</strong>你有三个 AI 同时在推项目——Claude Desktop 在梳理架构、Cursor 在改前端组件、终端 Agent 在跑回归测试。半小时后你切回电脑，十几个聊天窗口滚了上千行：<strong>谁做完了？谁自己把没测过的活标成了完成？下一次开新会话怎么接着干？</strong></p>
         </div>
 
         <div class="grid-3">
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-todo"></span>01 · 共享本地看板</div>
-            <h3>多 AI 读写同一个本机数据库</h3>
-            <p>你在桌面界面看 7 态看板、审批与项目概览；手下的 AI 通过 MCP 或 CLI 读写同一个本机 SQLite 库，主动领卡、记进展评论、交活候审。</p>
+            <div class="card-tag"><span class="status-dot dot-todo"></span>第一问 · 全局掌控</div>
+            <h3>AI 做过什么，不用再翻聊天记录</h3>
+            <p>所有 AI 会话通过 MCP 或 CLI 读写同一个本机 SQLite 库，你在桌面工作台按项目或按 Agent 视角实时查看全局进展。</p>
+            <ul class="feature-points">
+              <li><span class="status-dot dot-todo"></span><span><strong>「我的工作」跨项目聚焦：</strong>按项目汇总所有等你拍板或验收的事项。</span></li>
+              <li><span class="status-dot dot-in-progress"></span><span><strong>六合一项目工作台：</strong>概览、7 态事项、流转动态、版本归档、本地文档沙箱、全局搜索。</span></li>
+              <li><span class="status-dot dot-done"></span><span><strong>「本次变更」精准核验：</strong>验收时直接看本轮交付改了哪些字段与描述追加。</span></li>
+            </ul>
           </article>
+
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-awaiting-review"></span>02 · 权责与仓储护栏</div>
-            <h3>AI 提议与交活，你只管拍板</h3>
-            <p>新 AI 首次注册需你在界面点「批准」；AI 新建事项先进「待确认」池；执行方不可自验把任务标为「已完成」（仓储层硬拦截）；删卡与改配置须经你授权。</p>
+            <div class="card-tag"><span class="status-dot dot-awaiting-review"></span>第二问 · 验收与追责</div>
+            <h3>AI 交付的活，不能自己宣布完成</h3>
+            <p>协作规则下沉到 SQLite 仓储层硬拦截（G1–G10），哪怕 AI 编造参数也无法绕过你把任务直接标为「已完成」。</p>
+            <ul class="feature-points">
+              <li><span class="status-dot dot-proposed"></span><span><strong>提议与立项分离：</strong>AI 新建事项先进「待确认」池，不经你同意不得进入正式待办。</span></li>
+              <li><span class="status-dot dot-awaiting-review"></span><span><strong>强制留证与禁自验：</strong>子任务全部完结、附上四段式收口与验证证据才能报审；执行者不可自验。</span></li>
+              <li><span class="status-dot dot-suspended"></span><span><strong>授权后服务端代执行：</strong>删卡或改设置须经你点「允许」，批准瞬间由主进程直接执行并落审计回执。</span></li>
+            </ul>
           </article>
+
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-in-progress"></span>03 · 项目接手说明</div>
-            <h3>换个 AI 接着干，不用重喂背景</h3>
-            <p>每个项目内置带修订历史与一键回滚的「接手说明（Handoff）」。上一个 AI 交活时更新现状与下一步，下一个 AI 一条命令就能完整接棒。</p>
+            <div class="card-tag"><span class="status-dot dot-in-progress"></span>第三问 · 跨会话记忆</div>
+            <h3>换个 AI 接手，项目不用从零交代</h3>
+            <p>每个项目内置权威的「项目接手说明（Handoff）」长期记忆层，把背景、当前决定与下一步行动沉淀在数据库里。</p>
+            <ul class="feature-points">
+              <li><span class="status-dot dot-in-progress"></span><span><strong>50 版修订历史与回滚：</strong>每次保存完整留痕，写坏了一键回滚为新修订。</span></li>
+              <li><span class="status-dot dot-proposed"></span><span><strong>事实快照与过期拦截：</strong>AI 提议更新时自动记录版本、schema 与当前主线，审批页并排对比新旧事实。</span></li>
+              <li><span class="status-dot dot-todo"></span><span><strong><code>#短号</code> 实时状态联动：</strong>接手说明中引用的事项编号自动解析并展示最新状态。</span></li>
+            </ul>
           </article>
         </div>
 
         <div class="arch-box">
-          <div class="eyebrow">COLLABORATION MODEL</div>
-          <h3 style="font-size: 16px; font-weight: 600;">一张图看懂 DeskPartner 如何协同工作</h3>
+          <div class="eyebrow">COLLABORATION ARCHITECTURE</div>
+          <h3 style="font-size: 16px; font-weight: 600;">主用户 · 本机权威工作台 · 多 AI 助手团队</h3>
           <div class="arch-grid">
             <div class="arch-col">
               <div class="card-tag"><span class="status-dot dot-todo"></span>主用户（你）</div>
               <h4>定方向与守关口</h4>
               <ul class="arch-list">
                 <li><span class="status-dot dot-done"></span>随时用快捷键或悬浮球记下想法</li>
-                <li><span class="status-dot dot-proposed"></span>拍板「待确认」事项是否立项</li>
-                <li><span class="status-dot dot-awaiting-review"></span>核对「待验收」成果并点完成或退回</li>
+                <li><span class="status-dot dot-proposed"></span>拍板「待确认」事项与接手说明提议</li>
+                <li><span class="status-dot dot-awaiting-review"></span>核对「待验收」证据并点完成或退回</li>
               </ul>
             </div>
             <div class="arch-col arch-col-center">
               <div class="card-tag"><span class="status-dot dot-in-progress"></span>DeskPartner 共享工作台</div>
               <h4>本机唯一事实来源（SQLite v48）</h4>
               <div class="arch-mini-grid">
-                <div class="arch-chip">项目接手说明</div>
-                <div class="arch-chip">7 态事项看板</div>
-                <div class="arch-chip">个人档案与协议</div>
-                <div class="arch-chip">分级权限与审计</div>
+                <div class="arch-chip">项目接手说明 (Handoff)</div>
+                <div class="arch-chip">7 态事项与流转时序</div>
+                <div class="arch-chip">事实快照与差异对比</div>
+                <div class="arch-chip">单次授权与代执行回执</div>
               </div>
             </div>
             <div class="arch-col">
               <div class="card-tag"><span class="status-dot dot-success"></span>AI 助手团队（MCP / CLI）</div>
               <h4>跨工具接力执行</h4>
               <ul class="arch-list">
-                <li><span class="status-dot dot-in-progress"></span>自动读取接手说明，零重复交代</li>
+                <li><span class="status-dot dot-in-progress"></span>读取接手说明与协作规则，零重复交代</li>
                 <li><span class="status-dot dot-in-progress"></span>拆解子任务、写验证证据并推待验收</li>
-                <li><span class="status-dot dot-suspended"></span>删除或改设置进入审批页等你点头</li>
+                <li><span class="status-dot dot-suspended"></span>删数据或改设置发起申请等你点允许</li>
               </ul>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="loop" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">CLOSED-LOOP WORKFLOW</div>
+          <h2 class="section-title">一件事从 AI 提议到验收，再到下一个 AI 接手</h2>
+          <p class="section-subtitle">每个关键节点都有明确的状态归属与仓储层关口保护，形成完整的本地人机协作闭环。</p>
+        </div>
+
+        <div class="loop-grid">
+          <article class="loop-step">
+            <div class="loop-step-head">
+              <span class="card-tag"><span class="status-dot dot-proposed"></span>STEP 01 · 发现与提议</span>
+              <span class="loop-actor">AI 助手</span>
+            </div>
+            <h3>提交「待确认」事项</h3>
+            <p>AI 在巡检代码或执行任务时发现新问题，建卡只能进入<strong>「待确认」</strong>池（G3 关口拦截），不会擅自污染你的正式待办列表。</p>
+          </article>
+
+          <article class="loop-step">
+            <div class="loop-step-head">
+              <span class="card-tag"><span class="status-dot dot-todo"></span>STEP 02 · 拍板立项</span>
+              <span class="loop-actor">主用户 → AI</span>
+            </div>
+            <h3>批准转入「待办 / 进行中」</h3>
+            <p>你在看板确认方向后将其转入<strong>「待办」</strong>；AI 认领卡片进入<strong>「进行中」</strong>，按需拆解子任务并持续追加进展评论。</p>
+          </article>
+
+          <article class="loop-step">
+            <div class="loop-step-head">
+              <span class="card-tag"><span class="status-dot dot-suspended"></span>STEP 03 · 敏感操作拦截</span>
+              <span class="loop-actor">审批中心</span>
+            </div>
+            <h3>点「允许」后由服务端代执行</h3>
+            <p>若 AI 需要删除旧卡或修改配置，系统自动挂起并生成授权申请；你点<strong>「允许」</strong>后由主进程立即执行并记录回执，无需 AI 重试。</p>
+          </article>
+
+          <article class="loop-step">
+            <div class="loop-step-head">
+              <span class="card-tag"><span class="status-dot dot-awaiting-review"></span>STEP 04 · 留证报审</span>
+              <span class="loop-actor">AI 助手</span>
+            </div>
+            <h3>附验证证据推至「待验收」</h3>
+            <p>所有子任务完结后（G6），AI 必须填写<strong>四段式收口记录与验证证据</strong>（G5）才能推入<strong>「待验收」</strong>，且系统严禁执行者自验（G7/G10）。</p>
+          </article>
+
+          <article class="loop-step">
+            <div class="loop-step-head">
+              <span class="card-tag"><span class="status-dot dot-done"></span>STEP 05 · 人工核验</span>
+              <span class="loop-actor">主用户</span>
+            </div>
+            <h3>核对「本次变更」通过或退回</h3>
+            <p>你打开抽屉查看「本次变更（Review Diff）」与验证结果，满意则点<strong>「完成」</strong>关联版本号，不满意则写明原因退回重做。</p>
+          </article>
+
+          <article class="loop-step">
+            <div class="loop-step-head">
+              <span class="card-tag"><span class="status-dot dot-in-progress"></span>STEP 06 · 记忆交棒</span>
+              <span class="loop-actor">下一个 AI</span>
+            </div>
+            <h3>更新接手说明，无缝接力</h3>
+            <p>AI 基于当前事实快照提议更新<strong>项目接手说明（Handoff）</strong>；经你对比采纳后，下一个 AI 会话一条命令即可读懂全局继续推进。</p>
+          </article>
         </div>
       </div>
     </section>
@@ -964,19 +1136,20 @@
       <div class="container">
         <div class="section-header">
           <div class="eyebrow">PRODUCT TOUR</div>
-          <h2 class="section-title">桌面端可视化掌控，MCP 与 CLI 零摩擦接入</h2>
-          <p class="section-subtitle">点击下方按钮切换查看 DeskPartner 的真实运行界面。</p>
+          <h2 class="section-title">真实运行界面：把隐式聊天变成显式工作台</h2>
+          <p class="section-subtitle">点击下方按钮切换查看项目接手说明、审批中心事实核验、7 态看板与 60 秒快速上手向导。</p>
         </div>
 
         <div class="tabs-bar" role="tablist" aria-label="产品界面截图切换">
-          <button type="button" class="tab-btn" role="tab" aria-selected="true" data-shot="assets/kanban-board.png" data-caption="多智能体共享看板：7 个流转状态、执行方归属、版本号关联与项目交接一览无余。">1. 多智能体共享看板</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/approval-view.png" data-caption="集中审批中心：待确认事项、新接入 AI 身份与破坏性操作申请统一由你拍板。">2. 集中审批中心</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/quickstart-view.png" data-caption="60 秒快速上手：自动带出本机真实安装路径的开场提示词，一键复制直接发给 AI。">3. 60 秒快速上手向导</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="true" data-shot="assets/project-handoff.png" data-caption="项目工作台「概览」：集齐版本记录、带修订历史与一键回滚的项目接手说明（Handoff），以及文中 #短号 自动联动的实时事项状态。">1. 项目概览与接手说明 (Handoff)</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/approval-view.png" data-caption="审批中心：并排对照「提议依据的事实 vs 当前事实」与「当前生效内容 vs 申请修改为」，下方完整记录操作授权的服务端执行回执。">2. 审批中心：事实核验与变更对比</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/kanban-board.png" data-caption="多智能体 7 态共享看板：待确认 → 待办 → 进行中 → 挂起 → 待验收 → 已完成，执行方归属与关联版本号一目了然。">3. 多智能体 7 态共享看板</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/quickstart-view.png" data-caption="60 秒快速上手向导：自动带出本机真实安装路径的开场提示词，一键复制直接发给 AI 即可完成自助注册。">4. 60 秒快速上手向导</button>
         </div>
 
         <div class="shot-frame">
-          <img id="tour-img" src="assets/kanban-board.png" alt="DeskPartner 桌面端界面截图" />
-          <p id="tour-caption" class="shot-caption">多智能体共享看板：7 个流转状态、执行方归属、版本号关联与项目交接一览无余。</p>
+          <img id="tour-img" src="assets/project-handoff.png" alt="DeskPartner 桌面端界面截图" />
+          <p id="tour-caption" class="shot-caption">项目工作台「概览」：集齐版本记录、带修订历史与一键回滚的项目接手说明（Handoff），以及文中 #短号 自动联动的实时事项状态。</p>
         </div>
       </div>
     </section>
