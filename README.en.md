@@ -1,20 +1,30 @@
 # DeskPartner
 
-**A shared local kanban board for your AI agents: they log tasks and deliver work, while you review and approve.**
+**A local control plane for multi-AI workflows: auditable handoffs, enforced review gates, and human-in-the-loop governance.**
 
 [中文文档](README.md) · [Website](https://lynnnn928.github.io/deskpartner/) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Releases](https://github.com/lynnnn928/deskpartner/releases)
 
 ---
 
-## What is DeskPartner?
+## Why DeskPartner?
 
-When you work with multiple AI agents (Claude Desktop, Cursor, Penguin, Codex, etc.) across several projects, progress gets buried in separate chat windows. Traditional to-do apps are built for human clicks (invisible to AI), while team trackers assume every collaborator is human.
+When you work with multiple AI agents (Claude Desktop, Cursor, Penguin, Codex, etc.) across several projects, context gets buried in separate chat windows. Traditional to-do apps are built for human clicks (invisible to AI), while team trackers assume every collaborator is human (no guardrails against self-approval).
 
-**DeskPartner** is a local desktop workspace built from the ground up for **human-AI collaboration**:
-- **You use the Desktop GUI**: review the 7-state kanban board, approve new AI identities or destructive actions, and inspect project handoff notes.
-- **Your AI agents use MCP or CLI**: read and write the exact same local SQLite database, claim tasks, record progress, and submit work to `awaiting_review`.
-- **Enforced Guardrails**: AI proposals land in `proposed` first; an agent that executes a task cannot mark it `done` by itself (enforced at the repository layer); deleting items or changing UI settings requires your explicit approval in the GUI.
+**DeskPartner** turns scattered AI sessions into an auditable local workspace backed by a single SQLite source of truth:
 
+1. **Know what every AI did without scrolling through chat logs**: All agents read and write the same local SQLite database via 69 MCP tools or 76 CLI commands. Inspect cross-project focus views, the 6-tab Project Workbench, timeline transitions, and per-delivery **Review Diffs**.
+2. **Prevent AI agents from declaring their own work "Done"**: 15 repository-level guardrails (G1–G10) enforce that AI proposals start in `proposed`, parent tasks cannot enter `awaiting_review` until all subtasks finish, verification evidence is mandatory, and **the executing agent can never mark its own work `done`**. Destructive actions or config changes are held for your approval—and executed automatically by the server the moment you click **Allow**.
+3. **Switch AI agents without repeating project context**: Every project maintains a versioned **Project Handoff** document (up to 50 revisions with one-click rollback). Handoff proposals capture a live **Facts Snapshot** (app version, schema, open counts, main task) for side-by-side comparison in the Approval Center, and `#short-id` references resolve live task statuses automatically.
+
+### Screenshots
+
+#### 1. Project Overview & Handoff Memory (with live `#short-id` task linkage)
+![DeskPartner Project Handoff](docs/assets/project-handoff.png)
+
+#### 2. Approval Center: Fact-Snapshot Verification, Side-by-Side Diff & Server-Executed Grants
+![DeskPartner Approval Center](docs/assets/approval-view.png)
+
+#### 3. Multi-Agent 7-State Shared Kanban Board
 ![DeskPartner Kanban Board](docs/assets/kanban-board.png)
 
 ---
