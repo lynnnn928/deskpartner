@@ -1,0 +1,27 @@
+/* ── 极简磨砂风格预设 ──
+ *
+ * ⚠️ 本块的值目前与 `variables.css` 的 `:root` **逐条相同**（预设即默认）。
+ * 改 `:root` 里这 10 个中的任何一个，**必须同步改这里**。
+ *
+ * 代价是真实发生过的：1.0.48 把 `--frosted-bg-opacity` 由 0.72 实化到 0.88
+ * （「保留悬浮气质但文字优先可读」），只改了 `:root`、漏了本文件。而
+ * `[data-preset='frosted']` 与 `:root` **同优先级（0,1,0）**，本文件又被
+ * `globals.css` 排在 `variables.css` 之后 import —— 后导入者胜，于是那个
+ * 早就该作废的 0.72 一直盖着 0.88。
+ *
+ * 它当时被「界面不透明度」设置项的行内值压着（行内优先级最高），看不出来；
+ * 1.0.56 删掉该设置项后，才暴露成用户可见的「背景变透明」（1.0.56 缺陷）。
+ * 两处都要动，就一定会漏一处 —— 这是"同一件事写两遍"的必然后果。
+ */
+[data-preset='frosted'] {
+  --frosted-blur: 20px;
+  --frosted-saturate: 180%;
+  --frosted-bg-opacity: 0.88;
+  --frosted-border-opacity: 0.3;
+  --radius-card: 14px;
+  --radius-quick-add: 18px;
+  --spacing-card: 12px;
+  --spacing-card-gap: 8px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.1);
+}

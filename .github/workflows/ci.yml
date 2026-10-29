@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck-and-test:
+    name: Typecheck & Test (Windows / Node 22)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22 (ABI 127)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Prepare better-sqlite3 prebuilt binary for Node 22
+        run: |
+          node -e "const fs=require('fs'); fs.writeFileSync('node_modules/electron/path.txt', 'electron.exe');"
+          node node_modules/esbuild/install.js
+          node scripts/swap-abi.mjs node
+
+      - name: Typecheck (Node / Main & CLI)
+        run: npx tsc --noEmit -p tsconfig.node.json
+
+      - name: Typecheck (Web / Renderer)
+        run: npx tsc --noEmit -p tsconfig.web.json
+
+      - name: Static consistency & reverse gate checks
+        run: |
+          node scripts/check-ipc-channels.mjs
+          node scripts/check-pipe-forwarding.mjs
+          node scripts/verify-gates-reverse.cjs
+
+      - name: Run unit & integration tests
+        run: npx vitest run
+
+      - name: Build application & CLI bundles
+        run: npm run build

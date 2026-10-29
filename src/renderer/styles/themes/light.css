@@ -1,0 +1,38 @@
+/* ── 浅色主题 ──
+ *
+ * ⚠️ 本文件**刻意不声明任何变量**（1.0.49，主用户 2026-09-23 拍板）。
+ *
+ * ── 改之前务必先读这段 ──
+ *
+ * 这里原先声明了 20 个变量，其中 **6 个与 `variables.css` 的 `:root` 值不同**：
+ *
+ *   --color-bg-primary        #F5F7FA  ← :root 是 #F7F7F5
+ *   --color-text-primary      #333333  ← :root 是 #111827
+ *   --color-text-secondary    #868E96  ← :root 是 #6B7280
+ *   --color-accent            #5388F6  ← :root 是 #111827
+ *   --color-success           #65C19C  ← :root 是 #16A34A
+ *   --frosted-bg-opacity      0.72     ← :root 是 0.88
+ *
+ * 而 `[data-theme='light']` 与 `:root` 的**优先级完全相同（0,1,0）**，
+ * 本文件又被 `globals.css` 排在 variables.css **之后** import ——
+ * 同优先级下后导入者胜。于是 1.0.48 的冷中性配色**在界面上压根没生效**：
+ * 改了 variables.css、以为改到了，实际全被这里的旧值盖掉。
+ *
+ * 剩下 14 个是纯冗余或死变量：
+ *   - 10 条与 :root 同值（bg-secondary / bg-card / text-done / border /
+ *     reminder-glow / frosted-border-opacity + 4 条 shadow）—— 写两遍没有意义；
+ *   - 4 条 `--color-column-todo|in-progress|suspended|done` 全项目零引用
+ *     （看板列底早已统一走 `--color-column-surface`）。
+ *
+ * ── 现在的约定 ──
+ *
+ * **浅色主题就是 `variables.css` 的 `:root`** —— 要改浅色去那里改。
+ * 本块保留在 DOM 上，是为了让"浅色"这个主题钩子继续存在：
+ * 将来真出现"只有浅色才需要不同"的变量（比如深色专有列底的对偶），
+ * 在这里追加即可。**追加时只放该主题真正的差异**，不要与 :root 重复声明。
+ *
+ * ⚠️ 不要因为"这里以前有值"就把旧值抄回来 —— 那正是这次被清掉的东西。
+ */
+[data-theme='light'] {
+  /* 刻意为空：浅色的权威在 variables.css 的 :root */
+}

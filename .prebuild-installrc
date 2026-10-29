@@ -1,0 +1,4 @@
+{
+  "runtime": "electron",
+  "target": "33.2.1"
+}

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 340" width="880" height="340" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect width="880" height="340" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- Step 1 Dialog -->
+  <g transform="translate(32, 28)" filter="url(#shadow)">
+    <rect width="376" height="284" rx="6" fill="#005a9e"/>
+    <text x="28" y="42" fill="#ffffff" font-size="17" font-weight="600">Windows 已保护你的电脑</text>
+    <text x="28" y="76" fill="#e2e8f0" font-size="12.5">Microsoft Defender SmartScreen 已阻止启动无法</text>
+    <text x="28" y="96" fill="#e2e8f0" font-size="12.5">识别的应用。运行此应用可能会导致你的电脑存在风险。</text>
+
+    <!-- More info link highlighted -->
+    <rect x="22" y="114" width="76" height="26" rx="4" fill="#ffffff" fill-opacity="0.16" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4 2"/>
+    <text x="28" y="131" fill="#7dd3fc" font-size="13" font-weight="600" text-decoration="underline">更多信息</text>
+
+    <!-- Step 1 Badge -->
+    <circle cx="122" cy="127" r="12" fill="#f59e0b"/>
+    <text x="122" y="132" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">1</text>
+    <text x="140" y="131" fill="#fde68a" font-size="12.5" font-weight="600">先点「更多信息」</text>
+
+    <!-- Don't run button -->
+    <rect x="260" y="232" width="92" height="32" rx="2" fill="#ffffff" fill-opacity="0.9"/>
+    <text x="306" y="253" text-anchor="middle" fill="#0f172a" font-size="12.5">不运行</text>
+  </g>
+
+  <!-- Arrow -->
+  <g transform="translate(422, 160)">
+    <line x1="0" y1="10" x2="36" y2="10" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
+    <polygon points="34,4 44,10 34,16" fill="#64748b"/>
+  </g>
+
+  <!-- Step 2 Dialog -->
+  <g transform="translate(472, 28)" filter="url(#shadow)">
+    <rect width="376" height="284" rx="6" fill="#005a9e"/>
+    <text x="28" y="42" fill="#ffffff" font-size="17" font-weight="600">Windows 已保护你的电脑</text>
+    <text x="28" y="76" fill="#e2e8f0" font-size="12.5">应用: DeskPartner Setup.exe</text>
+    <text x="28" y="98" fill="#cbd5e1" font-size="12">发布者: 未知发布者（开源个人项目未购商业签名）</text>
+
+    <!-- Step 2 Badge -->
+    <circle cx="110" cy="248" r="12" fill="#22c55e"/>
+    <text x="110" y="253" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">2</text>
+    <text x="42" y="216" fill="#bbf7d0" font-size="12.5" font-weight="600">再点「仍要运行」即可正常安装</text>
+
+    <!-- Run anyway button highlighted -->
+    <rect x="148" y="232" width="98" height="32" rx="2" fill="#ffffff" stroke="#4ade80" stroke-width="2"/>
+    <text x="197" y="253" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="700">仍要运行</text>
+
+    <!-- Don't run button -->
+    <rect x="260" y="232" width="92" height="32" rx="2" fill="#0284c7" stroke="#bae6fd" stroke-width="1"/>
+    <text x="306" y="253" text-anchor="middle" fill="#ffffff" font-size="12.5">不运行</text>
+  </g>
+</svg>

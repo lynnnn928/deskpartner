@@ -1,0 +1,244 @@
+/* 导入变量与主题 — @import 必须在所有其他语句之前 */
+@import './variables.css';
+@import './themes/light.css';
+@import './themes/dark.css';
+@import './themes/frosted.css';
+@import './themes/japanese.css';
+@import './animations.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局基础样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* 文案、说明和回执是工作台内容，应默认允许选择复制；交互控件在下方单独禁选。 */
+  user-select: text;
+  overflow: hidden;
+  background: transparent;
+  /* 字号：--font-content 已在 variables.css 里乘过 --font-scale，
+     这里不要再乘一次（否则 large 会变成 1.125² ≈ 1.27 倍）。 */
+  font-size: var(--font-content);
+  color: var(--color-text-primary);
+}
+
+/* 交互控件不应在拖动/连点时选中文字；内容区域仍可复制。 */
+button,
+input,
+select,
+[role='button'],
+.titlebar-drag {
+  user-select: none;
+}
+
+textarea,
+pre,
+code,
+[data-selectable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* frameless 窗口拖拽区域 */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 磨砂玻璃基础样式 */
+.frosted-glass {
+  backdrop-filter: blur(var(--frosted-blur, 20px)) saturate(var(--frosted-saturate, 180%));
+  -webkit-backdrop-filter: blur(var(--frosted-blur, 20px)) saturate(var(--frosted-saturate, 180%));
+  /* 底色由设置项驱动（--color-bg-primary），透明度另用 --frosted-bg-opacity 控制。
+     此前这里硬编码白色，导致"界面换色"怎么调都还是白的。
+
+     兜底值给 0.88，与 :root / frosted / japanese 三处对齐（1.0.57）：
+     它是一个"没被任何主题声明时"的默认，不该比真实默认更透 ——
+     三者不一致时排查起来会误判（"到底是哪份在这个元素上生效"）。 */
+  background-color: color-mix(
+    in srgb,
+    var(--color-bg-primary, #FFFFFF) calc(var(--frosted-bg-opacity, 0.88) * 100%),
+    transparent
+  );
+  border: 1px solid rgba(255, 255, 255, var(--frosted-border-opacity, 0.3));
+}
+
+/*
+ * 窗口外框
+ *
+ * 无边框窗口（frame: false）需要一圈可见的边界，否则界面与桌面糊在一起。
+ * 必须定义在 .frosted-glass 之后：两者同为单类选择器，靠先后顺序覆盖掉
+ * frosted-glass 那条近乎不可见的白色边框。
+ */
+.window-frame {
+  border: 1px solid var(--color-border, #E5E7EB);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* ── 项目空间视觉系统（1.0.86） ── */
+.project-shell {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-bg-primary) 92%, white), var(--color-bg-primary));
+}
+
+.project-shell .project-section {
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  background: color-mix(in srgb, var(--color-bg-card) 94%, transparent);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.035);
+  transition: border-color var(--animation-duration) var(--animation-easing), box-shadow var(--animation-duration) var(--animation-easing);
+}
+
+.project-shell .project-section:hover {
+  border-color: color-mix(in srgb, var(--color-border) 55%, var(--color-accent));
+  box-shadow: var(--shadow-card);
+}
+
+.project-shell button:focus-visible,
+.project-shell input:focus-visible,
+.project-shell textarea:focus-visible,
+.project-shell select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.project-tabs {
+  background: color-mix(in srgb, var(--color-bg-primary) 78%, var(--color-bg-card));
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.project-tabs [aria-current='page'] {
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.12);
+}
+
+.activity-switch {
+  background: color-mix(in srgb, var(--color-bg-card) 88%, var(--color-bg-primary));
+  border-bottom: 1px solid var(--color-border);
+}
+
+.activity-switch [role='tab'] {
+  min-height: var(--control-height);
+  border: 1px solid transparent;
+  transition: background-color var(--animation-duration) var(--animation-easing), color var(--animation-duration) var(--animation-easing), border-color var(--animation-duration) var(--animation-easing);
+}
+
+.activity-switch [role='tab'][aria-selected='true'] {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.activity-switch [role='tab']:last-of-type[aria-selected='true'] {
+  color: var(--status-unread);
+}
+
+.project-notification-inbox {
+  background: transparent;
+}
+
+.project-notification-inbox .notification-row {
+  background: transparent;
+}
+
+.project-notification-inbox .notification-row-unread {
+  background: color-mix(in srgb, var(--color-accent) 3%, var(--color-bg-card));
+}
+
+.sidebar-nav {
+  background: color-mix(in srgb, var(--color-bg-secondary) 36%, transparent);
+}
+
+.sidebar-nav .nav-group-label {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sidebar-nav .nav-item {
+  min-height: 32px;
+}
+
+.sidebar-nav .nav-item[aria-current='page'],
+.sidebar-nav .nav-item[data-active='true'] {
+  box-shadow: inset 3px 0 var(--color-accent);
+}
+
+.empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.empty-state > :first-child {
+  margin-bottom: 6px;
+}
+
+.project-shell .danger-zone {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-bg-card));
+}
+
+.project-shell .danger-zone button {
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --space-page: 14px;
+  }
+
+  .project-shell .project-section {
+    border-radius: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .project-tabs,
+  .activity-switch,
+  .project-shell .project-section {
+    border: 1px solid CanvasText;
+  }
+}

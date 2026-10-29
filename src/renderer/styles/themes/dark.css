@@ -1,0 +1,64 @@
+/* ── 深色主题 ──
+ *
+ * 约定（1.0.49）：这里**只放真正属于深色的差异**。
+ * 与 `variables.css` 的 `:root` 同值的声明不要重复 —— 那是"同一件事写两遍"，
+ * 一旦 :root 改了值，这里就会变成悄悄覆盖回去的暗桩
+ * （light.css 那 6 条不同值的覆盖就是这么埋下的，害得冷中性配色整轮没生效）。
+ *
+ * 已清掉的重复项：
+ *   - `--color-reminder-glow`（与 :root 同为 #82B1FF）；
+ *   - `--frosted-bg-opacity: 0.65` / `--frosted-border-opacity: 0.2`
+ *     （1.0.56 删）。这两条**从未生效**：磨砂参数归**风格预设**所有，
+ *     而 `globals.css` 把本文件排在 `themes/frosted.css`、`themes/japanese.css`
+ *     **之前** import —— 同为 0,1,0 优先级、后导入者胜，预设的值总是压过这里。
+ *     CDP 实测确认：frosted/japanese × light/dark 四种组合下，
+ *     `--frosted-bg-opacity` 恒为预设值（0.88 / 0.88），这里的 0.65 读不到。
+ *     留着只会让人以为"深色下磨砂更透"是生效的。
+ */
+[data-theme='dark'] {
+  --color-bg-primary-rgb: 44 44 44;
+  --color-bg-secondary-rgb: 58 58 58;
+  --color-bg-card-rgb: 58 58 58;
+  --color-text-primary-rgb: 229 229 229;
+  --color-text-secondary-rgb: 156 163 175;
+  --color-text-done-rgb: 107 114 128;
+  --color-border-rgb: 74 74 74;
+  --color-accent-rgb: 123 164 247;
+  --color-success-rgb: 125 212 173;
+
+  /* 列底比页面稍亮一档，卡片再亮一档 —— 三层要能分出来 */
+  --color-column-surface-rgb: 51 51 51;
+
+  /* 深色下把状态色整体提亮，否则圆点糊在暗底上看不清 */
+  --color-status-proposed-rgb: 201 154 248;
+  --color-status-todo-rgb: 123 164 247;
+  --color-status-in-progress-rgb: 125 212 173;
+  --color-status-suspended-rgb: 232 182 92;
+  --color-status-awaiting-review-rgb: 240 145 136;
+  --color-status-done-rgb: 138 138 138;
+
+  /*
+   * ── danger / warning 的提亮档（1.0.115，卡 5fdf9b6d 第二步「逐套复核」发现）──
+   *
+   * 这两条此前一直是**漏项**，而且漏得没有信号：1.0.113 及以前 `danger` / `warning`
+   * 根本没进 tailwind 的 colors —— `text-danger`、`bg-warning/10`、`border-warning/60`
+   * 这些类一条 CSS 都不产出（11 处一直在空写）。既然从来没显过色，
+   * "深色下要不要提亮"就没人提过。
+   *
+   * 1.0.114 通道化之后它们开始真的显色，于是这两档成了暗底上最暗的两块：
+   * CDP 实测对比度（对比 #2C2C2C 页底）danger 2.89:1、warning 4.38:1，
+   * 而亮色下分别是 4.5 / 2.97 —— 深色反而更差，与本文件上面那条
+   * 「深色下把状态色整体提亮，否则糊在暗底上看不清」的规则自相矛盾。
+   *
+   * 补两条提亮档（亮色那套值一个字没动）：warning 沿用本文件
+   * `--color-status-suspended` 的琥珀；danger 用与 success / suspended 同一亮度档的红。
+   * 实测对比度 danger 5.07:1、warning 7.5:1。
+   */
+  --color-danger-rgb: 248 113 113;
+  --status-warning-rgb: 232 182 92;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.24);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.32);
+  --shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.28);
+}

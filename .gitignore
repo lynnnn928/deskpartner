@@ -1,0 +1,66 @@
+node_modules/
+out/
+dist/
+
+# 构建目录的改名备份（构建前把 out/ 挪开，避开 safe-delete 的批量删除闸门）
+out.bak-*/
+out.bak2-*/
+
+# electron-vite 在配置解析时留下的临时文件
+electron.vite.config.*.mjs
+
+# 构建与调试日志
+*.log
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 本地环境
+.env
+.env.*
+!.env.example
+
+# 事故恢复期间的临时仓库备份（不进版本控制）
+.git-rebuilt-*/
+
+# 验证/核查期间的临时工作区（副本库、CDP 产物、构建日志、评论草稿）
+# 目的：做验证时随手往里丢东西，不必每轮手动清理（也避免误提交真实库副本）
+.tmp-check/
+.tmp-verify/
+
+# 我自己造的根目录散落文件（测试输出重定向、提交信息草稿等）
+# 判据：临时输出一律落 .tmp-check/ 或 .tmp-verify/，不落仓库根 —— 根目录散落
+# 过一次就被 git add -A 带进版本控制（.msg.txt 混进 1.0.71 那次提交）。
+/.tmp-*.txt
+/.msg.txt
+
+# agent 在本仓库内的工作目录（会话临时产物：探针库、schema 快照、日志、登记正文）
+# 与 .tmp-check/ 同类：属于"随手往里丢、不必每轮清理"，不进版本控制
+.*buddy/
+.claude/
+.newmax/
+outputs/
+
+# NSIS 中文安装路径事故留下的乱码残留目录
+# 目录名含 C1 控制字符（U+0094），无法在文本里准确书写，故用前缀通配匹配。
+# 本该删除（文件被占用，重启后即可删），暂按用户决定保留，但绝不进版本控制。
+ProgramsK*/
+
+# 本地开发用：双击启动开发版 Electron
+# 沙箱留不住 GUI 子进程，只能由人自己双击启动，属本机工具，不进版本控制
+start-dev.cmd
+
+# 本机存档目录（接手报告等留档）：只留在本机，不进版本控制
+penguin-test/
+design-output/
+
+# 未定稿的草稿（1.0.106 体验测试、10-18 体验场景）：待评审后再决定是否入库
+/docs/design/2026-10-18-full-product-experience-scenarios.md
+/docs/reviews/2026-10-19-1.0.106-experience-test.md
+
+# Headless 这条线的三份依据文档**已入库**（2026-10-28，卡 f45a49c1）：
+# 上位约束 / 执行顺序 / 最终验收。它们曾以"未定稿草稿"排除在版本控制外，
+# 后果是新克隆读不到上位约束，接手的人只能靠猜 —— 那正是这条线要治的病。

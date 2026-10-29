@@ -1,0 +1,217 @@
+/* ── CSS 自定义属性体系 ── */
+/* 所有视觉参数集中定义，支持主题切换与用户自定义 */
+
+:root {
+  /*
+   * ── 颜色（1.0.48 冷中性迁移，设计拍板：全盘冷中性）──
+   *
+   * chrome 一律墨黑 #111827：accent 从亮蓝改为墨黑后，
+   * 激活态/主按钮/焦点框全部走黑底白字，颜色只剩下两种合法用途——
+   * 语义（信号灯：绿=完成 / 琥珀=注意 / 红=逾期）与识别（列头状态点、项目色带）。
+   */
+  --color-bg-primary-rgb: 247 247 245;
+  --color-bg-secondary-rgb: 255 255 255;
+  --color-bg-card-rgb: 255 255 255;
+  --color-text-primary-rgb: 17 24 39;
+  --color-text-secondary-rgb: 107 114 128;
+  --color-text-done-rgb: 156 163 175;
+  --color-border-rgb: 229 231 235;
+  --color-accent-rgb: 17 24 39;
+  --color-success-rgb: 22 163 74;
+  --color-reminder-glow-rgb: 130 177 255;
+  --color-danger-rgb: 220 38 38;
+
+  /*
+   * ── 看板列 ──
+   *
+   * 列底色统一（不再是每列一色）：四列各挂一条整行色带时，
+   * 屏幕上等于横着四条色块，视觉重量会盖过卡片本身。
+   * 现在颜色只用在列头那个小圆点上，作为"识别点"而不参与构图。
+   * 状态色需要**有饱和度**才能做圆点 —— 原先那套浅底色当圆点会看不见。
+   */
+  --color-column-surface-rgb: 242 242 240;
+
+  /* ── 状态识别色（看板列头圆点等） ── */
+  --color-status-proposed-rgb: 192 132 252;
+  --color-status-todo-rgb: 83 136 246;
+  --color-status-in-progress-rgb: 101 193 156;
+  --color-status-suspended-rgb: 232 163 61;
+  --color-status-awaiting-review-rgb: 232 117 109;
+  --color-status-done-rgb: 156 163 175;
+
+  /* ── 磨砂玻璃（1.0.48 实化：0.72→0.88，保留悬浮气质但文字优先可读） ── */
+  --frosted-blur: 20px;
+  --frosted-saturate: 180%;
+  --frosted-bg-opacity: 0.88;
+  --frosted-border-opacity: 0.3;
+
+  /* ── 圆角 ── */
+  --radius-card: 14px;
+  /* --radius-kanban 于 1.0.55 删除：全仓 0 处消费（看板圆角实际由设置项
+     kanbanBorderRadius 以行内值提供）。留着只会让人误以为它是权威来源。 */
+  --radius-quick-add: 18px;
+  --radius-tag: 11px;
+  --radius-button: 8px;
+  --radius-input: 8px;
+  /* 1.0.114 补两档：xs 给"小方块"（勾选框、图表柱），panel 给整片面（onboarding 的主卡）。
+     此前这两个值以 rounded-[4px] / rounded-[20px] 的形式散在组件里。 */
+  --radius-xs: 4px;
+  --radius-panel: 20px;
+
+  /* ── 字号 ──
+     ⚠️ 4 个字号都必须乘上 --font-scale（2026-09-24 修「全局字号」名不符实）。
+     此前只有 --font-content 跟随缩放，列标题/标签/按钮纹丝不动，
+     于是设置里的"全局字号"实际只是"正文字号"。
+     基准值单独放 -base，避免自引用。 */
+  --font-title-base: 22px;
+  --font-body-base: 16px;
+  --font-column-title-base: 16px;
+  --font-content-base: 14px;
+  --font-label-base: 12px;
+  --font-button-base: 13px;
+  /*
+   * 1.0.114 补两档（卡 2f6f8082）：此前 35 个组件文件里有 15 处直接写 text-[11px]、
+   * 1 处 text-[26px]、2 处 text-[10px] —— 都是"缺一档刻度"的产物。
+   * caption 比 label 再小一档（侧栏计数、时间戳、来源标注）；
+   * display 只给 onboarding 那种整屏标题用（比 title 大一档）。
+   */
+  --font-caption-base: 11px;
+  --font-display-base: 26px;
+  --font-scale: 1;
+  /*
+   * 1.0.114（卡 2f6f8082，令牌闸门发现的缺口）：
+   * tailwind.config.ts 里 `title` / `body` 两档一直写着 `var(--font-title, 22px)`、
+   * `var(--font-body, 16px)` —— 而这两个变量**从来没声明过**。于是
+   * `text-title` / `text-body` 永远吃内联兜底值，且**不跟随 --font-scale**：
+   * 「全局字号」调到 1.2 时，标题与正文纹丝不动（与 2026-09-24 修过的
+   * "4 个字号都必须乘 --font-scale"是同一类漏网）。现在一并接上。
+   */
+  --font-title: calc(var(--font-title-base) * var(--font-scale));
+  --font-body: calc(var(--font-body-base) * var(--font-scale));
+  --font-column-title: calc(var(--font-column-title-base) * var(--font-scale));
+  --font-content: calc(var(--font-content-base) * var(--font-scale));
+  --font-label: calc(var(--font-label-base) * var(--font-scale));
+  --font-button: calc(var(--font-button-base) * var(--font-scale));
+  --font-caption: calc(var(--font-caption-base) * var(--font-scale));
+  --font-display: calc(var(--font-display-base) * var(--font-scale));
+
+  /* ── 字距（1.0.114）──
+     此前 11 处散着写 tracking-[0.14em]/[0.12em]/[-0.03em]/[-0.02em]/[-0.01em]，
+     实际只有两档用途：全大写小标题（label，正字距）与大字号标题（title，收一点）。 */
+  --tracking-label: 0.12em;
+  --tracking-title: -0.02em;
+
+  /* ── 等宽字体（1.0.48：计数与数字一律 mono，表格/侧栏计数对齐靠它） ── */
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, 'Courier New', monospace;
+
+  /* ── 间距 ── */
+  --spacing-card: 12px;
+  --spacing-card-gap: 8px;
+  --spacing-compact: 8px;
+  --spacing-standard: 12px;
+  --spacing-spacious: 16px;
+
+  /* ── 悬浮球 ── */
+  --float-ball-size: 48px;
+  --float-ball-opacity: 0.35;
+
+  /* ── 动画 ──
+     ⚠️ 2026-09-24 删掉「开启动画 / 动画速度」两个设置项：
+     --animation-enabled 写进 DOM 却**全仓无人消费**（死变量），
+     而"动画速度"调的只是弹窗/抽屉入场微动效的时长 —— 用户感知不到，
+     给它一个设置项没有意义。时长固定为下面的默认值；
+     "减少动效"这个真实需求交给系统偏好（见 animations.css 的
+     prefers-reduced-motion），不再占设置面板。 */
+  --animation-duration: 200ms;
+  --animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── 阴影 ── */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.16);
+  --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.1);
+  /*
+   * 1.0.114 补三档（卡 2f6f8082）：此前 onboarding 里三处阴影把**颜色**写进任意值
+   * （`rgba(17,24,39,0.16)` 这类），换主题时它们一个都不跟。
+   * 阴影现在也是令牌：主题想调深浅只改这里。
+   */
+  --shadow-soft: 0 8px 24px rgba(17, 24, 39, 0.05);
+  --shadow-soft-hover: 0 6px 16px rgba(17, 24, 39, 0.06);
+  --shadow-hero: 0 18px 45px rgba(17, 24, 39, 0.16);
+  /*
+   * 悬浮球未读呼吸光晕（1.0.116）。此前它是组件里的一行内联样式：
+   * `boxShadow: '0 0 12px 3px rgba(130,177,255,0.4)'` —— 几何是 magic number、
+   * 颜色是**硬编码 rgba**，正好绕开刚做完的通道化：换个光晕色得改组件，
+   * 主题也跟不动。这里把几何与颜色一起收进令牌，颜色走通道（/40 就是 alpha 修饰符那套）。
+   */
+  --shadow-glow: 0 0 12px 3px rgb(var(--color-reminder-glow-rgb) / 0.4);
+
+  /* ── 尺寸（1.0.114，卡 2f6f8082）──
+     这些是**跨页面重复出现**的结构尺寸（侧栏、抽屉、对话框三档、内容区上限），
+     此前以 w-[248px] / w-[min(720px,92vw)] / max-w-[1100px] 的形式散在 20 多个文件里。
+     min(…, 92vw) 写进令牌值里：窄窗口时"留 8vw 边"这件事不用每个调用方各写一遍。 */
+  --size-sidebar: 248px;
+  --size-drawer: min(480px, 92vw);
+  --size-dialog: 480px;
+  --size-dialog-sm: min(420px, 92vw);
+  --size-dialog-md: min(560px, 92vw);
+  --size-dialog-lg: min(720px, 92vw);
+  --size-page: 1100px;
+  --size-dialog-max-h: 90vh;
+  --size-scroll-md: 70vh;
+  --size-scroll-sm: 60vh;
+  --size-snackbar-max: 70vw;
+  --size-notice-max: 80%;
+  --size-toast-max: 60%;
+
+  /* ── 状态色的派生值（1.0.114）──
+     "人"的角标底是状态蓝的 15%（原写法 #5388F626 把 alpha 拼在色值后面）。
+     用 color-mix 跟着 --color-status-todo 走：换主题时不需要再改一遍。 */
+  --status-todo-soft: color-mix(in srgb, var(--color-status-todo) 15%, transparent);
+
+  /* ── 项目空间视觉层级（1.0.86） ── */
+  --space-page: 20px;
+  --space-section: 16px;
+  --surface-subtle: color-mix(in srgb, var(--color-bg-primary) 72%, var(--color-bg-card));
+  --surface-muted: color-mix(in srgb, var(--color-bg-primary) 88%, var(--color-text-primary));
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  --status-unread-rgb: 37 99 235;
+  --status-warning-rgb: 217 119 6;
+
+  /* ── 颜色派生（1.0.114，卡 5fdf9b6d 第一步）：通道 → 完整色值 ──
+     上面 20 条颜色现在只存 **R G B 三段通道**，完整色值在这里派生。
+     为什么非这样不可：Tailwind 3 只给 `rgb(var(--x) / <alpha-value>)` 这种形态生成透明度变体，
+     颜色变量若是完整色值时，`bg-accent/10` / `text-text-secondary/70` 这类类**一条 CSS 都不产出**
+     （此前 154 处 / 45 文件全是空写，徽章只剩文字有颜色）。
+
+     ⚠️ 主题覆盖**只改通道变量**（`--color-x-rgb`），派生变量只在 :root 一处：
+     两边都写就又成了"同一个效果两条来源"（1.0.48 冷中性配色整轮没生效就是这么来的）。
+     组件与自定义 CSS 里 `var(--color-x)` 的写法不受影响 —— 它拿到的仍是完整色值。
+   */
+  --color-bg-primary: rgb(var(--color-bg-primary-rgb));
+  --color-bg-secondary: rgb(var(--color-bg-secondary-rgb));
+  --color-bg-card: rgb(var(--color-bg-card-rgb));
+  --color-text-primary: rgb(var(--color-text-primary-rgb));
+  --color-text-secondary: rgb(var(--color-text-secondary-rgb));
+  --color-text-done: rgb(var(--color-text-done-rgb));
+  --color-border: rgb(var(--color-border-rgb));
+  --color-accent: rgb(var(--color-accent-rgb));
+  --color-success: rgb(var(--color-success-rgb));
+  --color-reminder-glow: rgb(var(--color-reminder-glow-rgb));
+  --color-danger: rgb(var(--color-danger-rgb));
+  --color-column-surface: rgb(var(--color-column-surface-rgb));
+  --color-status-proposed: rgb(var(--color-status-proposed-rgb));
+  --color-status-todo: rgb(var(--color-status-todo-rgb));
+  --color-status-in-progress: rgb(var(--color-status-in-progress-rgb));
+  --color-status-suspended: rgb(var(--color-status-suspended-rgb));
+  --color-status-awaiting-review: rgb(var(--color-status-awaiting-review-rgb));
+  --color-status-done: rgb(var(--color-status-done-rgb));
+  --status-unread: rgb(var(--status-unread-rgb));
+  --status-warning: rgb(var(--status-warning-rgb));
+}
+
+/* 主题覆盖可以只改变 token，不需要逐页复制组件样式。 */
+:root {
+  --project-tab-height: 34px;
+  --control-height: 32px;
+}
