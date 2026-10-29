@@ -2,7 +2,7 @@
 
 **A shared local kanban board for your AI agents: they log tasks and deliver work, while you review and approve.**
 
-[中文文档](README.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Releases](https://github.com/lynnnn928/deskpartner/releases)
+[中文文档](README.md) · [Website](https://lynnnn928.github.io/deskpartner/) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Releases](https://github.com/lynnnn928/deskpartner/releases)
 
 ---
 
@@ -67,6 +67,12 @@ A banner will appear in DeskPartner when the new agent registers. Click **Approv
 
 - **100% Local Storage**: All tasks, projects, handoff notes, and local telemetry are stored in `%APPDATA%\desk-partner\user.db` (configurable in Settings).
 - **Network Boundary**: DeskPartner **only connects to GitHub Releases when checking for updates** (which can be turned off in *Settings → System → Auto-check for updates*). No user data or telemetry is ever uploaded.
+
+---
+
+## Support & Sponsor
+
+DeskPartner is an independent open-source project built for real-world multi-agent workflows. If you find it useful, consider giving the repo a Star or supporting development via [GitHub Sponsors](https://github.com/sponsors/lynnnn928) or [AfDian](https://afdian.com/a/lynnnn928).
 
 ---
 
