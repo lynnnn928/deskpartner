@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeskPartner — 给你手下那几个 AI 共用的本地看板</title>
+  <meta name="description" content="DeskPartner：给你手下那几个 AI 共用的本地桌面看板。它们自己记事、交活，你只管看和拍板。100% 本地 SQLite 存储，支持 69 个 MCP 工具与 76 条 CLI 命令。" />
+  <link rel="icon" type="image/svg+xml" href="assets/partner-badge.svg" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('dp-theme');
+        if (saved === 'dark' || saved === 'light') {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    /* ── 与产品 src/renderer/styles/variables.css 严格同源的令牌体系 ── */
+    :root {
+      color-scheme: light;
+      --color-bg-primary-rgb: 247 247 245;
+      --color-bg-secondary-rgb: 255 255 255;
+      --color-bg-card-rgb: 255 255 255;
+      --color-text-primary-rgb: 17 24 39;
+      --color-text-secondary-rgb: 107 114 128;
+      --color-text-done-rgb: 156 163 175;
+      --color-border-rgb: 229 231 235;
+      --color-accent-rgb: 17 24 39;
+      --color-success-rgb: 22 163 74;
+      --color-danger-rgb: 220 38 38;
+      --color-column-surface-rgb: 242 242 240;
+
+      /* 看板 6 态识别圆点色 */
+      --color-status-proposed-rgb: 192 132 252;
+      --color-status-todo-rgb: 83 136 246;
+      --color-status-in-progress-rgb: 101 193 156;
+      --color-status-suspended-rgb: 232 163 61;
+      --color-status-awaiting-review-rgb: 232 117 109;
+      --color-status-done-rgb: 156 163 175;
+
+      /* 圆角刻度 */
+      --radius-xs: 4px;
+      --radius-button: 8px;
+      --radius-tag: 11px;
+      --radius-card: 14px;
+      --radius-quick-add: 18px;
+      --radius-panel: 20px;
+
+      /* 阴影刻度 */
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+      --shadow-soft: 0 8px 24px rgba(17, 24, 39, 0.05);
+      --shadow-hero: 0 18px 45px rgba(17, 24, 39, 0.14);
+
+      /* 尺寸与字体 */
+      --size-page: 1100px;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+      /* 颜色派生 */
+      --color-bg-primary: rgb(var(--color-bg-primary-rgb));
+      --color-bg-secondary: rgb(var(--color-bg-secondary-rgb));
+      --color-bg-card: rgb(var(--color-bg-card-rgb));
+      --color-text-primary: rgb(var(--color-text-primary-rgb));
+      --color-text-secondary: rgb(var(--color-text-secondary-rgb));
+      --color-text-done: rgb(var(--color-text-done-rgb));
+      --color-border: rgb(var(--color-border-rgb));
+      --color-accent: rgb(var(--color-accent-rgb));
+      --color-success: rgb(var(--color-success-rgb));
+      --color-danger: rgb(var(--color-danger-rgb));
+      --color-column-surface: rgb(var(--color-column-surface-rgb));
+      --surface-subtle: color-mix(in srgb, var(--color-bg-primary) 72%, var(--color-bg-card));
+      --surface-muted: color-mix(in srgb, var(--color-bg-primary) 88%, var(--color-text-primary));
+    }
+
+    /* ── 与产品 src/renderer/styles/themes/dark.css 同源的深色令牌 ── */
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --color-bg-primary-rgb: 44 44 44;
+      --color-bg-secondary-rgb: 58 58 58;
+      --color-bg-card-rgb: 58 58 58;
+      --color-text-primary-rgb: 229 229 229;
+      --color-text-secondary-rgb: 156 163 175;
+      --color-text-done-rgb: 107 114 128;
+      --color-border-rgb: 74 74 74;
+      --color-accent-rgb: 229 229 229;
+      --color-success-rgb: 125 212 173;
+      --color-column-surface-rgb: 51 51 51;
+
+      --color-status-proposed-rgb: 201 154 248;
+      --color-status-todo-rgb: 123 164 247;
+      --color-status-in-progress-rgb: 125 212 173;
+      --color-status-suspended-rgb: 232 182 92;
+      --color-status-awaiting-review-rgb: 240 145 136;
+      --color-status-done-rgb: 138 138 138;
+
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.28);
+      --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
+      --shadow-hero: 0 18px 45px rgba(0, 0, 0, 0.38);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background-color: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    code, pre, kbd {
+      font-family: var(--font-mono);
+    }
+
+    a {
+      color: var(--color-text-primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgb(var(--color-text-secondary-rgb) / 0.45);
+      transition: color 150ms var(--ease), text-decoration-color 150ms var(--ease);
+    }
+
+    a:hover {
+      text-decoration-color: var(--color-text-primary);
+    }
+
+    :focus-visible {
+      outline: 2px solid rgb(var(--color-accent-rgb) / 0.4);
+      outline-offset: 2px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--size-page);
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* ── 顶部磨砂导航栏 ── */
+    header.site-nav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      height: 58px;
+      border-bottom: 1px solid var(--color-border);
+      background: color-mix(in srgb, var(--color-bg-primary) 88%, transparent);
+      backdrop-filter: blur(20px) saturate(180%);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
+      gap: 16px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--color-text-primary);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .brand:hover {
+      text-decoration: none;
+    }
+
+    .brand img {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .nav-links {
+      display: none;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .nav-links a {
+      color: var(--color-text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .nav-links a:hover {
+      color: var(--color-text-primary);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ── 产品同款按钮 ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 18px;
+      border-radius: var(--radius-button);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background-color 150ms var(--ease), border-color 150ms var(--ease), opacity 150ms var(--ease);
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--color-accent);
+      color: var(--color-bg-card);
+      border: 1px solid transparent;
+    }
+
+    [data-theme="dark"] .btn-primary {
+      color: #1f1f1f;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-secondary {
+      background: var(--color-bg-card);
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border);
+      box-shadow: var(--shadow-card);
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-column-surface);
+    }
+
+    .btn-sm {
+      min-height: 34px;
+      padding: 0 12px;
+      font-size: 12px;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-button);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: background-color 150ms var(--ease);
+    }
+
+    .icon-btn:hover {
+      background: var(--color-column-surface);
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 56px 0 48px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .hero-panel {
+      border-radius: var(--radius-panel);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-soft);
+      padding: 40px 28px;
+      text-align: center;
+    }
+
+    .hero-badge-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: var(--color-column-surface);
+      border: 1px solid var(--color-border);
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      font-family: var(--font-mono);
+      margin-bottom: 20px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot-proposed { background: rgb(var(--color-status-proposed-rgb)); }
+    .dot-todo { background: rgb(var(--color-status-todo-rgb)); }
+    .dot-in-progress { background: rgb(var(--color-status-in-progress-rgb)); }
+    .dot-suspended { background: rgb(var(--color-status-suspended-rgb)); }
+    .dot-awaiting-review { background: rgb(var(--color-status-awaiting-review-rgb)); }
+    .dot-done { background: rgb(var(--color-status-done-rgb)); }
+    .dot-success { background: rgb(var(--color-success-rgb)); }
+
+    .hero-logo {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      display: block;
+      border-radius: 50%;
+      box-shadow: var(--shadow-card);
+    }
+
+    .hero h1 {
+      font-size: clamp(26px, 3.6vw, 36px);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      max-width: 42rem;
+      margin: 0 auto 14px;
+    }
+
+    .hero p.lead {
+      font-size: 15px;
+      color: var(--color-text-secondary);
+      max-width: 40rem;
+      margin: 0 auto 24px;
+      line-height: 1.65;
+    }
+
+    /* 7 态看板状态条（与产品同物同形） */
+    .status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 0 auto 28px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-tag);
+      background: var(--color-column-surface);
+      border: 1px solid var(--color-border);
+      font-size: 12px;
+      color: var(--color-text-primary);
+    }
+
+    .status-arrow {
+      color: var(--color-text-done);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .hero-meta {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    /* ── 通用区块 ── */
+    section.section {
+      padding: 56px 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .section-header {
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .section-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      color: var(--color-text-primary);
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      max-width: 46rem;
+    }
+
+    /* ── 痛点场景引用卡 ── */
+    .scenario-card {
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+
+    .scenario-card p {
+      font-size: 14px;
+      color: var(--color-text-primary);
+      line-height: 1.7;
+    }
+
+    .scenario-card strong {
+      font-weight: 600;
+    }
+
+    /* ── 响应式网格（严格 minmax(0, 1fr) 防止任何子元素撑破列宽） ── */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      min-width: 0;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-text-secondary);
+    }
+
+    .card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      line-height: 1.65;
+    }
+
+    /* ── 人机协同模型三栏框（复刻产品 QuickStartView） ── */
+    .arch-box {
+      margin-top: 16px;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 20px;
+    }
+
+    .arch-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .arch-col {
+      min-width: 0;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--surface-subtle);
+      padding: 16px;
+    }
+
+    .arch-col-center {
+      background: var(--color-column-surface);
+      border-color: rgb(var(--color-accent-rgb) / 0.25);
+    }
+
+    .arch-col h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 4px 0 8px;
+    }
+
+    .arch-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+
+    .arch-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .arch-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .arch-chip {
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    /* ── 界面截图切换 ── */
+    .tabs-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tab-btn {
+      min-height: 36px;
+      padding: 6px 14px;
+      border-radius: var(--radius-button);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      color: var(--color-text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 150ms var(--ease), color 150ms var(--ease);
+    }
+
+    .tab-btn:hover {
+      color: var(--color-text-primary);
+      background: var(--color-column-surface);
+    }
+
+    .tab-btn[aria-selected="true"] {
+      background: var(--color-accent);
+      color: var(--color-bg-card);
+      border-color: var(--color-accent);
+    }
+
+    [data-theme="dark"] .tab-btn[aria-selected="true"] {
+      color: #1f1f1f;
+    }
+
+    .shot-frame {
+      border-radius: var(--radius-panel);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-hero);
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .shot-frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+    }
+
+    .shot-caption {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      text-align: center;
+    }
+
+    /* ── 3 步快速接入（上下宽卡片结构，彻底杜绝代码块横向溢出） ── */
+    .steps-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .step-row {
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 20px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .step-info {
+      min-width: 0;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: var(--radius-xs);
+      background: var(--color-column-surface);
+      border: 1px solid var(--color-border);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 8px;
+    }
+
+    .step-info h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .step-info p {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      line-height: 1.65;
+    }
+
+    .code-card {
+      min-width: 0;
+      width: 100%;
+      border-radius: var(--radius-button);
+      border: 1px solid var(--color-border);
+      background: var(--color-column-surface);
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--surface-subtle);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-text-secondary);
+    }
+
+    .copy-btn {
+      min-height: 26px;
+      padding: 2px 10px;
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      color: var(--color-text-primary);
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      background: var(--color-column-surface);
+    }
+
+    .code-body {
+      padding: 12px 14px;
+      font-size: 12px;
+      line-height: 1.65;
+      color: var(--color-text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-x: auto;
+    }
+
+    .smartscreen-box {
+      margin-top: 16px;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 20px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+    }
+
+    .smartscreen-box img {
+      display: block;
+      width: 100%;
+      max-width: 520px;
+      height: auto;
+      border-radius: var(--radius-button);
+      border: 1px solid var(--color-border);
+    }
+
+    /* ── 页脚 ── */
+    footer.site-footer {
+      padding: 36px 0;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 50;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      color: var(--color-text-primary);
+      box-shadow: var(--shadow-card);
+      border-radius: var(--radius-button);
+      padding: 8px 14px;
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 160ms var(--ease), transform 160ms var(--ease);
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (min-width: 720px) {
+      .nav-links {
+        display: flex;
+      }
+      .hero-panel {
+        padding: 48px 40px;
+      }
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .arch-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .step-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+      }
+      .smartscreen-box {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      }
+      .footer-inner {
+        flex-direction: row;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-nav">
+    <div class="container nav-inner">
+      <a href="#" class="brand">
+        <img src="assets/partner-badge.svg" alt="DeskPartner 产品图标" />
+        <span>DeskPartner</span>
+      </a>
+      <nav class="nav-links" aria-label="主导航">
+        <a href="#why">痛点场景</a>
+        <a href="#tour">界面图览</a>
+        <a href="#quickstart">3 步接入 AI</a>
+        <a href="#privacy">数据与隐私</a>
+        <a href="#sponsor">支持项目</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="https://github.com/lynnnn928/deskpartner" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">GitHub</a>
+        <button type="button" class="icon-btn" id="theme-toggle" aria-label="切换浅色或深色主题" title="切换主题">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="hero-panel">
+          <div class="hero-badge-row">
+            <span class="status-dot dot-success" aria-hidden="true"></span>
+            <span>v1.0.134 · Windows 10/11 x64 · MIT License</span>
+          </div>
+          <img src="assets/partner-badge.svg" alt="DeskPartner 伙伴徽章" class="hero-logo" />
+          <h1>给你手下那几个 AI 共用的本地看板</h1>
+          <p class="lead">它们自己记事、交活，你只管看和拍板。内置 69 个 MCP 工具与 76 条 CLI 命令，15 道仓储层护栏，100% 本地 SQLite 存储。</p>
+
+          <div class="status-strip" aria-label="事项状态流转">
+            <span class="status-pill"><span class="status-dot dot-proposed"></span>待确认</span>
+            <span class="status-arrow">→</span>
+            <span class="status-pill"><span class="status-dot dot-todo"></span>待办</span>
+            <span class="status-arrow">→</span>
+            <span class="status-pill"><span class="status-dot dot-in-progress"></span>进行中</span>
+            <span class="status-arrow">→</span>
+            <span class="status-pill"><span class="status-dot dot-suspended"></span>挂起</span>
+            <span class="status-arrow">→</span>
+            <span class="status-pill"><span class="status-dot dot-awaiting-review"></span>待验收</span>
+            <span class="status-arrow">→</span>
+            <span class="status-pill"><span class="status-dot dot-done"></span>已完成</span>
+          </div>
+
+          <div class="cta-group">
+            <a href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.134/DeskPartner-Setup-1.0.134.exe" class="btn btn-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>下载 Windows 安装包 (v1.0.134)</span>
+            </a>
+            <a href="https://github.com/lynnnn928/deskpartner/releases/latest" class="btn btn-secondary" target="_blank" rel="noopener">Release 说明与历史版本</a>
+            <a href="#quickstart" class="btn btn-secondary">3 步接入 AI 指南</a>
+          </div>
+          <p class="hero-meta">安装包 88.9 MB · 支持应用内自动检查更新 · 无需注册账号</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="why" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">REAL-WORLD WORKFLOW</div>
+          <h2 class="section-title">当你同时开了三个 AI 会话，进度去了哪？</h2>
+          <p class="section-subtitle">传统待办软件是给人手点的（AI 看不见），而团队协作软件默认每个协作者都是人类。</p>
+        </div>
+
+        <div class="scenario-card">
+          <p><strong>真实场景：</strong>你有三个 AI 同时在做三个项目——Claude Desktop 在帮你梳理架构、Cursor 在改前端组件、另一个终端 Agent 在跑回归测试。半小时后你切回电脑，十几个聊天窗口滚了上千行：<strong>谁做完了？谁卡住了？哪条改动还没验收？下一次开新会话怎么接着干？</strong></p>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-todo"></span>01 · 共享本地看板</div>
+            <h3>多 AI 读写同一个本机数据库</h3>
+            <p>你在桌面界面看 7 态看板、审批与项目概览；手下的 AI 通过 MCP 或 CLI 读写同一个本机 SQLite 库，主动领卡、记进展评论、交活候审。</p>
+          </article>
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-awaiting-review"></span>02 · 权责与仓储护栏</div>
+            <h3>AI 提议与交活，你只管拍板</h3>
+            <p>新 AI 首次注册需你在界面点「批准」；AI 新建事项先进「待确认」池；执行方不可自验把任务标为「已完成」（仓储层硬拦截）；删卡与改配置须经你授权。</p>
+          </article>
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-in-progress"></span>03 · 项目接手说明</div>
+            <h3>换个 AI 接着干，不用重喂背景</h3>
+            <p>每个项目内置带修订历史与一键回滚的「接手说明（Handoff）」。上一个 AI 交活时更新现状与下一步，下一个 AI 一条命令就能完整接棒。</p>
+          </article>
+        </div>
+
+        <div class="arch-box">
+          <div class="eyebrow">COLLABORATION MODEL</div>
+          <h3 style="font-size: 16px; font-weight: 600;">一张图看懂 DeskPartner 如何协同工作</h3>
+          <div class="arch-grid">
+            <div class="arch-col">
+              <div class="card-tag"><span class="status-dot dot-todo"></span>主用户（你）</div>
+              <h4>定方向与守关口</h4>
+              <ul class="arch-list">
+                <li><span class="status-dot dot-done"></span>随时用快捷键或悬浮球记下想法</li>
+                <li><span class="status-dot dot-proposed"></span>拍板「待确认」事项是否立项</li>
+                <li><span class="status-dot dot-awaiting-review"></span>核对「待验收」成果并点完成或退回</li>
+              </ul>
+            </div>
+            <div class="arch-col arch-col-center">
+              <div class="card-tag"><span class="status-dot dot-in-progress"></span>DeskPartner 共享工作台</div>
+              <h4>本机唯一事实来源（SQLite v48）</h4>
+              <div class="arch-mini-grid">
+                <div class="arch-chip">项目接手说明</div>
+                <div class="arch-chip">7 态事项看板</div>
+                <div class="arch-chip">个人档案与协议</div>
+                <div class="arch-chip">分级权限与审计</div>
+              </div>
+            </div>
+            <div class="arch-col">
+              <div class="card-tag"><span class="status-dot dot-success"></span>AI 助手团队（MCP / CLI）</div>
+              <h4>跨工具接力执行</h4>
+              <ul class="arch-list">
+                <li><span class="status-dot dot-in-progress"></span>自动读取接手说明，零重复交代</li>
+                <li><span class="status-dot dot-in-progress"></span>拆解子任务、写验证证据并推待验收</li>
+                <li><span class="status-dot dot-suspended"></span>删除或改设置进入审批页等你点头</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tour" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">PRODUCT TOUR</div>
+          <h2 class="section-title">桌面端可视化掌控，MCP 与 CLI 零摩擦接入</h2>
+          <p class="section-subtitle">点击下方按钮切换查看 DeskPartner 的真实运行界面。</p>
+        </div>
+
+        <div class="tabs-bar" role="tablist" aria-label="产品界面截图切换">
+          <button type="button" class="tab-btn" role="tab" aria-selected="true" data-shot="assets/kanban-board.png" data-caption="多智能体共享看板：7 个流转状态、执行方归属、版本号关联与项目交接一览无余。">1. 多智能体共享看板</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/approval-view.png" data-caption="集中审批中心：待确认事项、新接入 AI 身份与破坏性操作申请统一由你拍板。">2. 集中审批中心</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/quickstart-view.png" data-caption="60 秒快速上手：自动带出本机真实安装路径的开场提示词，一键复制直接发给 AI。">3. 60 秒快速上手向导</button>
+        </div>
+
+        <div class="shot-frame">
+          <img id="tour-img" src="assets/kanban-board.png" alt="DeskPartner 桌面端界面截图" />
+          <p id="tour-caption" class="shot-caption">多智能体共享看板：7 个流转状态、执行方归属、版本号关联与项目交接一览无余。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="quickstart" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">QUICK START</div>
+          <h2 class="section-title">3 步把你的 AI 助手接进来</h2>
+          <p class="section-subtitle">安装打开 DeskPartner 后，可直接在主窗口左下角「? → 快速上手」一键复制已自动填好你本机路径的开场提示词，也可以按以下三步手动接入：</p>
+        </div>
+
+        <div class="steps-stack">
+          <article class="step-row">
+            <div class="step-info">
+              <div class="step-badge"><span class="status-dot dot-todo"></span>STEP 01</div>
+              <h3>将 DeskPartner 加进客户端 MCP 配置</h3>
+              <p>在 Claude Desktop、Cursor、Penguin 等客户端配置文件中加入 <code>deskpartner</code>（可在桌面端「设置 → 系统」直接复制本机路径）。若你的 AI 可直接执行终端命令，也可无需配置 MCP，直接让它运行 <code>node "$DESKPARTNER_CLI" skill</code>。</p>
+            </div>
+            <div class="code-card">
+              <div class="code-header">
+                <span>mcpServers 配置片段</span>
+                <button type="button" class="copy-btn" data-copy-target="mcp-snippet">复制配置</button>
+              </div>
+              <pre class="code-body" id="mcp-snippet"><code>{
+  "mcpServers": {
+    "deskpartner": {
+      "command": "C:\\Users\\&lt;你的用户名&gt;\\AppData\\Local\\Programs\\desk-partner\\resources\\cli\\mcp.cmd",
+      "args": [],
+      "env": {
+        "DESKPARTNER_AGENT": "agent:claude"
+      }
+    }
+  }
+}</code></pre>
+            </div>
+          </article>
+
+          <article class="step-row">
+            <div class="step-info">
+              <div class="step-badge"><span class="status-dot dot-in-progress"></span>STEP 02</div>
+              <h3>发一句话让 AI 自助注册领证</h3>
+              <p>把右侧这段话发给你的 AI 助手。它会自己阅读内置说明书，完成身份注册（<code>agent register</code>）与本地凭据申领（<code>agent credential</code>）。此时它处于待批准状态，还不能往你的数据库写任何内容。</p>
+            </div>
+            <div class="code-card">
+              <div class="code-header">
+                <span>发给 AI 的开场提示词</span>
+                <button type="button" class="copy-btn" data-copy-target="prompt-snippet">复制提示词</button>
+              </div>
+              <pre class="code-body" id="prompt-snippet"><code>请先调用 DeskPartner 的 get_guide 工具（或运行 node "$DESKPARTNER_CLI" skill）阅读接入说明书，用你自己的名字注册身份并申领凭据，然后查看我当前的项目和待办。</code></pre>
+            </div>
+          </article>
+
+          <article class="step-row">
+            <div class="step-info">
+              <div class="step-badge"><span class="status-dot dot-awaiting-review"></span>STEP 03</div>
+              <h3>在桌面界面点一次「批准」</h3>
+              <p>当 AI 完成注册时，DeskPartner 顶部会弹出提醒横幅，侧边栏「审批」也会亮起角标。点击<strong>「批准」</strong>后，这个 AI 就可以正式在看板上帮你创建事项、记录进展并交付成果了。</p>
+            </div>
+            <div class="code-card">
+              <div class="code-header">
+                <span>审批通过后的闭环体验</span>
+              </div>
+              <div class="code-body">1. AI 提议的新事项进入「待确认」池，由你决定是否转入「待办」；
+2. AI 干完活将卡片推至「待验收」并附上四段式收口记录；
+3. 你验收满意后点击「完成」—— 执行方自己无法越权标完成。</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="smartscreen-box">
+          <div>
+            <div class="eyebrow">WINDOWS SMARTSCREEN</div>
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">首次运行安装包的放行说明</h3>
+            <p style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.65;">作为个人开源项目，安装包暂未购买商业代码签名证书。首次运行安装程序时若弹出 Windows SmartScreen 蓝色保护提示，请先点击窗口中的 <strong>「更多信息（More info）」</strong>，再点击右下角出现的 <strong>「仍要运行（Run anyway）」</strong> 即可正常安装。</p>
+          </div>
+          <img src="assets/smartscreen-guide.svg" alt="Windows SmartScreen 更多信息与仍要运行放行示意图" />
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">PRIVACY &amp; DATA</div>
+          <h2 class="section-title">数据存哪与隐私边界</h2>
+          <p class="section-subtitle">无账号体系、无云端后台，所有项目与协作记录完全留在你自己的电脑里。</p>
+        </div>
+
+        <div class="grid-2">
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-todo"></span>LOCAL SQLITE STORAGE</div>
+            <h3>本机数据库存储与自动快照备份</h3>
+            <p>核心数据库默认保存在 <code>%APPDATA%\desk-partner\user.db</code>（可在「设置 → 系统」中一键打开文件夹或迁移目录）。每次数据库结构升级或导入备份前，都会自动生成带时间戳的 SQLite 一致性快照；导出 JSON 备份时自动剥离本地凭据哈希。</p>
+          </article>
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-success"></span>ZERO DATA UPLOAD</div>
+            <h3>仅检查更新时访问 GitHub Releases</h3>
+            <p>本地使用统计（Telemetry）仅保存在本机 SQLite 数据库中用于渲染「统计」页图表，可随时关闭或一键清空。应用<strong>仅在检查版本更新时访问 GitHub Releases</strong>（可在「设置 → 系统 → 自动检查更新」中关闭），不上传任何本地数据。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="sponsor" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">OPEN SOURCE &amp; SUPPORT</div>
+          <h2 class="section-title">个人项目，尽力维护</h2>
+          <p class="section-subtitle">DeskPartner 源于日常真实多 AI 协作需求，每一个版本都在管理它自身的迭代中打磨验证。</p>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-todo"></span>GITHUB</div>
+            <h3>点亮 Star 或提交反馈</h3>
+            <p>如果 DeskPartner 让你的多 AI 协作省了心，欢迎在 GitHub 点一颗 Star，或通过 Issue / PR 分享你的使用体验与改进建议。</p>
+            <div style="margin-top: auto; padding-top: 8px;">
+              <a href="https://github.com/lynnnn928/deskpartner" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">前往 GitHub 仓库 →</a>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-awaiting-review"></span>AFDIAN · 爱发电</div>
+            <h3>请作者喝杯咖啡（国内）</h3>
+            <p>个人项目利用业余时间持续维护。如果你想支持后续迭代或商业代码签名证书筹备，欢迎通过爱发电赞助支持。</p>
+            <div style="margin-top: auto; padding-top: 8px;">
+              <a href="https://afdian.com/a/lynnnn928" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">爱发电赞助支持 →</a>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card-tag"><span class="status-dot dot-proposed"></span>GITHUB SPONSORS</div>
+            <h3>GitHub Sponsors</h3>
+            <p>也欢迎通过 GitHub 官方 Sponsors 渠道支持本项目的长期维护与跨平台（macOS / 英文完整版）演进。</p>
+            <div style="margin-top: auto; padding-top: 8px;">
+              <a href="https://github.com/sponsors/lynnnn928" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">GitHub Sponsors →</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>Copyright &copy; 2026 LiLin (lynnnn928). Released under the MIT License.</div>
+      <div class="footer-links">
+        <a href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub 仓库</a>
+        <a href="https://github.com/lynnnn928/deskpartner/releases" target="_blank" rel="noopener">版本下载 (Releases)</a>
+        <a href="https://github.com/lynnnn928/deskpartner/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新日志</a>
+        <a href="https://github.com/lynnnn928/deskpartner/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">贡献指南</a>
+        <a href="https://github.com/lynnnn928/deskpartner/blob/main/README.en.md" target="_blank" rel="noopener">English README</a>
+      </div>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite">已复制到剪贴板</div>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('theme-toggle');
+      if (toggle) {
+        toggle.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try {
+            localStorage.setItem('dp-theme', next);
+          } catch (e) {}
+        });
+      }
+
+      var tabs = document.querySelectorAll('.tab-btn');
+      var tourImg = document.getElementById('tour-img');
+      var tourCaption = document.getElementById('tour-caption');
+      tabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          tabs.forEach(function (t) { t.setAttribute('aria-selected', 'false'); });
+          btn.setAttribute('aria-selected', 'true');
+          var shot = btn.getAttribute('data-shot');
+          var cap = btn.getAttribute('data-caption');
+          if (tourImg && shot) tourImg.setAttribute('src', shot);
+          if (tourCaption && cap) tourCaption.textContent = cap;
+        });
+      });
+
+      var toast = document.getElementById('toast');
+      var toastTimer = null;
+      function showToast(msg) {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add('visible');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toast.classList.remove('visible');
+        }, 2600);
+      }
+
+      var copyBtns = document.querySelectorAll('.copy-btn');
+      copyBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var targetId = btn.getAttribute('data-copy-target');
+          var el = targetId ? document.getElementById(targetId) : null;
+          if (!el) return;
+          var text = el.textContent || '';
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+              showToast('已复制到剪贴板');
+            });
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
