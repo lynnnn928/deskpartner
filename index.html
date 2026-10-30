@@ -4,8 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f2eb" />
-  <title>DeskPartner — 让 AI 接着工作，而不是每次从头开始</title>
-  <meta name="description" content="DeskPartner 是一个本地优先的人机共享工作空间，让多个 AI 助手共享项目上下文、历史决定和工作结果；AI 执行，人批准与验收。" />
+  <title>DeskPartner — 让 AI 接着工作，项目始终从当前继续</title>
+  <meta name="description" content="DeskPartner 是本地优先的人机共享工作空间，让多个 AI 助手共享项目上下文、历史决定和工作结果。AI 执行，人批准与验收。" />
+  <meta name="keywords" content="AI 协作,多 Agent,AI 工作空间,项目接续,AI 上下文,本地 AI,CLI,MCP,人工审批" />
+  <meta name="author" content="LiLin / lynnnn928" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <link rel="canonical" href="https://lynnnn928.github.io/deskpartner/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="DeskPartner" />
+  <meta property="og:title" content="DeskPartner — 让 AI 接着工作" />
+  <meta property="og:description" content="让多个 AI 助手共享项目上下文、历史决定和工作结果；AI 执行，人批准与验收。" />
+  <meta property="og:url" content="https://lynnnn928.github.io/deskpartner/" />
+  <meta property="og:image" content="https://lynnnn928.github.io/deskpartner/assets/project-handoff.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="DeskPartner — 让 AI 接着工作" />
+  <meta name="twitter:description" content="本地优先的人机共享工作空间，让项目跨 Agent 持续推进。" />
+  <meta name="twitter:image" content="https://lynnnn928.github.io/deskpartner/assets/project-handoff.png" />
   <link rel="icon" type="image/svg+xml" href="assets/partner-badge.svg" />
   <script>
     (function () {
@@ -14,6 +28,29 @@
         if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
       } catch (e) {}
     })();
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "DeskPartner",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Windows 10, Windows 11",
+    "url": "https://lynnnn928.github.io/deskpartner/",
+    "downloadUrl": "https://github.com/lynnnn928/deskpartner/releases/download/v1.0.136/DeskPartner-Setup-1.0.136.exe",
+    "softwareVersion": "1.0.136",
+    "license": "https://opensource.org/licenses/MIT",
+    "description": "本地优先的人机共享工作空间，让多个 AI 助手共享项目上下文、历史决定和工作结果。",
+    "author": { "@type": "Person", "name": "LiLin", "url": "https://github.com/lynnnn928" },
+    "sameAs": ["https://github.com/lynnnn928/deskpartner"],
+    "featureList": [
+      "多 AI 共享项目上下文",
+      "项目接手与历史决定",
+      "人工审批与结果验收",
+      "本地数据保存",
+      "CLI 与 MCP 接入"
+    ]
+  }
   </script>
   <style>
     :root {
@@ -65,9 +102,12 @@
       font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
       font-size: 15px;
       line-height: 1.7;
+      line-break: strict;
+      text-wrap: pretty;
       -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+    h1, h2, h3, p { text-wrap: balance; }
     img { max-width: 100%; }
     code, pre, .eyebrow, .step-index { font-family: var(--mono); }
     .container { width: min(100% - 40px, var(--max)); margin: 0 auto; }
@@ -89,7 +129,7 @@
     .theme-btn { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer; }
 
     /* Buttons */
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 650; text-decoration: none; border: 1px solid transparent; transition: transform .16s ease, background .16s ease, border-color .16s ease; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 650; text-decoration: none; border: 1px solid transparent; white-space: nowrap; transition: transform .16s ease, background .16s ease, border-color .16s ease; }
     .btn:hover { transform: translateY(-1px); text-decoration: none; }
     .btn-primary { color: #f7fbf8; background: var(--green); box-shadow: 0 7px 18px color-mix(in srgb, var(--green) 22%, transparent); }
     .btn-primary:hover { background: var(--green-dark); }
@@ -203,11 +243,14 @@
     @media (min-width: 720px) {
       .nav-links { display: flex; }
       .hero-grid { grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); }
-      .problem-grid, .roles-grid, .use-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .problem-grid, .roles-grid, .use-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .fit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .first-win { grid-template-columns: 1.1fr .9fr; }
       .role { grid-template-columns: 170px 1fr; gap: 22px; }
       .footer-inner { flex-direction: row; align-items: center; justify-content: space-between; }
+    }
+    @media (min-width: 960px) {
+      .problem-grid, .roles-grid, .use-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 560px) {
       .container { width: min(100% - 28px, var(--max)); }
@@ -229,9 +272,10 @@
         <a href="#first-win">第一次成功</a>
         <a href="#tour">看看里面</a>
         <a href="#setup">开始接入</a>
+        <a href="#faq">常见问题</a>
       </nav>
       <div class="nav-actions">
-        <a class="btn btn-primary btn-small" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.135/DeskPartner-Setup-1.0.135.exe">下载 Windows 版</a>
+        <a class="btn btn-primary btn-small" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.136/DeskPartner-Setup-1.0.136.exe">下载 Windows 版</a>
         <button class="theme-btn" id="theme-toggle" type="button" aria-label="切换主题" title="切换主题">☼</button>
       </div>
     </div>
@@ -242,11 +286,11 @@
       <div class="container hero-grid">
         <div>
           <p class="eyebrow">A local workspace for human + AI</p>
-          <h1>让 AI <em>接着工作</em>，而不是每次从头开始。</h1>
+          <h1>让 AI <em>接着工作</em>，项目始终从当前继续。</h1>
           <p class="hero-lead">DeskPartner 把多个 AI 助手共享的项目背景、历史决定和工作结果放在同一个本地工作空间里。AI 负责执行，你负责批准、验收和决定。</p>
           <div class="audience"><span class="audience-mark"></span><span><strong>适合谁：</strong>同时使用多个 AI 工具、正在推进长期项目的开发者、研究者和独立工作者。</span></div>
           <div class="cta-row">
-            <a class="btn btn-primary" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.135/DeskPartner-Setup-1.0.135.exe">下载并完成第一次协作 <span aria-hidden="true">↗</span></a>
+            <a class="btn btn-primary" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.136/DeskPartner-Setup-1.0.136.exe">下载并完成第一次协作 <span aria-hidden="true">↗</span></a>
             <a class="btn btn-secondary" href="#first-win">先看它如何工作</a>
           </div>
           <div class="hero-meta">Windows 10 / 11 · MIT 开源 · 数据保存在本机 · 首次接入需要配置一个 AI 助手</div>
@@ -263,21 +307,21 @@
       <div class="container">
         <div class="section-head">
           <p class="section-kicker">The problem</p>
-          <h2>AI 会做事，但工作仍然会断掉。</h2>
-          <p class="section-intro">聊天窗口适合完成一次任务，却不擅长保存一段持续工作的上下文。DeskPartner 只解决一个核心问题：下一次打开时，工作还能继续。</p>
+          <h2>AI 会做事，持续工作需要一个共同空间。</h2>
+          <p class="section-intro">聊天窗口适合完成一次任务；持续项目需要一个能够保存上下文、决定和下一步的共同空间。DeskPartner 聚焦于让下一次打开时，工作继续向前。</p>
         </div>
         <div class="problem-grid">
-          <article class="card"><div class="card-label">01 / context</div><h3>换个 AI，就要重新解释项目</h3><p>背景散落在不同会话里。新的 Agent 需要重新考古，你也要重复讲一遍已经讲过的内容。</p></article>
-          <article class="card"><div class="card-label">02 / proof</div><h3>“完成了”不等于真的完成</h3><p>多个 AI 同时工作时，你需要看见它做了什么、依据是什么，以及结果是否经过真正的验收。</p></article>
-          <article class="card"><div class="card-label">03 / continuity</div><h3>项目一中断，就不知道从哪里继续</h3><p>几天后回来、换一个 Agent、或让多个助手接力时，下一步应该清楚地留在项目里。</p></article>
+          <article class="card"><div class="card-label">01 / context</div><h3>换一个 AI，项目可以继续</h3><p>背景、决定和下一步都保存在项目里。新的 Agent 读取接续信息，就能从当前工作继续推进。</p></article>
+          <article class="card"><div class="card-label">02 / proof</div><h3>每项工作都有清晰的验收</h3><p>多个 AI 同时工作时，你能看见它做了什么、依据是什么，以及结果是否经过真正的验收。</p></article>
+          <article class="card"><div class="card-label">03 / continuity</div><h3>项目随时都能从当前进展继续</h3><p>几天后回来、换一个 Agent、或让多个助手接力时，下一步都清楚地留在项目里。</p></article>
         </div>
-        <p class="pull-quote">“助手可以换，工作不要从头开始。”</p>
+        <p class="pull-quote">“助手可以换，工作始终从当前进展继续。”</p>
       </div>
     </section>
 
     <section class="section">
       <div class="container">
-        <div class="section-head center"><p class="section-kicker">Three roles, one workspace</p><h2>不是让 AI 取代你，而是让分工变清楚。</h2><p class="section-intro">DeskPartner 不替代你正在使用的 AI。它把执行、记录和决定放回各自应该在的位置。</p></div>
+        <div class="section-head center"><p class="section-kicker">Three roles, one workspace</p><h2>让人与 AI 各自负责擅长的部分。</h2><p class="section-intro">你可以继续使用熟悉的 AI；DeskPartner 把执行、记录和决定放回各自应该在的位置。</p></div>
         <div class="roles-wrap">
           <div class="role"><div class="role-name">AI 助手 <span>执行者</span></div><p>理解你的意图，读取允许的上下文，执行工作，提交结果和提议。</p></div>
           <div class="role"><div class="role-name">DeskPartner <span>共享工作空间</span></div><p>保存项目背景、历史决定、工作状态和交接记录，让不同助手看到同一份事实。</p></div>
@@ -288,66 +332,78 @@
 
     <section id="first-win" class="section">
       <div class="container">
-        <div class="section-head"><p class="section-kicker">Your first win</p><h2>第一次成功，不是“安装完成”。</h2><p class="section-intro">真正的第一次价值，是你看到一个 AI 在 DeskPartner 里留下了可理解、可验收、以后还能继续的工作结果。</p></div>
+        <div class="section-head"><p class="section-kicker">Your first win</p><h2>第一次成功：看到一项可以继续的工作。</h2><p class="section-intro">第一次价值来自一个清晰结果：AI 在 DeskPartner 里留下可理解、可验收、以后还能继续的工作记录。</p></div>
         <div class="first-win">
           <div class="win-steps">
             <div class="win-step"><span class="step-num">01</span><div><h3>接入一个你已经在用的 AI</h3><p>通过 MCP 或 CLI 把它连接到本地工作空间。</p></div></div>
-            <div class="win-step"><span class="step-num">02</span><div><h3>你批准它进入项目</h3><p>它先申请权限；重要操作不会悄悄发生。</p></div></div>
+            <div class="win-step"><span class="step-num">02</span><div><h3>你批准它进入项目</h3><p>它先申请权限；重要操作先征得你的同意。</p></div></div>
             <div class="win-step"><span class="step-num">03</span><div><h3>它读取背景并提交一项工作</h3><p>项目说明、历史决定和当前工作都可以按需读取。</p></div></div>
-            <div class="win-step"><span class="step-num">04</span><div><h3>你看见证据，再批准或验收</h3><p>你知道它做了什么、没做什么，以及下一步在哪里。</p></div></div>
+            <div class="win-step"><span class="step-num">04</span><div><h3>你看见证据，再批准或验收</h3><p>你知道它完成了什么、留下了哪些待处理内容，以及下一步在哪里。</p></div></div>
           </div>
-          <aside class="win-proof"><p class="eyebrow">The moment it clicks</p><h3>下次换一个 Agent，项目仍然在这里。</h3><p>这就是 DeskPartner 和普通聊天记录、轻量待办清单的区别。</p><ul class="proof-list"><li>共享项目上下文</li><li>可找回的历史决定</li><li>清楚的等待、提议和验收状态</li><li>本地保存，重要操作由你批准</li></ul></aside>
+          <aside class="win-proof"><p class="eyebrow">The moment it clicks</p><h3>下次换一个 Agent，项目仍然在这里。</h3><p>DeskPartner 让聊天、项目背景和工作结果保持连续。</p><ul class="proof-list"><li>共享项目上下文</li><li>可找回的历史决定</li><li>清楚的等待、提议和验收状态</li><li>本地保存，重要操作由你批准</li></ul></aside>
         </div>
       </div>
     </section>
 
     <section id="tour" class="section">
       <div class="container">
-        <div class="section-head"><p class="section-kicker">Inside the workspace</p><h2>你会在里面看到什么？</h2><p class="section-intro">不是一个更复杂的聊天窗口，而是一份可以被人和多个 AI 共同继续的工作记录。</p></div>
+        <div class="section-head"><p class="section-kicker">Inside the workspace</p><h2>你会在里面看到什么？</h2><p class="section-intro">这是一份可以被人和多个 AI 共同继续的工作记录：背景、决定、当前工作和下一步都清楚可见。</p></div>
         <div class="tour">
           <div class="tabs" role="tablist" aria-label="产品界面预览">
-            <button class="tab" type="button" role="tab" aria-selected="true" data-shot="assets/project-handoff.png" data-caption="项目接手说明：让新的 Agent 先理解背景、决定和当前入口，而不是直接拉取一大堆事项。">项目接手</button>
+            <button class="tab" type="button" role="tab" aria-selected="true" data-shot="assets/project-handoff.png" data-caption="项目接手说明：新的 Agent 先理解背景、决定和当前入口，再按需查看相关事项。">项目接手</button>
             <button class="tab" type="button" role="tab" aria-selected="false" data-shot="assets/approval-view.png" data-caption="审批对比：重要的修改先由你看清变化，再决定是否采纳。">批准与验收</button>
             <button class="tab" type="button" role="tab" aria-selected="false" data-shot="assets/kanban-board.png" data-caption="当前工作：看板是项目内的一个视图，用来观察责任、进度和等待关系。">当前工作</button>
             <button class="tab" type="button" role="tab" aria-selected="false" data-shot="assets/quickstart-view.png" data-caption="快速接入：从连接一个 AI 开始，逐步完成第一次协作。">快速接入</button>
           </div>
-          <div class="shot-shell"><img id="tour-img" src="assets/project-handoff.png" alt="DeskPartner 项目接手说明界面" /><p class="shot-caption" id="tour-caption">项目接手说明：让新的 Agent 先理解背景、决定和当前入口，而不是直接拉取一大堆事项。</p></div>
+          <div class="shot-shell"><img id="tour-img" src="assets/project-handoff.png" alt="DeskPartner 项目接手说明界面" /><p class="shot-caption" id="tour-caption">项目接手说明：新的 Agent 先理解背景、决定和当前入口，再按需查看相关事项。</p></div>
         </div>
       </div>
     </section>
 
     <section class="section">
       <div class="container">
-        <div class="section-head"><p class="section-kicker">Use it for real work</p><h2>它适合哪些持续工作？</h2><p class="section-intro">把它放进一个真实项目里，而不是只拿来演示功能。</p></div>
+        <div class="section-head"><p class="section-kicker">Use it for real work</p><h2>它适合哪些持续工作？</h2><p class="section-intro">把它放进一个真实项目里，记录每一次推进、决定与交接。</p></div>
         <div class="use-grid">
           <article class="card scenario-card"><span class="scenario-tag">01 / SOFTWARE</span><h3>软件项目</h3><p>开发、测试、审查 Agent 分别工作；你能看见结果是否经过验收，以及下一个 Agent 从哪里继续。</p></article>
           <article class="card scenario-card"><span class="scenario-tag">02 / RESEARCH</span><h3>研究与内容</h3><p>让不同助手搜集、整理、修改，但把来源、决定和最终确认权留在同一个项目里。</p></article>
-          <article class="card scenario-card"><span class="scenario-tag">03 / LONG-RUNNING</span><h3>长期个人项目</h3><p>准备考试、做产品、整理资料或经营一项计划。隔几天回来，也不用从聊天记录里考古。</p></article>
+          <article class="card scenario-card"><span class="scenario-tag">03 / LONG-RUNNING</span><h3>长期个人项目</h3><p>准备考试、做产品、整理资料或经营一项计划。隔几天回来，也能从项目记录继续推进。</p></article>
         </div>
       </div>
     </section>
 
     <section class="section">
       <div class="container">
-        <div class="section-head"><p class="section-kicker">A good fit / not for everyone</p><h2>先判断它是不是你的工具。</h2></div>
+        <div class="section-head"><p class="section-kicker">Find your use case</p><h2>先找到最适合你的使用方式。</h2><p class="section-intro">DeskPartner 适合需要跨 AI 持续推进工作的场景；轻量任务也可以与熟悉的工具配合使用。</p></div>
         <div class="fit-grid">
           <div class="card fit-card good"><span class="fit-mark">✓</span><div><h3>适合：你同时使用多个 AI 工具</h3><p>你已经遇到过上下文丢失、工作交接混乱，或者不知道 AI 到底做没做完。</p></div></div>
-          <div class="card fit-card good"><span class="fit-mark">✓</span><div><h3>适合：你有一个会持续数天的项目</h3><p>你需要保存背景、决定、结果和下一步，而不是只完成一次问答。</p></div></div>
-          <div class="card fit-card maybe"><span class="fit-mark">—</span><div><h3>暂时不适合：只想要轻量待办清单</h3><p>DeskPartner 的价值在 Agent 协作和工作连续性，不是替代最简单的 Todo 应用。</p></div></div>
-          <div class="card fit-card maybe"><span class="fit-mark">—</span><div><h3>暂时不适合：希望完全零配置</h3><p>首次使用需要接入一个支持 MCP 或 CLI 的 AI；完成后，后续项目可以复用这份工作空间。</p></div></div>
+          <div class="card fit-card good"><span class="fit-mark">✓</span><div><h3>适合：你有一个会持续数天的项目</h3><p>你需要保存背景、决定、结果和下一步，让每次交流都沉淀为可继续的进展。</p></div></div>
+          <div class="card fit-card maybe"><span class="fit-mark">→</span><div><h3>轻量任务：从熟悉的待办工具开始</h3><p>当工作需要多个 AI 接力、持续保存背景和结果时，再把项目接入 DeskPartner。</p></div></div>
+          <div class="card fit-card maybe"><span class="fit-mark">→</span><div><h3>首次接入：预留几分钟完成配置</h3><p>连接一个支持 MCP 或 CLI 的 AI 并完成配置，后续项目可以持续复用这份工作空间。</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <div class="container">
+        <div class="section-head"><p class="section-kicker">Common questions</p><h2>关于 DeskPartner，你可能想先了解这些。</h2><p class="section-intro">用几句话了解产品定位、使用方式、数据位置和首次接入。</p></div>
+        <div class="fit-grid">
+          <details class="card"><summary><strong>DeskPartner 适合什么样的用户？</strong></summary><p>DeskPartner 适合同时使用多个 AI 工具、正在推进持续项目的开发者、研究者和独立工作者。它帮助不同 AI 共享项目上下文、历史决定和工作结果。</p></details>
+          <details class="card"><summary><strong>DeskPartner 和普通 AI 聊天工具如何配合？</strong></summary><p>你继续使用熟悉的 AI 工具负责理解与执行，DeskPartner 保存项目背景、工作结果、决定和下一步。多个 AI 可以围绕同一个项目接力工作。</p></details>
+          <details class="card"><summary><strong>DeskPartner 的数据保存在哪里？</strong></summary><p>项目、事项、接手说明和审批记录默认保存在 Windows 本机。DeskPartner 支持通过 MCP 和 CLI 连接 AI 助手。</p></details>
+          <details class="card"><summary><strong>第一次使用需要做什么？</strong></summary><p>下载安装 DeskPartner，连接一个支持 MCP 或 CLI 的 AI，完成一次接入申请与批准，再让它在真实项目里提交第一项工作。</p></details>
         </div>
       </div>
     </section>
 
     <section id="setup" class="section">
       <div class="container">
-        <div class="section-head"><p class="section-kicker">Start with one assistant</p><h2>开始接入，先完成一件真实的事。</h2><p class="section-intro">首次接入不是为了学会所有功能。连接一个你已经在用的 AI，让它在一个真实项目里完成第一项工作。</p></div>
+        <div class="section-head"><p class="section-kicker">Start with one assistant</p><h2>开始接入，先完成一件真实的事。</h2><p class="section-intro">首次接入的目标很简单：连接一个你已经在用的 AI，让它在一个真实项目里完成第一项工作。</p></div>
         <div class="setup-box">
-          <div class="setup-step"><span class="setup-index">01</span><div><strong>下载安装并打开 DeskPartner</strong><p>Windows 10 / 11。数据默认保存在本机，不需要注册云端账号。</p></div></div>
+          <div class="setup-step"><span class="setup-index">01</span><div><strong>下载安装并打开 DeskPartner</strong><p>Windows 10 / 11。数据默认保存在本机，打开后即可建立本地工作空间。</p></div></div>
           <div class="setup-step"><span class="setup-index">02</span><div><strong>复制 MCP 配置，或使用 CLI</strong><p>在应用内快速上手页复制当前安装路径；支持 MCP 的 AI 宿主重连后即可发现 DeskPartner。</p></div></div>
           <div class="setup-step"><span class="setup-index">03</span><div><strong>让 AI 先读接入说明，再申请加入</strong><p>它会说明自己是谁、要读取什么，以及哪些操作需要你的批准。</p></div></div>
           <div class="setup-step"><span class="setup-index">04</span><div><strong>在桌面端批准，再开始第一项工作</strong><p>批准后，让它读取一个项目并提交一项你能判断是否完成的工作。</p></div></div>
-          <div class="migration-note"><strong>升级时的一个提醒：</strong>如果安装目录发生变化，已经打开的终端或 Agent 需要重启；MCP 宿主可能需要用快速上手页的新配置覆盖旧路径并重连。常规覆盖安装保持同一目录时，通常不需要再次配置。</div>
+          <div class="migration-note"><strong>升级时的一个提醒：</strong>如果安装目录发生变化，请重启已经打开的终端或 Agent；MCP 宿主请使用快速上手页的新配置并重连。保持同一安装目录升级时，原有接入配置可以继续使用。</div>
         </div>
         <details class="dev-details"><summary>开发者：查看 CLI / MCP 入口</summary><div class="detail-body"><p class="section-intro">面向需要自动化接入的用户，DeskPartner 同时提供 CLI 和 MCP。请以安装后的 `skill` / `get_guide` 输出为准，不要复制过时的命令表。</p><pre class="code-block"><code>node "$DESKPARTNER_CLI" skill
 
@@ -365,9 +421,9 @@
 
     <section class="section">
       <div class="container">
-        <div class="section-head center"><p class="section-kicker">Local by default</p><h2>工作在你的电脑里，决定权在你手里。</h2><p class="section-intro">DeskPartner 不是云端聊天平台，而是人和 Agent 共享的本地控制面。</p></div>
+        <div class="section-head center"><p class="section-kicker">Local by default</p><h2>工作在你的电脑里，决定权在你手里。</h2><p class="section-intro">DeskPartner 是人和 Agent 共享的本地控制面，数据默认留在你的电脑里。</p></div>
         <div class="roles-grid">
-          <article class="card"><div class="card-label">local</div><h3>本地保存</h3><p>项目、事项、接手说明和审批记录默认保存在本机数据库。无需注册账号，只有检查更新时访问 GitHub Releases。</p></article>
+          <article class="card"><div class="card-label">local</div><h3>本地保存</h3><p>项目、事项、接手说明和审批记录默认保存在本机数据库。打开后即可建立本地工作空间，更新检查仅访问 GitHub Releases。</p></article>
           <article class="card"><div class="card-label">approval</div><h3>重要动作先问你</h3><p>Agent 可以执行被允许的工作；修改关键资料、删除或需要确认的动作，可以先进入审批。</p></article>
           <article class="card"><div class="card-label">open</div><h3>开源且可检查</h3><p>代码、版本和数据结构公开。你可以从 GitHub 查看实现、更新记录和接入文档。</p></article>
         </div>
