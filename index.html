@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#f5f2eb" />
+  <meta name="theme-color" content="#F7F7F5" />
   <title>DeskPartner｜多 AI 协作与项目接续的本地工作空间</title>
   <meta name="description" content="DeskPartner 是本地优先的人机共享工作空间，让多个 AI 助手共享项目上下文、历史决定和工作结果。AI 执行，人批准与验收。" />
   <meta name="keywords" content="AI 协作,多 Agent,AI 工作空间,项目接续,AI 上下文,本地 AI,CLI,MCP,人工审批" />
@@ -37,8 +37,8 @@
     "applicationCategory": "ProductivityApplication",
     "operatingSystem": "Windows 10, Windows 11",
     "url": "https://lynnnn928.github.io/deskpartner/",
-    "downloadUrl": "https://github.com/lynnnn928/deskpartner/releases/download/v1.0.136/DeskPartner-Setup-1.0.136.exe",
-    "softwareVersion": "1.0.136",
+    "downloadUrl": "https://github.com/lynnnn928/deskpartner/releases/download/v1.0.138/DeskPartner.Setup.1.0.138.exe",
+    "softwareVersion": "1.0.138",
     "license": "https://opensource.org/licenses/MIT",
     "description": "本地优先的人机共享工作空间，让多个 AI 助手共享项目上下文、历史决定和工作结果。",
     "author": { "@type": "Person", "name": "LiLin", "url": "https://github.com/lynnnn928" },
@@ -65,45 +65,74 @@
   }
   </script>
   <style>
+    /* ── 设计令牌 ──
+       与客户端 src/renderer/styles/variables.css 同源：暖白底、纯白卡片、墨黑强调、
+       中性灰文字，状态色只作为识别点出现。 */
     :root {
       color-scheme: light;
-      --paper: #f5f2eb;
-      --paper-deep: #ece8df;
-      --surface: #fffdf9;
-      --surface-strong: #ffffff;
-      --ink: #1d2925;
-      --muted: #68716c;
-      --faint: #919a94;
-      --line: #dedfd8;
-      --green: #245b4d;
-      --green-dark: #173f36;
-      --green-soft: #dfece5;
-      --coral: #c7634e;
-      --yellow: #d9a847;
-      --shadow: 0 16px 42px rgba(40, 48, 41, .09);
-      --shadow-small: 0 5px 18px rgba(40, 48, 41, .07);
-      --radius: 18px;
-      --radius-small: 10px;
+      --paper: #F7F7F5;
+      --paper-deep: #F2F2F0;
+      --surface: #FFFFFF;
+      --surface-strong: #FFFFFF;
+      --ink: #111827;
+      --muted: #6B7280;
+      --faint: #9CA3AF;
+      --line: #E5E7EB;
+      --accent: #111827;
+      --accent-hover: #1F2937;
+      --accent-fg: #FFFFFF;
+      --accent-soft: #F3F4F6;
+      --status-blue: #5388F6;
+      --status-purple: #C084FC;
+      --status-green: #16A34A;
+      --status-mint: #65C19C;
+      --status-amber: #E8A33D;
+      --status-gray: #9CA3AF;
+      --coral: #E8756D;
+      --yellow: #F59E0B;
+      --shadow: 0 18px 45px rgba(17, 24, 39, 0.10);
+      --shadow-small: 0 1px 3px rgba(0, 0, 0, 0.06);
+      --radius: 14px;
+      --radius-panel: 20px;
+      --radius-small: 8px;
+      --radius-xs: 4px;
+      /* 深色高对比面板（win-proof）：浅色下墨黑底，深色下与卡片同层 + 细边框 */
+      --panel-strong: #111827;
+      --panel-strong-fg: #FFFFFF;
+      --panel-strong-muted: rgba(255, 255, 255, .74);
+      --panel-strong-line: rgba(255, 255, 255, .16);
       --max: 1120px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
       --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
     }
     [data-theme="dark"] {
       color-scheme: dark;
-      --paper: #1b2421;
-      --paper-deep: #202c28;
-      --surface: #25332e;
-      --surface-strong: #2c3a35;
-      --ink: #eef3ed;
-      --muted: #b4c0b9;
-      --faint: #89978f;
-      --line: #3b4a44;
-      --green: #93d0b2;
-      --green-dark: #b4e5ca;
-      --green-soft: #29473d;
-      --coral: #ed9883;
-      --yellow: #e8c068;
-      --shadow: 0 18px 46px rgba(0, 0, 0, .28);
-      --shadow-small: 0 5px 18px rgba(0, 0, 0, .2);
+      --paper: #2C2C2C;
+      --paper-deep: #333333;
+      --surface: #3A3A3A;
+      --surface-strong: #424242;
+      --ink: #E5E5E5;
+      --muted: #9CA3AF;
+      --faint: #6B7280;
+      --line: #4A4A4A;
+      --accent: #E5E5E5;
+      --accent-hover: #FFFFFF;
+      --accent-fg: #111827;
+      --accent-soft: #333333;
+      --status-blue: #7BA4F7;
+      --status-purple: #C99AF8;
+      --status-green: #7DD4AD;
+      --status-mint: #7DD4AD;
+      --status-amber: #E8B65C;
+      --status-gray: #8A8A8A;
+      --coral: #F09188;
+      --yellow: #FBBF24;
+      --shadow: 0 18px 45px rgba(0, 0, 0, 0.36);
+      --shadow-small: 0 1px 3px rgba(0, 0, 0, 0.25);
+      --panel-strong: #3A3A3A;
+      --panel-strong-fg: #E5E5E5;
+      --panel-strong-muted: #9CA3AF;
+      --panel-strong-line: #4A4A4A;
     }
     *, *::before, *::after { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -111,7 +140,7 @@
       margin: 0;
       background: var(--paper);
       color: var(--ink);
-      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      font-family: var(--font-sans);
       font-size: 15px;
       line-height: 1.7;
       line-break: strict;
@@ -119,17 +148,16 @@
       -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 4px; }
-    h1, h2, h3 { text-wrap: balance; }
+    h1, h2, h3, h4 { font-family: var(--font-sans); text-wrap: balance; }
+    h1 { font-weight: 700; }
+    h2 { font-weight: 700; }
+    h3 { font-weight: 650; }
     p { text-wrap: pretty; }
     .hero h1 .headline-line { display: block; white-space: nowrap; }
-    :focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     section[id] { scroll-margin-top: 84px; }
     details summary { cursor: pointer; }
     details[open] summary { margin-bottom: 12px; }
-    [data-theme="dark"] .btn-primary,
-    [data-theme="dark"] .tab[aria-selected="true"],
-    [data-theme="dark"] .step-num { color: #173f36; }
-    [data-theme="dark"] .win-proof { background: #173f36; }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       .btn, .toast { transition: none; }
@@ -141,67 +169,68 @@
     /* Navigation */
     .site-nav {
       position: sticky; top: 0; z-index: 20;
-      border-bottom: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+      border-bottom: 1px solid var(--line);
       background: color-mix(in srgb, var(--paper) 88%, transparent);
       backdrop-filter: blur(18px);
     }
     .nav-inner { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 720; letter-spacing: -.02em; text-decoration: none; }
     .brand img { width: 30px; height: 30px; border-radius: 50%; }
-    .nav-links { display: none; align-items: center; gap: 24px; }
+    .nav-links { display: none; align-items: center; gap: 22px; }
     .nav-links a { color: var(--muted); font-size: 13px; text-decoration: none; }
     .nav-links a:hover { color: var(--ink); }
     .nav-actions { display: flex; align-items: center; gap: 9px; }
-    .theme-btn { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer; }
+    .theme-btn { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--surface); color: var(--ink); cursor: pointer; }
+    .theme-btn:hover { background: var(--paper-deep); }
 
     /* Buttons */
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 650; text-decoration: none; border: 1px solid transparent; white-space: nowrap; transition: transform .16s ease, background .16s ease, border-color .16s ease; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 20px; border-radius: var(--radius-small); font-family: var(--font-sans); font-size: 14px; font-weight: 650; text-decoration: none; border: 1px solid transparent; white-space: nowrap; transition: transform .16s ease, background .16s ease, border-color .16s ease; }
     .btn:hover { transform: translateY(-1px); text-decoration: none; }
-    .btn-primary { color: #f7fbf8; background: var(--green); box-shadow: 0 7px 18px color-mix(in srgb, var(--green) 22%, transparent); }
-    .btn-primary:hover { background: var(--green-dark); }
+    .btn-primary { color: var(--accent-fg); background: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); }
     .btn-secondary { color: var(--ink); background: var(--surface); border-color: var(--line); }
     .btn-secondary:hover { background: var(--paper-deep); }
     .btn-small { min-height: 36px; padding: 0 14px; font-size: 12px; }
 
     /* Hero */
     .hero { position: relative; overflow: hidden; padding: 96px 0 78px; }
-    .hero::before { content: ""; position: absolute; width: 520px; height: 520px; right: -180px; top: -230px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--green-soft) 74%, transparent), transparent 68%); pointer-events: none; }
+    .hero::before { content: ""; position: absolute; width: 520px; height: 520px; right: -180px; top: -230px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--status-blue) 13%, transparent), transparent 68%); pointer-events: none; }
     .hero-grid { position: relative; display: grid; gap: 46px; align-items: center; }
-    .eyebrow { margin: 0 0 18px; color: var(--green); font-size: 11px; letter-spacing: .11em; text-transform: uppercase; }
-    .hero h1 { max-width: 720px; margin: 0 0 22px; font-family: Georgia, "Songti SC", serif; font-size: clamp(32px, 4.2vw, 52px); font-weight: 500; letter-spacing: -.035em; line-height: 1.3; }
-    .hero h1 em { color: var(--green); font-style: normal; }
+    .eyebrow { margin: 0 0 18px; color: var(--muted); font-size: 11px; letter-spacing: .11em; text-transform: uppercase; }
+    .hero h1 { max-width: 720px; margin: 0 0 22px; font-size: clamp(32px, 4vw, 50px); font-weight: 700; letter-spacing: -.03em; line-height: 1.24; }
+    .hero h1 em { color: var(--status-blue); font-style: normal; }
     .hero-lead { max-width: 650px; margin: 0 0 28px; color: var(--muted); font-size: clamp(17px, 2vw, 20px); line-height: 1.75; }
     .audience { display: flex; align-items: flex-start; gap: 10px; max-width: 610px; margin: 0 0 30px; color: var(--ink); font-size: 13px; }
     .audience-mark { flex: 0 0 auto; width: 9px; height: 9px; margin-top: 9px; border-radius: 50%; background: var(--coral); }
     .cta-row { display: flex; flex-wrap: wrap; gap: 11px; margin-bottom: 17px; }
     .hero-meta { color: var(--faint); font-size: 12px; }
-    .hero-card { position: relative; padding: 16px; border: 1px solid var(--line); border-radius: 24px; background: color-mix(in srgb, var(--surface) 85%, transparent); box-shadow: var(--shadow); transform: rotate(1.2deg); }
+    .hero-card { position: relative; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }
     .window-bar { display: flex; align-items: center; gap: 6px; padding: 4px 6px 13px; color: var(--faint); font-size: 11px; }
     .window-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--coral); }
     .window-dot:nth-child(2) { background: var(--yellow); }
-    .window-dot:nth-child(3) { background: var(--green); }
+    .window-dot:nth-child(3) { background: var(--status-mint); }
     .window-title { margin-left: auto; margin-right: auto; font-family: var(--mono); font-size: 10px; }
-    .hero-shot { display: block; width: 100%; border-radius: 13px; border: 1px solid var(--line); }
-    .hero-card-note { position: absolute; right: -18px; bottom: -20px; max-width: 210px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-strong); box-shadow: var(--shadow-small); font-size: 12px; line-height: 1.45; }
-    .hero-card-note strong { display: block; color: var(--green); font-size: 11px; margin-bottom: 3px; }
+    .hero-shot { display: block; width: 100%; border-radius: var(--radius-small); border: 1px solid var(--line); }
+    .hero-card-note { position: absolute; right: -18px; bottom: -20px; max-width: 210px; padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-strong); box-shadow: var(--shadow-small); font-size: 12px; line-height: 1.45; }
+    .hero-card-note strong { display: block; color: var(--status-green); font-size: 11px; margin-bottom: 3px; }
 
     /* Sections */
     .section { padding: 92px 0; border-top: 1px solid var(--line); }
     .section-head { max-width: 680px; margin-bottom: 38px; }
     .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
-    .section-kicker { margin: 0 0 11px; color: var(--green); font-size: 12px; font-weight: 720; letter-spacing: .08em; text-transform: uppercase; }
-    .section h2 { margin: 0 0 13px; font-family: Georgia, "Songti SC", serif; font-size: clamp(25px, 3vw, 36px); font-weight: 500; letter-spacing: -.025em; line-height: 1.4; }
+    .section-kicker { margin: 0 0 11px; color: var(--faint); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .section h2 { margin: 0 0 13px; font-size: clamp(25px, 3vw, 36px); font-weight: 700; letter-spacing: -.025em; line-height: 1.35; }
     .section-intro { margin: 0; color: var(--muted); font-size: 16px; }
     .problem-grid, .roles-grid, .use-grid, .fit-grid { display: grid; gap: 14px; }
     .card { padding: 25px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-small); }
-    .card-label { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; color: var(--green); font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-    .card-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-    .card h3 { margin: 0 0 8px; font-family: Georgia, "Songti SC", serif; font-size: 22px; font-weight: 500; letter-spacing: -.025em; }
+    .card-label { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+    .card-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--status-blue); }
+    .card h3 { margin: 0 0 8px; font-size: 21px; font-weight: 650; letter-spacing: -.02em; }
     .card p { margin: 0; color: var(--muted); font-size: 14px; }
-    .pull-quote { margin: 34px 0 0; padding: 22px 25px; border-left: 3px solid var(--green); color: var(--ink); font-family: Georgia, "Songti SC", serif; font-size: 24px; line-height: 1.45; }
+    .pull-quote { margin: 34px 0 0; padding: 20px 25px; border-left: 3px solid var(--accent); color: var(--ink); font-size: 21px; font-weight: 650; letter-spacing: -.015em; line-height: 1.5; }
 
     /* Roles */
-    .roles-wrap { padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: var(--paper-deep); }
+    .roles-wrap { padding: 28px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--paper-deep); }
     .role { display: grid; gap: 8px; padding: 20px 0; border-bottom: 1px solid var(--line); }
     .role:last-child { border-bottom: 0; padding-bottom: 0; }
     .role:first-child { padding-top: 0; }
@@ -214,25 +243,56 @@
     .win-steps { display: grid; gap: 0; }
     .win-step { position: relative; display: grid; grid-template-columns: 42px 1fr; gap: 14px; padding: 0 0 25px; }
     .win-step:not(:last-child)::after { content: ""; position: absolute; left: 20px; top: 42px; bottom: 0; width: 1px; background: var(--line); }
-    .step-num { position: relative; z-index: 1; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--green); color: #fff; font-family: var(--mono); font-size: 12px; }
+    .step-num { position: relative; z-index: 1; display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--radius-small); background: var(--accent); color: var(--accent-fg); font-family: var(--mono); font-size: 12px; }
     .win-step h3 { margin: 4px 0 4px; font-size: 16px; }
     .win-step p { margin: 0; color: var(--muted); font-size: 13px; }
-    .win-proof { display: flex; flex-direction: column; justify-content: center; padding: 25px; border-radius: var(--radius); background: var(--green-dark); color: #f0f8f2; }
-    .win-proof .eyebrow { color: #a9d8ba; }
-    .win-proof h3 { margin: 0 0 15px; font-family: Georgia, "Songti SC", serif; font-size: 28px; font-weight: 500; line-height: 1.25; }
-    .win-proof p { margin: 0 0 20px; color: #c8ddd0; font-size: 14px; }
+    .win-proof { display: flex; flex-direction: column; justify-content: center; padding: 26px; border: 1px solid var(--panel-strong-line); border-radius: var(--radius); background: var(--panel-strong); color: var(--panel-strong-fg); }
+    .win-proof .eyebrow { color: var(--status-mint); }
+    .win-proof h3 { margin: 0 0 15px; font-size: 25px; font-weight: 700; letter-spacing: -.02em; line-height: 1.3; }
+    .win-proof p { margin: 0 0 20px; color: var(--panel-strong-muted); font-size: 14px; }
     .proof-list { display: grid; gap: 9px; padding: 0; list-style: none; }
-    .proof-list li { display: flex; gap: 9px; color: #dbece1; font-size: 13px; }
-    .proof-list li::before { content: "✓"; color: #a9d8ba; font-weight: 700; }
+    .proof-list li { display: flex; gap: 9px; color: var(--panel-strong-fg); font-size: 13px; }
+    .proof-list li::before { content: "✓"; color: var(--status-mint); font-weight: 700; }
 
     /* Product tour */
     .tour { display: grid; gap: 24px; }
     .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tab { padding: 9px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 12px; cursor: pointer; }
-    .tab[aria-selected="true"] { border-color: var(--green); background: var(--green); color: #fff; }
-    .shot-shell { padding: 12px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
-    .shot-shell img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 13px; }
+    .tab { padding: 9px 14px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--surface); color: var(--muted); font-family: var(--font-sans); font-size: 12px; cursor: pointer; }
+    .tab:hover { border-color: var(--faint); color: var(--ink); }
+    .tab[aria-selected="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+    .shot-shell { padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }
+    .shot-shell img { display: block; width: 100%; border: 1px solid var(--line); border-radius: var(--radius-small); }
     .shot-caption { margin: 13px 4px 0; color: var(--muted); font-size: 13px; }
+
+    /* Manual */
+    .manual-shell { display: grid; gap: 18px; }
+    .manual-panel { padding: 26px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-small); }
+    .manual-panel[hidden] { display: none; }
+    .manual-panel h3 { margin: 0 0 6px; font-size: 20px; font-weight: 650; letter-spacing: -.015em; }
+    .manual-panel > p { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+    .manual-group + .manual-group { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+    .manual-group h4 { margin: 0 0 12px; color: var(--ink); font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+    .status-list { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }
+    .status-item { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 12px; }
+    .status-dot { width: 10px; height: 10px; margin-top: 8px; border-radius: 50%; background: var(--status-gray); }
+    .status-dot.proposed { background: var(--status-purple); }
+    .status-dot.todo { background: var(--status-blue); }
+    .status-dot.in-progress { background: var(--status-mint); }
+    .status-dot.awaiting-review { background: var(--coral); }
+    .status-dot.done { background: var(--status-gray); }
+    .status-dot.suspended { background: var(--status-amber); }
+    .status-dot.discarded { background: var(--faint); }
+    .status-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .status-head strong { font-size: 14px; font-weight: 650; }
+    .status-head code { color: var(--muted); font-size: 11px; }
+    .chip { padding: 1px 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); background: var(--accent-soft); color: var(--muted); font-size: 11px; line-height: 1.8; }
+    .status-item p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .mini-grid { display: grid; gap: 12px; }
+    .mini-card { padding: 15px 17px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper-deep); }
+    .mini-card strong { display: block; margin-bottom: 3px; font-size: 14px; font-weight: 650; }
+    .mini-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .tier-badge { display: inline-block; margin-right: 6px; padding: 1px 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); background: var(--surface); color: var(--faint); font-family: var(--mono); font-size: 11px; }
+    kbd { padding: 2px 7px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: var(--radius-xs); background: var(--surface); font-family: var(--mono); font-size: 11px; }
 
     /* Scenarios */
     .scenario-card { min-height: 200px; display: flex; flex-direction: column; justify-content: space-between; }
@@ -241,29 +301,29 @@
     .scenario-card p { margin-top: auto; }
     .fit-card { display: flex; gap: 14px; align-items: flex-start; }
     .fit-mark { flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 700; }
-    .fit-card.good .fit-mark { background: var(--green-soft); color: var(--green); }
-    .fit-card.maybe .fit-mark { background: color-mix(in srgb, var(--yellow) 18%, var(--surface)); color: #9b711d; }
-    .fit-card h3 { margin: 0 0 4px; font-family: inherit; font-size: 15px; font-weight: 700; }
+    .fit-card.good .fit-mark { background: color-mix(in srgb, var(--status-green) 14%, var(--surface)); color: var(--status-green); }
+    .fit-card.maybe .fit-mark { background: color-mix(in srgb, var(--yellow) 16%, var(--surface)); color: color-mix(in srgb, var(--yellow) 70%, var(--ink)); }
+    .fit-card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
 
     /* Setup */
-    .setup-box { display: grid; gap: 24px; padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); }
+    .setup-box { display: grid; gap: 24px; padding: 28px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
     .setup-step { display: grid; grid-template-columns: 34px 1fr; gap: 13px; align-items: start; }
-    .setup-index { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--green-soft); color: var(--green); font-family: var(--mono); font-size: 11px; }
+    .setup-index { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--accent-soft); color: var(--ink); font-family: var(--mono); font-size: 11px; }
     .setup-step strong { display: block; margin-bottom: 2px; }
     .setup-step p { margin: 0; color: var(--muted); font-size: 13px; }
-    .migration-note { padding: 17px 19px; border: 1px solid color-mix(in srgb, var(--yellow) 40%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--yellow) 9%, var(--surface)); color: var(--muted); font-size: 13px; }
+    .migration-note { padding: 17px 19px; border: 1px solid color-mix(in srgb, var(--yellow) 40%, var(--line)); border-radius: var(--radius); background: color-mix(in srgb, var(--yellow) 9%, var(--surface)); color: var(--muted); font-size: 13px; }
     .migration-note strong { color: var(--ink); }
     .dev-details { margin-top: 18px; }
-    .dev-details summary { cursor: pointer; color: var(--green); font-weight: 700; }
+    .dev-details summary { color: var(--ink); font-weight: 700; }
     .dev-details .detail-body { display: grid; gap: 15px; margin-top: 18px; }
-    .code-block { overflow-x: auto; margin: 0; padding: 16px; border-radius: 12px; background: var(--paper-deep); color: var(--ink); font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+    .code-block { overflow-x: auto; margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--paper-deep); color: var(--ink); font-family: var(--mono); font-size: 12px; line-height: 1.6; }
 
     /* Footer */
     footer { padding: 42px 0 55px; color: var(--muted); font-size: 12px; }
     .footer-inner { display: flex; flex-direction: column; gap: 15px; }
     .footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
     .footer-links a { color: var(--muted); }
-    .toast { position: fixed; right: 20px; bottom: 20px; z-index: 30; padding: 10px 15px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-strong); box-shadow: var(--shadow-small); opacity: 0; transform: translateY(8px); pointer-events: none; transition: .18s ease; font-size: 12px; }
+    .toast { position: fixed; right: 20px; bottom: 20px; z-index: 30; padding: 10px 15px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--surface-strong); box-shadow: var(--shadow-small); opacity: 0; transform: translateY(8px); pointer-events: none; transition: .18s ease; font-size: 12px; }
     .toast.show { opacity: 1; transform: translateY(0); }
 
     @media (min-width: 720px) {
@@ -272,6 +332,7 @@
       .fit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .first-win { grid-template-columns: 1.1fr .9fr; }
       .role { grid-template-columns: 170px 1fr; gap: 22px; }
+      .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .footer-inner { flex-direction: row; align-items: center; justify-content: space-between; }
     }
     @media (min-width: 960px) {
@@ -288,7 +349,6 @@
       .container { width: min(100% - 28px, var(--max)); }
       .hero { padding-top: 66px; }
       .hero h1 { font-size: clamp(28px, 7.2vw, 38px); }
-      .hero-card { transform: none; }
       .nav-inner { gap: 8px; }
       .nav-actions { gap: 6px; }
       .nav-actions .btn { padding: 0 10px; font-size: 11px; }
@@ -296,6 +356,7 @@
       .brand img { width: 24px; height: 24px; }
       .hero-card-note { position: static; max-width: none; margin-top: 12px; }
       .section { padding: 68px 0; }
+      .manual-panel { padding: 20px; }
       .btn { width: 100%; }
       .cta-row { display: grid; }
     }
@@ -309,11 +370,12 @@
         <a href="#why">为什么需要</a>
         <a href="#first-win">第一次成功</a>
         <a href="#tour">看看里面</a>
+        <a href="#manual">使用手册</a>
         <a href="#setup">开始接入</a>
         <a href="#faq">常见问题</a>
       </nav>
       <div class="nav-actions">
-        <a class="btn btn-primary btn-small" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.136/DeskPartner-Setup-1.0.136.exe">下载 Windows 版</a>
+        <a class="btn btn-primary btn-small" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.138/DeskPartner.Setup.1.0.138.exe">下载 Windows 版</a>
         <button class="theme-btn" id="theme-toggle" type="button" aria-label="切换主题" title="切换主题">☼</button>
       </div>
     </div>
@@ -328,7 +390,7 @@
           <p class="hero-lead">DeskPartner 把多个 AI 助手共享的项目背景、历史决定和工作结果放在同一个本地工作空间里。AI 负责执行，你负责批准、验收和决定。</p>
           <div class="audience"><span class="audience-mark"></span><span><strong>适合谁：</strong>同时使用多个 AI 工具、正在推进长期项目的开发者、研究者和独立工作者。</span></div>
           <div class="cta-row">
-            <a class="btn btn-primary" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.136/DeskPartner-Setup-1.0.136.exe">下载并完成第一次协作 <span aria-hidden="true">↗</span></a>
+            <a class="btn btn-primary" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.138/DeskPartner.Setup.1.0.138.exe">下载并完成第一次协作 <span aria-hidden="true">↗</span></a>
             <a class="btn btn-secondary" href="#first-win">先看它如何工作</a>
           </div>
           <div class="hero-meta">Windows 10 / 11 · MIT 开源 · 数据保存在本机 · 首次接入需要配置一个 AI 助手</div>
@@ -398,6 +460,109 @@
       </div>
     </section>
 
+    <section id="manual" class="section">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-kicker">User guide</p>
+          <h2>产品使用手册</h2>
+          <p class="section-intro">面向日常使用的完整指南：从 7 态工作流、项目空间到安全审批与数据备份。</p>
+        </div>
+        <div class="manual-shell">
+          <div class="tabs" role="tablist" aria-label="使用手册章节">
+            <button class="tab manual-tab" id="manual-tab-1" type="button" role="tab" aria-selected="true" aria-controls="manual-panel-1" data-panel="manual-panel-1" tabindex="0">事项与工作流</button>
+            <button class="tab manual-tab" id="manual-tab-2" type="button" role="tab" aria-selected="false" aria-controls="manual-panel-2" data-panel="manual-panel-2" tabindex="-1">项目与工作台</button>
+            <button class="tab manual-tab" id="manual-tab-3" type="button" role="tab" aria-selected="false" aria-controls="manual-panel-3" data-panel="manual-panel-3" tabindex="-1">AI 团队与审批</button>
+            <button class="tab manual-tab" id="manual-tab-4" type="button" role="tab" aria-selected="false" aria-controls="manual-panel-4" data-panel="manual-panel-4" tabindex="-1">桌面快捷工具</button>
+            <button class="tab manual-tab" id="manual-tab-5" type="button" role="tab" aria-selected="false" aria-controls="manual-panel-5" data-panel="manual-panel-5" tabindex="-1">数据安全与备份</button>
+          </div>
+
+          <div class="manual-panel" id="manual-panel-1" role="tabpanel" aria-labelledby="manual-tab-1" tabindex="0">
+            <h3>事项与工作流</h3>
+            <p>每件事项都沿着同一条 7 态工作流推进：首尾各有一道质量关口，决定它能不能进来、算不算做完。</p>
+            <div class="manual-group">
+              <h4>7 个标准状态与两道关口</h4>
+              <ul class="status-list">
+                <li class="status-item"><span class="status-dot proposed" aria-hidden="true"></span><div><div class="status-head"><strong>待确认</strong><code>proposed</code><span class="chip">入口关口</span></div><p>AI 助手发现的新问题或待评估提议先落在此列。未经你拍板确认，不能围绕它拆解子任务或自行转入执行。</p></div></li>
+                <li class="status-item"><span class="status-dot todo" aria-hidden="true"></span><div><div class="status-head"><strong>待办</strong><code>todo</code><span class="chip">已确认立项</span></div><p>已确认要做、排入队列等待启动的事项。</p></div></li>
+                <li class="status-item"><span class="status-dot in-progress" aria-hidden="true"></span><div><div class="status-head"><strong>进行中</strong><code>in_progress</code><span class="chip">正在执行</span></div><p>执行人（你或被指派的 AI 助手）正在处理的事项；若验收未通过被退回，也会携带退回理由回到此列。</p></div></li>
+                <li class="status-item"><span class="status-dot awaiting-review" aria-hidden="true"></span><div><div class="status-head"><strong>待验收</strong><code>awaiting_review</code><span class="chip">交付关口</span></div><p>执行人已完成并附上验证证据，等待验收人核对。详情抽屉会自动展示「本次变更」对比。</p></div></li>
+                <li class="status-item"><span class="status-dot done" aria-hidden="true"></span><div><div class="status-head"><strong>已完成</strong><code>done</code><span class="chip">验收通过</span></div><p>经由非执行人本人验收通过并正式收口的事项，可关联至具体发布版本号。</p></div></li>
+                <li class="status-item"><span class="status-dot suspended" aria-hidden="true"></span><div><div class="status-head"><strong>挂起</strong><code>suspended</code><span class="chip">暂时搁置</span></div><p>因外部条件未就绪而暂停推进的事项，待条件满足后可随时恢复。</p></div></li>
+                <li class="status-item"><span class="status-dot discarded" aria-hidden="true"></span><div><div class="status-head"><strong>不做</strong><code>discarded</code><span class="chip">明确不做</span></div><p>经评估决定不再执行的事项（留作历史决策记录，不计入未完成工作量，也不计入完成率）。</p></div></li>
+              </ul>
+            </div>
+            <div class="manual-group">
+              <h4>三个角色与父子拆解</h4>
+              <div class="mini-grid">
+                <div class="mini-card"><strong>提出者（Owner）</strong><p>描述问题与期望结果，对“要不要做”负责。</p></div>
+                <div class="mini-card"><strong>执行人（Executor）</strong><p>承接执行并提交验证证据；禁止自验自过。</p></div>
+                <div class="mini-card"><strong>父需求与子任务</strong><p>所有子任务完成后，父需求方可进入待验收 / 完成。</p></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="manual-panel" id="manual-panel-2" role="tabpanel" aria-labelledby="manual-tab-2" tabindex="0" hidden>
+            <h3>项目与工作台</h3>
+            <p>项目是工作发生的容器；工作台把分散在各项目里、仍需要你处理的事情收拢到一处。</p>
+            <div class="manual-group">
+              <h4>工作台 · 我的工作</h4>
+              <div class="mini-card"><strong>汇总所有未归档项目中仍需处理的事项</strong><p>支持按「与我相关 / 全部 / 指定 AI 助手」切换视角，随时看清哪件事在等谁。</p></div>
+            </div>
+            <div class="manual-group">
+              <h4>项目接手说明（Handoff）</h4>
+              <div class="mini-card"><strong>让下一个 Agent 从当前进展接手</strong><p>每个项目概览页配有支持 Markdown 与 50 版修订历史的接手说明，写下 <code>#8位编号</code> 自动关联展示对应事项的实时状态。</p></div>
+            </div>
+            <div class="manual-group">
+              <h4>项目内五大页签</h4>
+              <div class="mini-grid">
+                <div class="mini-card"><strong>概览</strong><p>项目背景、接手说明与当前进展。</p></div>
+                <div class="mini-card"><strong>事项</strong><p>拖拽看板与多维筛选，按状态、负责人、标签查看。</p></div>
+                <div class="mini-card"><strong>动态</strong><p>状态流转时间线与项目通知。</p></div>
+                <div class="mini-card"><strong>版本</strong><p>按版本号聚合交付事项。</p></div>
+                <div class="mini-card"><strong>搜索</strong><p>全文检索事项、评论与接手说明。</p></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="manual-panel" id="manual-panel-3" role="tabpanel" aria-labelledby="manual-tab-3" tabindex="0" hidden>
+            <h3>AI 团队与审批</h3>
+            <p>所有 AI 助手都在「用户与团队」中持证管理，按操作风险分成四档权限。</p>
+            <div class="manual-group">
+              <h4>四档权限分级</h4>
+              <div class="mini-grid">
+                <div class="mini-card"><strong><span class="tier-badge">01</span>只读查询 · 免审批通行</strong><p>读取项目、事项、接手说明、统计与协作规则。</p></div>
+                <div class="mini-card"><strong><span class="tier-badge">02</span>日常协作写入 · 批准身份后长期有效</strong><p>创建事项、更新状态、发表评论，首次注册需在「审批」页批准身份，随时可暂停或吊销。</p></div>
+                <div class="mini-card"><strong><span class="tier-badge">03</span>修改界面设置 · 逐次或会话级授权</strong><p>修改主题、字号、悬浮球外观等设置时触发审批横幅，可选「允许一次」或「长期允许」。</p></div>
+                <div class="mini-card"><strong><span class="tier-badge">04</span>删除数据与变更协议 · 逐条强制审批 + 二次确认</strong><p>删除事项 / 版本 / 标签或修改个人档案、协作协议、项目接手说明，必须逐条经你在界面批准后由系统代为执行。</p></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="manual-panel" id="manual-panel-4" role="tabpanel" aria-labelledby="manual-tab-4" tabindex="0" hidden>
+            <h3>桌面快捷工具</h3>
+            <p>日常使用不需要先打开主窗口：悬浮球、快捷键与顶部横幅把入口放在你正在工作的地方。</p>
+            <div class="manual-group">
+              <h4>三种随手可用的入口</h4>
+              <div class="mini-card"><strong>桌面悬浮球</strong><p>常驻桌面边缘（支持拖拽贴边自动半隐藏），单击展开轻量事项面板，双击打开主窗口；有待审批或到期提醒时呈现柔和呼吸光效。</p></div>
+              <div class="mini-card"><strong>全局快捷键速记</strong><p>默认按下 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> 在任意软件上方唤起速记小窗，自动记忆上次使用的项目，写完回车即走。</p></div>
+              <div class="mini-card"><strong>顶部提醒与审批横幅</strong><p>事项到点提醒或 AI 助手发起高危操作申请时屏幕顶部滑出横幅，支持直接点击「稍后提醒」「允许一次」或跳往详情。</p></div>
+            </div>
+          </div>
+
+          <div class="manual-panel" id="manual-panel-5" role="tabpanel" aria-labelledby="manual-tab-5" tabindex="0" hidden>
+            <h3>数据安全与备份</h3>
+            <p>工作数据默认只留在这台电脑上，并且随时可以完整带走。</p>
+            <div class="manual-group">
+              <h4>三层保护</h4>
+              <div class="mini-card"><strong>100% 本地存储</strong><p>所有数据存储在 Windows 本机 SQLite 数据库（<code>user.db</code>）中，不经过任何云端服务器。</p></div>
+              <div class="mini-card"><strong>自动快照保护</strong><p>每次版本升级迁移数据库结构或执行全量导入前，自动在数据目录生成带时间戳的备份快照。</p></div>
+              <div class="mini-card"><strong>JSON 备份导出与导入</strong><p>在「设置 → 数据管理」中可随时将全部项目、事项、分类、版本与备忘导出为标准 JSON 文件，或在新电脑上一键恢复。</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="section">
       <div class="container">
         <div class="section-head"><p class="section-kicker">Use it for real work</p><h2>它适合哪些持续工作？</h2><p class="section-intro">把它放进一个真实项目里，记录每一次推进、决定与交接。</p></div>
@@ -453,7 +618,7 @@
       "args": ["C:/Users/&lt;你的用户名&gt;/AppData/Local/Programs/desk-partner/DeskPartner/resources/cli/mcp.cjs"]
     }
   }
-}</code></pre><p class="section-intro">遇到路径问题时运行 `doctor`，它会说明当前路径是否有效以及可用的后备路径。</p></div></details>
+}</code></pre><p class="section-intro">遇到路径问题时运行 <code>doctor</code>，它会说明当前路径是否有效以及可用的后备路径。</p></div></details>
       </div>
     </section>
 
@@ -479,6 +644,7 @@
 
   <script>
     (function () {
+      // 主题切换
       var toggle = document.getElementById('theme-toggle');
       if (toggle) toggle.addEventListener('click', function () {
         var current = document.documentElement.getAttribute('data-theme') || 'light';
@@ -486,16 +652,53 @@
         document.documentElement.setAttribute('data-theme', next);
         try { localStorage.setItem('dp-theme', next); } catch (e) {}
       });
-      var tabs = document.querySelectorAll('.tab');
+
+      // 界面预览 Tab
+      var tourTabs = document.querySelectorAll('.tour .tab');
       var image = document.getElementById('tour-img');
       var caption = document.getElementById('tour-caption');
-      tabs.forEach(function (tab) { tab.addEventListener('click', function () {
-        tabs.forEach(function (item) { item.setAttribute('aria-selected', 'false'); });
+      tourTabs.forEach(function (tab) { tab.addEventListener('click', function () {
+        tourTabs.forEach(function (item) { item.setAttribute('aria-selected', 'false'); });
         tab.setAttribute('aria-selected', 'true');
         image.setAttribute('src', tab.getAttribute('data-shot'));
         image.setAttribute('alt', tab.textContent + '界面截图');
         caption.textContent = tab.getAttribute('data-caption');
       }); });
+
+      // 使用手册章节 Tab
+      var manualTabs = Array.prototype.slice.call(document.querySelectorAll('.manual-tab'));
+      function selectManualTab(tab) {
+        manualTabs.forEach(function (item) {
+          var selected = item === tab;
+          item.setAttribute('aria-selected', selected ? 'true' : 'false');
+          item.setAttribute('tabindex', selected ? '0' : '-1');
+          var panel = document.getElementById(item.getAttribute('data-panel'));
+          if (panel) panel.hidden = !selected;
+        });
+      }
+      manualTabs.forEach(function (tab, index) {
+        tab.addEventListener('click', function () { selectManualTab(tab); });
+        tab.addEventListener('keydown', function (event) {
+          var next = null;
+          if (event.key === 'ArrowRight') next = manualTabs[(index + 1) % manualTabs.length];
+          else if (event.key === 'ArrowLeft') next = manualTabs[(index - 1 + manualTabs.length) % manualTabs.length];
+          else if (event.key === 'Home') next = manualTabs[0];
+          else if (event.key === 'End') next = manualTabs[manualTabs.length - 1];
+          if (!next) return;
+          event.preventDefault();
+          selectManualTab(next);
+          next.focus();
+        });
+      });
+
+      // 从客户端「查看在线使用手册 ↗」以 #manual 直达时，等布局完成后定位
+      function focusManualFromHash() {
+        if (location.hash !== '#manual') return;
+        var section = document.getElementById('manual');
+        if (section) section.scrollIntoView({ block: 'start' });
+      }
+      window.addEventListener('hashchange', focusManualFromHash);
+      window.addEventListener('load', focusManualFromHash);
     })();
   </script>
 </body>
