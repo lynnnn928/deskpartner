@@ -25,7 +25,7 @@ import { useCategoryStore } from '../../stores/category.store'
 import { useProjectStore } from '../../stores/project.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import type { TodoPriority, TodoStatus, TodoType } from '../../types/enums'
-import { shortId } from '../../lib/utils'
+import { formatTodoAgentPrompt, shortId } from '../../lib/utils'
 import type { TodoOwner } from '../../types/todo'
 import type { SpacingPreset } from '../../types/enums'
 import { invoke } from '../../lib/ipc-client'
@@ -707,8 +707,11 @@ export const QuickAddForm: React.FC = () => {
             <>
               <button
                 type="button"
+                data-testid="detail-copy-agent-prompt-btn"
                 onClick={() => {
-                  void navigator.clipboard.writeText(shortId(editingTodoId)).then(() => {
+                  const currentProjName = projects.find((p) => p.id === projectId)?.name ?? null
+                  const promptText = formatTodoAgentPrompt({ id: editingTodoId, title }, currentProjName)
+                  void navigator.clipboard.writeText(promptText).then(() => {
                     setCopiedId(true)
                     window.setTimeout(() => setCopiedId(false), 1600)
                   })
@@ -716,12 +719,12 @@ export const QuickAddForm: React.FC = () => {
                 className="inline-flex items-center gap-1 h-6 px-2 rounded-button text-caption font-mono
                   text-text-secondary bg-surface-subtle border border-border/70 hover:text-text-primary hover:border-text-secondary
                   transition-colors shrink-0"
-                title={`点击复制编号 ${shortId(editingTodoId)}（CLI 可直接用，如 dp todo update ${shortId(editingTodoId)}）`}
+                title={`点击复制给 AI：${formatTodoAgentPrompt({ id: editingTodoId, title }, projects.find((p) => p.id === projectId)?.name ?? null)}`}
               >
                 #{shortId(editingTodoId)}
                 <Icon name="copy" size={10} />
               </button>
-              {copiedId && <span className="text-caption text-success font-medium shrink-0">已复制编号</span>}
+              {copiedId && <span className="text-caption text-success font-medium shrink-0">已复制给 AI</span>}
 
               {parent && (
                 <button

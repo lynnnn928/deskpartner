@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { cn, shortId } from '../../lib/utils'
+import { cn, formatTodoAgentPrompt, shortId } from '../../lib/utils'
 import { CardActions } from './CardActions'
 import { Icon } from '../ui/Icon'
 import { useCategoryStore } from '../../stores/category.store'
@@ -222,6 +222,7 @@ export const TodoCard: React.FC<TodoCardProps> = ({ todo, onEdit, onDelete, onPi
             <CardActions
               todoId={todo.id}
               isPinned={todo.isPinned}
+              copyText={formatTodoAgentPrompt(todo, project?.name)}
               onEdit={onEdit}
               onDelete={onDelete}
               onPin={onPin}

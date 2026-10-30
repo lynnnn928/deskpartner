@@ -57,3 +57,21 @@ export function cn(...inputs: ClassValue[]): string {
 export function shortId(id: string): string {
   return id.slice(0, 8)
 }
+
+/**
+ * 生成直接粘贴给 AI 助手的一句话事项指派/查看指令（卡 `58d024f6`）
+ *
+ * 采用主用户拍板的方案 2（带项目名 + 8 位短号 + 标题）：
+ * `请看下「<项目名>」项目的卡片 #<8位ID>：「<卡片标题>」`
+ * 避免项目名恰好叫 DeskPartner 时分不清是工具名还是项目名，同时在跨项目视图下也能一眼定位所属项目。
+ */
+export function formatTodoAgentPrompt(
+  todo: { id: string; title: string },
+  projectName?: string | null
+): string {
+  const code = shortId(todo.id)
+  const proj = projectName?.trim()
+  return proj
+    ? `请看下「${proj}」项目的事项 #${code}：「${todo.title}」`
+    : `请看下事项 #${code}：「${todo.title}」`
+}

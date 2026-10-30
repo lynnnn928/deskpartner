@@ -115,14 +115,14 @@ export const WRITE_RECEIPT_SHAPES: Record<string, WriteReceiptShapeSpec> = {
     unattended: 'ok',
     keys: [
       'id', 'scope', 'projectId', 'blockKey', 'body', 'originalBody', 'baseUpdatedAt',
-      'decidedBody', 'proposer', 'status', 'decidedBy', 'decidedAt', 'createdAt'
+      'decidedBody', 'proposer', 'status', 'decidedBy', 'decidedAt', 'createdAt', 'diffSummary'
     ]
   },
   'protocol propose': {
     unattended: 'ok',
     keys: [
       'id', 'scope', 'projectId', 'blockKey', 'body', 'originalBody', 'baseUpdatedAt',
-      'decidedBody', 'proposer', 'status', 'decidedBy', 'decidedAt', 'createdAt'
+      'decidedBody', 'proposer', 'status', 'decidedBy', 'decidedAt', 'createdAt', 'diffSummary'
     ]
   },
   'rules propose': {

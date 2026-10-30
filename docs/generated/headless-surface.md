@@ -119,8 +119,8 @@
 | 9 | `todo unpin` | write | `object` | 直通（`ok=true`） | `id` `title` `isPinned` |
 | 10 | `todo rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：id deleted）；授权后顶层键：`id` `deleted` |
 | 11 | `telemetry clear` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：removed）；授权后顶层键：`removed` |
-| 12 | `profile propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` |
-| 13 | `protocol propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` |
+| 12 | `profile propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` `diffSummary` |
+| 13 | `protocol propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` `diffSummary` |
 | 14 | `rules propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `category` `ruleKey` `proposedEnforcement` `originalEnforcement` `baseUpdatedAt` `decidedEnforcement` `proposer` `status` `decidedBy` `decidedAt` `createdAt` |
 | 15 | `project handoff-propose` | write | `object` | 直通（`ok=true`） | `project` `proposal` |
 | 16 | `project handoff-update` | write | `object` | **需人工授权，形状未知**（`approval_required`） | 默认权限矩阵要求 Agent 走提议（错误信封 code=approval_required, exitCode=4，请用 project handoff-propose；授权直写后键：project changed revision）；授权后顶层键：`project` `changed` `revision` |

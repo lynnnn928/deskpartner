@@ -34,6 +34,24 @@ function resolveGovernanceProjectId(ctx: CliContext, raw: unknown): string {
 import { PROFILE_BLOCK_KEYS } from '../../database/profile.repository'
 import { PROTOCOL_BLOCK_KEYS } from '../../database/protocol.repository'
 
+function buildProposalDiffSummary(originalBody: string, proposedBody: string, append: boolean) {
+  const origLines = originalBody.trim() ? originalBody.trim().split(/\r?\n/) : []
+  const propLines = proposedBody.trim() ? proposedBody.trim().split(/\r?\n/) : []
+  const origSet = new Set(origLines)
+  const propSet = new Set(propLines)
+  const addedLines = propLines.filter((l) => !origSet.has(l))
+  const removedLines = origLines.filter((l) => !propSet.has(l))
+  return {
+    mode: append ? ('append' as const) : ('replace' as const),
+    originalLineCount: origLines.length,
+    proposedLineCount: propLines.length,
+    addedCount: addedLines.length,
+    removedCount: removedLines.length,
+    addedLines,
+    removedLines
+  }
+}
+
 export const protocolGetCommands: CommandSpec[] = [
   {
     name: 'protocol get',
@@ -82,19 +100,27 @@ export const profileCommands: CommandSpec[] = [
        * `usage_error`（退出码 2）—— 按退出码分流的调用方会把它判成"数据层异常"。
        */
       { flag: '--block', type: 'enum', enum: PROFILE_BLOCK_KEYS, required: true, desc: '档案区块' },
-      { flag: '--body', type: 'string', required: true, desc: '提议内容' }
+      { flag: '--body', type: 'string', required: true, desc: '提议内容' },
+      { flag: '--append', type: 'boolean', desc: '追加模式：在当前已生效正文末尾换行追加 --body，免去手抄整段原文' }
     ],
     run: (ctx, flags) => {
       const repo = ctx.deps.profileRepo
       const blockKey = String(flags['--block'] ?? '') as import('../../database/profile.repository').ProfileBlockKey
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined
       const projectId = rawProject ? resolveGovernanceProjectId(ctx, rawProject) : undefined
-      return repo.propose(
-        projectId ? { scope: 'project', projectId } : { scope: 'global' },
-        blockKey,
-        String(flags['--body'] ?? ''),
-        actorOf(ctx)
-      )
+      const scope = projectId ? ({ scope: 'project' as const, projectId }) : ({ scope: 'global' as const })
+      const append = Boolean(flags['--append'])
+      const rawBody = String(flags['--body'] ?? '')
+      let nextBody = rawBody
+      if (append) {
+        const existing = (repo.list(scope).find((b) => b.blockKey === blockKey)?.body ?? '').trim()
+        nextBody = existing ? `${existing}\n${rawBody.trim()}` : rawBody.trim()
+      }
+      const proposal = repo.propose(scope, blockKey, nextBody, actorOf(ctx))
+      return {
+        ...proposal,
+        diffSummary: buildProposalDiffSummary(proposal.originalBody ?? '', proposal.body ?? '', append)
+      }
     }
   },
   {
@@ -115,19 +141,27 @@ export const protocolProposalCommands: CommandSpec[] = [
     args: [
       { flag: '--project', type: 'string', desc: '项目名或项目 ID；不传为全局协议' },
       { flag: '--block', type: 'enum', enum: PROTOCOL_BLOCK_KEYS, required: true, desc: '协议区块' },
-      { flag: '--body', type: 'string', required: true, desc: '提议内容' }
+      { flag: '--body', type: 'string', required: true, desc: '提议内容' },
+      { flag: '--append', type: 'boolean', desc: '追加模式：在当前已生效正文末尾换行追加 --body，免去手抄整段原文' }
     ],
     run: (ctx, flags) => {
       const repo = ctx.deps.protocolRepo
       const blockKey = String(flags['--block'] ?? '') as import('../../database/protocol.repository').ProtocolBlockKey
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined
       const projectId = rawProject ? resolveGovernanceProjectId(ctx, rawProject) : undefined
-      return repo.propose(
-        projectId ? { scope: 'project', projectId } : { scope: 'global' },
-        blockKey,
-        String(flags['--body'] ?? ''),
-        actorOf(ctx)
-      )
+      const scope = projectId ? ({ scope: 'project' as const, projectId }) : ({ scope: 'global' as const })
+      const append = Boolean(flags['--append'])
+      const rawBody = String(flags['--body'] ?? '')
+      let nextBody = rawBody
+      if (append) {
+        const existing = (repo.list(scope).find((b) => b.blockKey === blockKey)?.body ?? '').trim()
+        nextBody = existing ? `${existing}\n${rawBody.trim()}` : rawBody.trim()
+      }
+      const proposal = repo.propose(scope, blockKey, nextBody, actorOf(ctx))
+      return {
+        ...proposal,
+        diffSummary: buildProposalDiffSummary(proposal.originalBody ?? '', proposal.body ?? '', append)
+      }
     }
   },
   {

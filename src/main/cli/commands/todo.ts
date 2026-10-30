@@ -942,6 +942,13 @@ export const todoCommands: CommandSpec[] = [
           '回答"上一轮之后哪些动了"，比逐个查 updatedAt 省一整轮'
       },
       {
+        flag: '--created-after',
+        type: 'string',
+        desc:
+          '只要在该时间之后**创建**的（ISO 或 YYYY-MM-DD）。' +
+          '配 --created-by 查找某人近期新建的事项（避免被频繁更新的旧事项挤出默认分页窗口）'
+      },
+      {
         flag: '--sort',
         type: 'enum',
         enum: ['pinned', 'updated', 'created', 'due', 'priority'],
@@ -1095,6 +1102,17 @@ export const todoCommands: CommandSpec[] = [
         }
         out = out.filter((t) => {
           const at = Date.parse(t.updatedAt)
+          return !Number.isNaN(at) && at >= since
+        })
+      }
+      if (flags['--created-after'] !== undefined) {
+        const raw = String(flags['--created-after']).trim()
+        const since = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw)
+        if (Number.isNaN(since)) {
+          throw new UsageError(`--created-after 读不出时间: ${raw}（用 2026-09-30 或完整 ISO）`)
+        }
+        out = out.filter((t) => {
+          const at = Date.parse(t.createdAt)
           return !Number.isNaN(at) && at >= since
         })
       }

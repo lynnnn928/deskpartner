@@ -50,7 +50,7 @@ Add the following entry to your MCP client configuration (replace the path with 
 }
 ```
 
-> **CLI Alternative**: DeskPartner automatically sets the `DESKPARTNER_CLI` user environment variable on launch. Agents with shell access can run `node "$DESKPARTNER_CLI" skill` directly.
+> **CLI Alternative**: DeskPartner automatically sets the `DESKPARTNER_CLI` user environment variable on launch. Agents with shell access can run `node "$DESKPARTNER_CLI" skill` directly. (Upgrading in the same folder requires no reconfiguration; if you reinstall to a different folder, restart open terminals or update the MCP `command` path and reconnect.)
 
 ### Step 2: Let the AI Register Its Identity
 

@@ -431,6 +431,11 @@ export const QuickStartView: React.FC = () => {
                     {activePrompt}
                   </div>
                 )}
+
+                <div className="mt-3 rounded-button border border-border/70 bg-surface-subtle px-3.5 py-2.5 text-caption text-text-secondary">
+                  <strong className="text-text-primary">更换过安装目录？</strong>
+                  同目录升级无需重配；若重装时更换了安装位置，已开启的命令行终端或助手进程请重启一次（或重新复制上方开场提示词获取最新路径），MCP 助手请用最新 <code className="font-mono text-text-primary">mcp.cjs</code> 路径更新配置并重连。
+                </div>
               </section>
 
               {/* 新手路径专属：推荐 AI 助手清单 */}
