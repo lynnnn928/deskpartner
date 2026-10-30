@@ -357,6 +357,8 @@ export interface IPCChannels {
   /** 版本与数据目录（设置·系统组展示与迁移） */
   'app:info': { input: void; result: { version: string; dataDir: string } }
   'app:openDataDir': { input: void; result: { opened: boolean; dataDir: string } }
+  /** 打开官方链接（产品官网 / 在线手册）：渲染层只报 URL，白名单校验在主进程 */
+  'app:openExternal': { input: { url: string }; result: { opened: boolean; url: string } }
   'app:pickDataDir': { input: void; result: { canceled: boolean; targetDir: string | null } }
   'app:changeDataDir': { input: { targetDir?: string } | void; result: { changed: boolean; dataDir: string; previousDir?: string } }
   'app:pickAppIcon': { input: void; result: { canceled: boolean; dataUrl: string | null } }

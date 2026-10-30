@@ -176,6 +176,34 @@ function hideReminderBanners(): void {
 }
 
 /**
+ * 允许 `app:openExternal` 打开的外部链接（卡 `5eaf6d1d`）。
+ *
+ * 渲染层只报一个 URL，主进程不认"是不是我们给的"这一点 —— URL 可以被任何脚本改写，
+ * 所以判据必须落在这里：只放开产品官网与官方 GitHub 仓库两个前缀，其余一律拒绝。
+ * 用前缀 + 路径边界比对（而不是 `includes`）：`https://evil.com/?x=lynnnn928.github.io/deskpartner`
+ * 这种把白名单塞进 query 的写法必须过不去。协议只认 `https:`，`http:` / `file:` / `javascript:` 全部拒。
+ */
+const ALLOWED_EXTERNAL_PREFIXES = [
+  'https://lynnnn928.github.io/deskpartner',
+  'https://github.com/lynnnn928/deskpartner'
+] as const
+
+export function isAllowedExternalUrl(rawUrl: string): boolean {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) return false
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl.trim())
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'https:') return false
+  const normalized = `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, '')
+  return ALLOWED_EXTERNAL_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
+  )
+}
+
+/**
  * IPC 注册中心
  * 统一注册所有 ipcMain.handle，类型安全
  *
@@ -1555,6 +1583,15 @@ export function registerIPC(
       const errMsg = await shell.openPath(dir)
       if (errMsg) throw new Error(errMsg)
       return { opened: true, dataDir: dir }
+    })
+  )
+  /** 打开产品官网 / 在线手册（卡 `5eaf6d1d`）：URL 先过白名单，只为官方站点开浏览器 */
+  ipcMain.handle('app:openExternal', (_e, input: { url: string }) =>
+    safeHandleAsync(async () => {
+      const url = typeof input?.url === 'string' ? input.url.trim() : ''
+      if (!isAllowedExternalUrl(url)) throw new Error('不允许打开非官方外部链接')
+      await shell.openExternal(url)
+      return { opened: true, url }
     })
   )
   ipcMain.handle('app:pickDataDir', (e) =>

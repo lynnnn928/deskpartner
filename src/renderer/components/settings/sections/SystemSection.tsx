@@ -349,6 +349,34 @@ export const SystemSection: React.FC = () => {
         </div>
       </Row>
 
+      {/* 完整手册已迁到官网（卡 `5eaf6d1d`）：客户端只留入口，链接由主进程校验后打开 */}
+      <Row label="产品官网与手册" hint="在浏览器中查看产品主页与在线完整使用指南">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="system-open-website-btn"
+            className="border border-border bg-surface-subtle hover:bg-surface-muted px-2.5 text-text-primary cursor-pointer"
+            onClick={() =>
+              void invoke('app:openExternal', { url: 'https://lynnnn928.github.io/deskpartner/' }).catch(() => undefined)
+            }
+          >
+            产品官网 ↗
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="system-open-manual-btn"
+            className="border border-border bg-surface-subtle hover:bg-surface-muted px-2.5 text-text-primary cursor-pointer"
+            onClick={() =>
+              void invoke('app:openExternal', { url: 'https://lynnnn928.github.io/deskpartner/#manual' }).catch(() => undefined)
+            }
+          >
+            在线使用手册 ↗
+          </Button>
+        </div>
+      </Row>
+
       {(pickingDir || pickingIcon || migrating) && (
         <div
           data-testid="system-modal-lock"
