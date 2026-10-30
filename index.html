@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f5f2eb" />
-  <title>DeskPartner — 让 AI 接着工作，项目始终从当前继续</title>
+  <title>DeskPartner｜多 AI 协作与项目接续的本地工作空间</title>
   <meta name="description" content="DeskPartner 是本地优先的人机共享工作空间，让多个 AI 助手共享项目上下文、历史决定和工作结果。AI 执行，人批准与验收。" />
   <meta name="keywords" content="AI 协作,多 Agent,AI 工作空间,项目接续,AI 上下文,本地 AI,CLI,MCP,人工审批" />
   <meta name="author" content="LiLin / lynnnn928" />
@@ -49,6 +49,18 @@
       "人工审批与结果验收",
       "本地数据保存",
       "CLI 与 MCP 接入"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {"@type": "Question", "name": "DeskPartner 适合什么样的用户？", "acceptedAnswer": {"@type": "Answer", "text": "DeskPartner 适合同时使用多个 AI 工具、正在推进持续项目的开发者、研究者和独立工作者。它帮助不同 AI 共享项目上下文、历史决定和工作结果。"}},
+      {"@type": "Question", "name": "DeskPartner 和普通 AI 聊天工具如何配合？", "acceptedAnswer": {"@type": "Answer", "text": "你继续使用熟悉的 AI 工具负责理解与执行，DeskPartner 保存项目背景、工作结果、决定和下一步。多个 AI 可以围绕同一个项目接力工作。"}},
+      {"@type": "Question", "name": "DeskPartner 的数据保存在哪里？", "acceptedAnswer": {"@type": "Answer", "text": "项目、事项、接手说明和审批记录默认保存在 Windows 本机。DeskPartner 支持通过 MCP 和 CLI 连接 AI 助手。"}},
+      {"@type": "Question", "name": "第一次使用需要做什么？", "acceptedAnswer": {"@type": "Answer", "text": "下载安装 DeskPartner，连接一个支持 MCP 或 CLI 的 AI，完成一次接入申请与批准，再让它在真实项目里提交第一项工作。"}}
     ]
   }
   </script>
@@ -107,7 +119,21 @@
       -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 4px; }
-    h1, h2, h3, p { text-wrap: balance; }
+    h1, h2, h3 { text-wrap: balance; }
+    p { text-wrap: pretty; }
+    .hero h1 .headline-line { display: block; white-space: nowrap; }
+    :focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
+    section[id] { scroll-margin-top: 84px; }
+    details summary { cursor: pointer; }
+    details[open] summary { margin-bottom: 12px; }
+    [data-theme="dark"] .btn-primary,
+    [data-theme="dark"] .tab[aria-selected="true"],
+    [data-theme="dark"] .step-num { color: #173f36; }
+    [data-theme="dark"] .win-proof { background: #173f36; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .btn, .toast { transition: none; }
+    }
     img { max-width: 100%; }
     code, pre, .eyebrow, .step-index { font-family: var(--mono); }
     .container { width: min(100% - 40px, var(--max)); margin: 0 auto; }
@@ -142,7 +168,7 @@
     .hero::before { content: ""; position: absolute; width: 520px; height: 520px; right: -180px; top: -230px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--green-soft) 74%, transparent), transparent 68%); pointer-events: none; }
     .hero-grid { position: relative; display: grid; gap: 46px; align-items: center; }
     .eyebrow { margin: 0 0 18px; color: var(--green); font-size: 11px; letter-spacing: .11em; text-transform: uppercase; }
-    .hero h1 { max-width: 720px; margin: 0 0 22px; font-family: Georgia, "Songti SC", serif; font-size: clamp(42px, 7vw, 74px); font-weight: 500; letter-spacing: -.065em; line-height: 1.05; }
+    .hero h1 { max-width: 720px; margin: 0 0 22px; font-family: Georgia, "Songti SC", serif; font-size: clamp(32px, 4.2vw, 52px); font-weight: 500; letter-spacing: -.035em; line-height: 1.3; }
     .hero h1 em { color: var(--green); font-style: normal; }
     .hero-lead { max-width: 650px; margin: 0 0 28px; color: var(--muted); font-size: clamp(17px, 2vw, 20px); line-height: 1.75; }
     .audience { display: flex; align-items: flex-start; gap: 10px; max-width: 610px; margin: 0 0 30px; color: var(--ink); font-size: 13px; }
@@ -164,7 +190,7 @@
     .section-head { max-width: 680px; margin-bottom: 38px; }
     .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
     .section-kicker { margin: 0 0 11px; color: var(--green); font-size: 12px; font-weight: 720; letter-spacing: .08em; text-transform: uppercase; }
-    .section h2 { margin: 0 0 13px; font-family: Georgia, "Songti SC", serif; font-size: clamp(30px, 4vw, 46px); font-weight: 500; letter-spacing: -.045em; line-height: 1.14; }
+    .section h2 { margin: 0 0 13px; font-family: Georgia, "Songti SC", serif; font-size: clamp(25px, 3vw, 36px); font-weight: 500; letter-spacing: -.025em; line-height: 1.4; }
     .section-intro { margin: 0; color: var(--muted); font-size: 16px; }
     .problem-grid, .roles-grid, .use-grid, .fit-grid { display: grid; gap: 14px; }
     .card { padding: 25px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-small); }
@@ -241,8 +267,7 @@
     .toast.show { opacity: 1; transform: translateY(0); }
 
     @media (min-width: 720px) {
-      .nav-links { display: flex; }
-      .hero-grid { grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); }
+      .hero-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); }
       .problem-grid, .roles-grid, .use-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .fit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .first-win { grid-template-columns: 1.1fr .9fr; }
@@ -252,10 +277,23 @@
     @media (min-width: 960px) {
       .problem-grid, .roles-grid, .use-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
+    @media (min-width: 1080px) {
+      .nav-links { display: flex; gap: 18px; }
+    }
+    @media (min-width: 720px) and (max-width: 959px) {
+      .hero h1 { font-size: 30px; }
+      .hero-lead { font-size: 16px; }
+    }
     @media (max-width: 560px) {
       .container { width: min(100% - 28px, var(--max)); }
       .hero { padding-top: 66px; }
-      .hero h1 { font-size: 44px; }
+      .hero h1 { font-size: clamp(28px, 7.2vw, 38px); }
+      .hero-card { transform: none; }
+      .nav-inner { gap: 8px; }
+      .nav-actions { gap: 6px; }
+      .nav-actions .btn { padding: 0 10px; font-size: 11px; }
+      .brand { gap: 6px; font-size: 14px; }
+      .brand img { width: 24px; height: 24px; }
       .hero-card-note { position: static; max-width: none; margin-top: 12px; }
       .section { padding: 68px 0; }
       .btn { width: 100%; }
@@ -286,7 +324,7 @@
       <div class="container hero-grid">
         <div>
           <p class="eyebrow">A local workspace for human + AI</p>
-          <h1>让 AI <em>接着工作</em>，项目始终从当前继续。</h1>
+          <h1><span class="headline-line">让 AI <em>接着工作</em>，</span><span class="headline-line">从当前进展继续。</span></h1>
           <p class="hero-lead">DeskPartner 把多个 AI 助手共享的项目背景、历史决定和工作结果放在同一个本地工作空间里。AI 负责执行，你负责批准、验收和决定。</p>
           <div class="audience"><span class="audience-mark"></span><span><strong>适合谁：</strong>同时使用多个 AI 工具、正在推进长期项目的开发者、研究者和独立工作者。</span></div>
           <div class="cta-row">
@@ -307,13 +345,13 @@
       <div class="container">
         <div class="section-head">
           <p class="section-kicker">The problem</p>
-          <h2>AI 会做事，持续工作需要一个共同空间。</h2>
+          <h2>一个共同空间，让工作持续向前。</h2>
           <p class="section-intro">聊天窗口适合完成一次任务；持续项目需要一个能够保存上下文、决定和下一步的共同空间。DeskPartner 聚焦于让下一次打开时，工作继续向前。</p>
         </div>
         <div class="problem-grid">
           <article class="card"><div class="card-label">01 / context</div><h3>换一个 AI，项目可以继续</h3><p>背景、决定和下一步都保存在项目里。新的 Agent 读取接续信息，就能从当前工作继续推进。</p></article>
           <article class="card"><div class="card-label">02 / proof</div><h3>每项工作都有清晰的验收</h3><p>多个 AI 同时工作时，你能看见它做了什么、依据是什么，以及结果是否经过真正的验收。</p></article>
-          <article class="card"><div class="card-label">03 / continuity</div><h3>项目随时都能从当前进展继续</h3><p>几天后回来、换一个 Agent、或让多个助手接力时，下一步都清楚地留在项目里。</p></article>
+          <article class="card"><div class="card-label">03 / continuity</div><h3>随时回来，继续推进</h3><p>几天后回来、换一个 Agent、或让多个助手接力时，下一步都清楚地留在项目里。</p></article>
         </div>
         <p class="pull-quote">“助手可以换，工作始终从当前进展继续。”</p>
       </div>
@@ -332,7 +370,7 @@
 
     <section id="first-win" class="section">
       <div class="container">
-        <div class="section-head"><p class="section-kicker">Your first win</p><h2>第一次成功：看到一项可以继续的工作。</h2><p class="section-intro">第一次价值来自一个清晰结果：AI 在 DeskPartner 里留下可理解、可验收、以后还能继续的工作记录。</p></div>
+        <div class="section-head"><p class="section-kicker">Your first win</p><h2>第一次协作，留下可接续的进展。</h2><p class="section-intro">第一次价值来自一个清晰结果：AI 在 DeskPartner 里留下可理解、可验收、以后还能继续的工作记录。</p></div>
         <div class="first-win">
           <div class="win-steps">
             <div class="win-step"><span class="step-num">01</span><div><h3>接入一个你已经在用的 AI</h3><p>通过 MCP 或 CLI 把它连接到本地工作空间。</p></div></div>
@@ -385,7 +423,7 @@
 
     <section class="section" id="faq">
       <div class="container">
-        <div class="section-head"><p class="section-kicker">Common questions</p><h2>关于 DeskPartner，你可能想先了解这些。</h2><p class="section-intro">用几句话了解产品定位、使用方式、数据位置和首次接入。</p></div>
+        <div class="section-head"><p class="section-kicker">Common questions</p><h2>关于 DeskPartner 的常见问题。</h2><p class="section-intro">用几句话了解产品定位、使用方式、数据位置和首次接入。</p></div>
         <div class="fit-grid">
           <details class="card"><summary><strong>DeskPartner 适合什么样的用户？</strong></summary><p>DeskPartner 适合同时使用多个 AI 工具、正在推进持续项目的开发者、研究者和独立工作者。它帮助不同 AI 共享项目上下文、历史决定和工作结果。</p></details>
           <details class="card"><summary><strong>DeskPartner 和普通 AI 聊天工具如何配合？</strong></summary><p>你继续使用熟悉的 AI 工具负责理解与执行，DeskPartner 保存项目背景、工作结果、决定和下一步。多个 AI 可以围绕同一个项目接力工作。</p></details>
@@ -405,7 +443,7 @@
           <div class="setup-step"><span class="setup-index">04</span><div><strong>在桌面端批准，再开始第一项工作</strong><p>批准后，让它读取一个项目并提交一项你能判断是否完成的工作。</p></div></div>
           <div class="migration-note"><strong>升级时的一个提醒：</strong>如果安装目录发生变化，请重启已经打开的终端或 Agent；MCP 宿主请使用快速上手页的新配置并重连。保持同一安装目录升级时，原有接入配置可以继续使用。</div>
         </div>
-        <details class="dev-details"><summary>开发者：查看 CLI / MCP 入口</summary><div class="detail-body"><p class="section-intro">面向需要自动化接入的用户，DeskPartner 同时提供 CLI 和 MCP。请以安装后的 `skill` / `get_guide` 输出为准，不要复制过时的命令表。</p><pre class="code-block"><code>node "$DESKPARTNER_CLI" skill
+        <details class="dev-details"><summary>开发者：查看 CLI / MCP 入口</summary><div class="detail-body"><p class="section-intro">面向需要自动化接入的用户，DeskPartner 同时提供 CLI 和 MCP。请以安装后的 <code>skill</code> / <code>get_guide</code> 输出作为当前接入说明。</p><pre class="code-block"><code>node "$DESKPARTNER_CLI" skill
 
 # MCP 配置示例（路径请以应用内复制结果为准）
 {
