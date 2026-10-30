@@ -131,10 +131,11 @@ describe('三层设计系统：语义角色层与四大交互契约闸门（卡 
     expect(overview).toContain('项目规则与协议')
 
     const quickstart = stripComments(read('src/renderer/components/onboarding/QuickStartView.tsx'))
-    expect(quickstart).toContain('帮助与产品手册')
-    expect(quickstart).toContain('1. 快速上手')
-    expect(quickstart).toContain('2. 事项与工作流')
-    expect(quickstart).toContain('6. 数据安全与备份')
+    expect(quickstart).toContain('一张图看懂 DeskPartner 如何协同工作')
+    expect(quickstart).toContain('三步接入你的 AI 助手')
+    expect(quickstart).toContain('访问产品官网')
+    expect(quickstart).toContain('查看在线使用手册')
+    expect(quickstart, '2~6 章手册已迁到官网，客户端不再有左侧二级章节栏').not.toContain('帮助与产品手册目录')
 
     const stats = stripComments(read('src/renderer/components/stats/StatsView.tsx'))
     expect(stats).toContain('周期吞吐量')
