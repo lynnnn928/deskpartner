@@ -1,0 +1,114 @@
+# DeskPartner
+
+> 让 AI 接着工作，从当前进展继续——面向多 AI 协作的本地结构化项目记忆、接手工作台与标准 MCP 服务器（Windows 10/11 桌面端 + MCP Server + CLI）。
+
+## 1. 产品定位与边界（What DeskPartner Is & Isn't）
+
+- **不是什么（What It Isn't）**：
+  - ❌ 不是 AI 调度平台或 Agent 运行框架；
+  - ❌ 不内置大语言模型、不持有任何 API 密钥、不主动发起模型推理；
+  - ❌ 不替代你现有的 AI 客户端（Claude Desktop、Cursor、Codex、Windsurf 等），也不读取你的代码仓库文件或写入第三方软件配置。
+- **是什么（What It Is）**：
+  - ✅ **标准 MCP 服务器（stdio）与本地 CLI**：接入你正在使用的任意 AI 助手，让多个 AI 围绕同一个项目共享同一份本地 SQLite 数据库（默认 `%APPDATA%\desk-partner\user.db`）；
+  - ✅ **跨会话/跨工具的结构化项目记忆（Handoff）**：每个项目维护支持 50 版修订历史与 `#8位编号` 实时事项引用的「接手说明」，以及可全文检索的历史决定与评论；
+  - ✅ **人机分工与双关口工作流**：AI 负责执行与提交证据，人负责立项拍板、高危授权与结果验收；
+  - ✅ **100% 本地优先，纯离线无云端**：无账号体系，不上传任何项目数据或遥测记录（仅在检查版本更新时访问 GitHub Releases，可在设置中关闭）。
+
+---
+
+## 2. AI 助手接入指引（For AI Agents / LLMs）
+
+如果你是 AI 助手，且用户让你接入、了解或操作 DeskPartner，请按以下情况处理：
+
+### 情况 A：本机已安装 DeskPartner（你有 MCP 工具或终端命令权限）
+
+1. **先读内置动态说明书（唯一真源，勿凭猜测调用）**：
+   - **MCP 客户端**：先调用 `get_guide` 工具读取 L0 接入入口页；按需传入 `topic`（`core` / `writing` / `project` / `access` / `troubleshooting`）读取对应章节。
+   - **终端 / CLI**：运行以下命令（DeskPartner 启动时会自动在当前用户环境变量中写入 `DESKPARTNER_CLI`）：
+     ```bash
+     node "$DESKPARTNER_CLI" skill
+     ```
+     若当前终端尚未加载 `DESKPARTNER_CLI` 环境变量，可先检查默认安装路径或运行 `doctor`：
+     ```bash
+     node "$LOCALAPPDATA/Programs/desk-partner/resources/cli/deskpartner.cjs" skill
+     ```
+2. **自助注册身份并申领本地凭据（前两步 AI 可自行完成，第 3 步需主用户批准）**：
+   ```bash
+   # 1) 注册身份（MCP 对应 register_agent 工具）
+   node "$DESKPARTNER_CLI" agent register --id agent:<你的名字> --name "<展示名>"
+
+   # 2) 申领本地凭据（落盘至 ~/.deskpartner/credentials.json；MCP 对应 claim_agent_credential 工具）
+   node "$DESKPARTNER_CLI" agent credential --id agent:<你的名字>
+   ```
+   注册完成后，DeskPartner 桌面端顶部会弹出审批横幅。**在主用户点击「批准」前，只读查询可正常使用，所有写操作会返回退出码 4（`identity_pending`）**，等待主用户批准即可，切勿循环重试注册。
+3. **接手项目的标准读取顺序（有界读取，勿一次拉取全库）**：
+   - `profile get`（读取主用户档案与偏好）
+   - `protocol get`（读取全局协作协议；进入项目后加 `--project "<项目名>"`）
+   - `project get "<项目名>"`（读取项目接手说明、关键决定与各状态事项计数）
+   - `project search "<项目名>" --query "<关键词>" --limit 20`（检索历史决定、事项与评论）
+   - `work next`（按当前身份聚合待验收、进行中、指派给你的工作）
+
+### 情况 B：本机尚未安装 DeskPartner（用户让你评估或协助配置）
+
+1. **系统要求**：Windows 10 / 11（64 位）。
+2. **下载地址**：https://github.com/lynnnn928/deskpartner/releases （最新安装包 `DeskPartner.Setup.1.0.138.exe`）。
+3. **标准 MCP 客户端配置模板**（安装后可在应用左下角「`?` → 快速上手」一键复制带本机真实路径的配置）：
+   ```json
+   {
+     "mcpServers": {
+       "deskpartner": {
+         "command": "C:\\Users\\<用户名>\\AppData\\Local\\Programs\\desk-partner\\resources\\cli\\mcp.cmd",
+         "args": [],
+         "env": {
+           "DESKPARTNER_AGENT": "agent:claude"
+         }
+       }
+     }
+   }
+   ```
+4. **给人的一句话开场 Prompt（复制发给已接好 MCP/CLI 的 AI）**：
+   ```text
+   请先调用 DeskPartner 的 get_guide 工具（或运行 node "$DESKPARTNER_CLI" skill）阅读接入说明书，用你自己的名字注册身份（agent register + agent credential），然后查看我当前的项目接手说明与待办事项。
+   ```
+
+---
+
+## 3. 核心协作模型：7 态工作流与四档权限分级
+
+### 7 个标准状态与首尾双关口
+
+- `proposed`（**待确认 · 入口关口**）：AI 发现的新想法或待评估提议先落于此；未经人确认立项，AI 不得自行转入执行或挂子任务。
+- `todo`（**待办**）：已确认立项、等待启动的事项。
+- `in_progress`（**进行中**）：执行人正在处理的事项；验收退回（`todo reject`）时也会带理由回到此列。
+- `awaiting_review`（**待验收 · 交付关口**）：执行人完成工作并附上四段式验证证据（做了什么 / 验证命令与结果 / 通过判据 / 取舍与遗留），等待验收方核验。
+- `done`（**已完成**）：由非执行人本人的验收方确认通过（硬关口 G10 **禁止执行者自验自过**）。
+- `suspended`（**挂起**）：因外部条件未就绪暂时搁置。
+- `discarded`（**不做 / 已废弃**）：明确决定不做的历史结论留档，终态仅主用户可在界面解封。
+
+### 四档权限分级与「批准即执行」
+
+为什么值得为 AI 的写入点头（区别于裸挂文件或数据库 MCP）：
+
+- **01 只读查询（Read · 免批通行）**：读取项目、事项、接手说明、检索历史、查看 schema 与统计，零摩擦开放。
+- **02 日常协作写入（Write · 批准身份后持证通行）**：创建事项、更新状态、发表评论、写备忘，首次注册经人在桌面端批准身份后即可持本地凭据调用，随时可暂停或吊销。
+- **03 界面外观设置（Config · 逐次或长期授权）**：仅开放主题、字号、悬浮球外观等纯视觉白名单参数（`UI_WHITELIST`），可点「允许一次」或会话级授权。
+- **04 删改数据与变更协议（Destructive / Proposal · 绑定目标逐条审批 + 批准即执行）**：删除事项/版本/分类，或提议修改主用户档案（`profile propose`）、协作协议（`protocol propose`）、项目接手说明（`project handoff-propose`），都会生成绑定具体目标与 Diff 摘要的审批单；在主用户点击「批准」前数据库分毫不动，点击批准的瞬间由系统原子回放执行。
+
+---
+
+## 4. 关键链接与开源信任入口（Links & Trust）
+
+- **产品主页（Landing Page）**：https://lynnnn928.github.io/deskpartner/
+- **在线产品使用手册（User Manual）**：https://lynnnn928.github.io/deskpartner/#manual
+- **GitHub 源码仓库（Repository, MIT License）**：https://github.com/lynnnn928/deskpartner
+- **最新版本下载（Releases）**：https://github.com/lynnnn928/deskpartner/releases
+- **中文 README**：https://github.com/lynnnn928/deskpartner/blob/main/README.md
+- **English README**：https://github.com/lynnnn928/deskpartner/blob/main/README.en.md
+- **版本更新日志（CHANGELOG）**：https://github.com/lynnnn928/deskpartner/blob/main/CHANGELOG.md
+- **问题反馈与功能建议（Issues）**：https://github.com/lynnnn928/deskpartner/issues
+- **安全策略与私密漏洞报告（SECURITY.md）**：https://github.com/lynnnn928/deskpartner/blob/main/SECURITY.md
+- **贡献指南与本地门禁（CONTRIBUTING.md）**：https://github.com/lynnnn928/deskpartner/blob/main/CONTRIBUTING.md
+- **命令面与关口契约表（Headless Surface）**：https://github.com/lynnnn928/deskpartner/blob/main/docs/generated/headless-surface.md
+- **赞助支持（Sponsor）**：
+  - 爱发电（AfDian）：https://afdian.com/a/lynnnn928
+  - GitHub Sponsors：https://github.com/sponsors/lynnnn928
