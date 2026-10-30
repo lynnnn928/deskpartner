@@ -1,51 +1,35 @@
 # DeskPartner
 
-**把多个 AI 的工作，变成可交接、可验收、可追责的本地工作控制台。**
+**让你的 AI 自己记任务、写交接，你只管看和拍板。**
 
-[产品官网](https://lynnnn928.github.io/deskpartner/) · [English](README.en.md) · [更新日志 (CHANGELOG)](CHANGELOG.md) · [贡献指南 (CONTRIBUTING)](CONTRIBUTING.md) · [下载最新版](https://github.com/lynnnn928/deskpartner/releases)
+[产品主页](https://lynnnn928.github.io/deskpartner/) · [English](README.en.md) · [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md) · [下载最新版](https://github.com/lynnnn928/deskpartner/releases)
 
 ---
 
-## 为什么做这个工具？
+## 这是什么？
 
-当你同时开着两三个 AI 会话（Claude Desktop、Cursor、Penguin、Codex 等）推进多个项目时，所有进展都散落在各自的聊天窗口里。传统待办软件是给人手点设计的（AI 看不见），而团队项目软件默认每个协作者都是人类（没有防越权护栏）。
+当你同时用两三个 AI 助手（Claude、Cursor、Penguin、Codex 等）干活时，进度全散落在各自的聊天窗口里。
 
-**DeskPartner 从底层按「人用桌面界面掌舵、AI 用 MCP / CLI 执行」设计，替你守住三件事**：
+**DeskPartner** 是给多个 AI 共用的本地桌面工作台：
 
-1. **AI 做过什么，不用再翻聊天记录（全局掌控）**：所有 AI 会话读写同一个本机 SQLite 库。主窗口提供跨项目的「我的工作」待处理聚焦与六合一项目工作台（概览 / 7 态事项 / 流转动态 / 版本归档 / 本地文档只读沙箱 / 全局搜索），每张卡自带完整变更时序与「本次变更（Review Diff）」对比。
-2. **AI 交付的活，不能自己宣布完成（验收与追责）**：15 道协作护栏直接下沉到 SQLite 仓储层硬拦截——新 AI 首次注册须经你批准、AI 新建事项先进「待确认」池、子任务未完父任务不可报审、无四段式收口与验证证据不可交活、**执行者不可自验标完成（G10）**；删卡或改设置须经你点「允许」，批准瞬间由主进程直接代执行并记入审计账本，无需 AI 重试。
-3. **换个 AI 接手，项目不用从零交代（跨会话长期记忆）**：每个项目内置权威的「项目接手说明（Handoff）」，支持 50 版修订历史与一键回滚。AI 提议更新时自动记录事实快照（版本 / schema / 未完成分布 / 当前主线），审批页并排对比新旧事实与正文差异，文中 `#短号` 自动联动事项实时状态。
-
-### 一条完整的人机协作闭环
-
-```text
-[01 AI 发现问题] ──► 提交「待确认」(G3 拦截，不污染正式待办)
-       │
-[02 主用户拍板] ──► 批准转入「待办 / 进行中」，AI 拆解子任务并记进展
-       │
-[03 敏感操作拦截] ──► 删卡/改配置挂起审批，人点「允许」后由服务端直接代执行
-       │
-[04 AI 留证报审] ──► 子任务全完结(G6) + 附四段式收口与验证证据(G5) → 推「待验收」(禁自验 G7/G10)
-       │
-[05 主用户核验] ──► 对照「本次变更」验收通过归档版本，或写明原因退回重做
-       │
-[06 记忆交棒]   ──► 基于事实快照更新「项目接手说明 (Handoff)」，下一个 AI 一条命令无缝接棒
-```
+- **不用翻聊天记录**：AI 自己在看板上领活、记进度，谁做完了、谁还在跑一眼看清。
+- **AI 不能自己标「完成」**：AI 的新想法先进「待确认」等你立项；做完的活只能推到「待验收」，由你看过结果点「完成」。
+- **换个 AI 不用重头讲**：每个项目自带「接手说明」，上一个 AI 交活时更新现状，下一个 AI 新开窗口读完就能接着干。
 
 ---
 
 ## 界面预览
 
-### 1. 项目概览与接手说明（Handoff）：跨 AI 会话的长期记忆与实时状态联动
-![DeskPartner 项目概览与接手说明](docs/assets/project-handoff.png)
-
-### 2. 审批中心：事实快照核验、正文并排对比与授权代执行回执
-![DeskPartner 审批中心](docs/assets/approval-view.png)
-
-### 3. 多智能体 7 态共享看板：权责清晰的状态流转
+### 1. 共享看板：几个 AI 在干什么一眼看清
 ![DeskPartner 项目看板](docs/assets/kanban-board.png)
 
-### 4. 快速上手：三步把 AI 接进工作台
+### 2. 项目接手说明：换个 AI 窗口也能直接上手
+![DeskPartner 项目接手说明](docs/assets/project-handoff.png)
+
+### 3. 审批对比：看清改动再点头
+![DeskPartner 审批中心](docs/assets/approval-view.png)
+
+### 4. 快速上手：复制一句话把 AI 接进来
 ![DeskPartner 快速上手](docs/assets/quickstart-view.png)
 
 ---

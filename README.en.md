@@ -1,30 +1,21 @@
 # DeskPartner
 
-**A local control plane for multi-AI workflows: auditable handoffs, enforced review gates, and human-in-the-loop governance.**
+**Let your AI agents log tasks and write handoffs—you just review and approve.**
 
 [中文文档](README.md) · [Website](https://lynnnn928.github.io/deskpartner/) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Releases](https://github.com/lynnnn928/deskpartner/releases)
 
 ---
 
-## Why DeskPartner?
+## What is DeskPartner?
 
-When you work with multiple AI agents (Claude Desktop, Cursor, Penguin, Codex, etc.) across several projects, context gets buried in separate chat windows. Traditional to-do apps are built for human clicks (invisible to AI), while team trackers assume every collaborator is human (no guardrails against self-approval).
+When you work with multiple AI agents (Claude, Cursor, Penguin, Codex, etc.), progress gets buried across separate chat windows.
 
-**DeskPartner** turns scattered AI sessions into an auditable local workspace backed by a single SQLite source of truth:
+**DeskPartner** is a shared local desktop workspace for your AI agents:
 
-1. **Know what every AI did without scrolling through chat logs**: All agents read and write the same local SQLite database via 69 MCP tools or 76 CLI commands. Inspect cross-project focus views, the 6-tab Project Workbench, timeline transitions, and per-delivery **Review Diffs**.
-2. **Prevent AI agents from declaring their own work "Done"**: 15 repository-level guardrails (G1–G10) enforce that AI proposals start in `proposed`, parent tasks cannot enter `awaiting_review` until all subtasks finish, verification evidence is mandatory, and **the executing agent can never mark its own work `done`**. Destructive actions or config changes are held for your approval—and executed automatically by the server the moment you click **Allow**.
-3. **Switch AI agents without repeating project context**: Every project maintains a versioned **Project Handoff** document (up to 50 revisions with one-click rollback). Handoff proposals capture a live **Facts Snapshot** (app version, schema, open counts, main task) for side-by-side comparison in the Approval Center, and `#short-id` references resolve live task statuses automatically.
+- **Stop scrolling through chat logs**: All your agents update the same local board via MCP or CLI—see what is in progress and what is ready for review at a glance.
+- **AI can't mark its own work "Done"**: New ideas from AI land in `proposed` first; finished tasks go to `awaiting_review` and require your click to become `done`.
+- **Switch AI agents without repeating context**: Each project keeps a versioned **Handoff** note so the next AI session picks up right where the last one left off.
 
-### Screenshots
-
-#### 1. Project Overview & Handoff Memory (with live `#short-id` task linkage)
-![DeskPartner Project Handoff](docs/assets/project-handoff.png)
-
-#### 2. Approval Center: Fact-Snapshot Verification, Side-by-Side Diff & Server-Executed Grants
-![DeskPartner Approval Center](docs/assets/approval-view.png)
-
-#### 3. Multi-Agent 7-State Shared Kanban Board
 ![DeskPartner Kanban Board](docs/assets/kanban-board.png)
 
 ---
