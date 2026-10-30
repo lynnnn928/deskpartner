@@ -580,6 +580,8 @@ interface InvokeResult {
  * "MCP 调用"这条统计恰好只在读写混合时才准，读调用又混回 cli。
  */
 export const MCP_SURFACE = 'mcp'
+/** 当前 MCP 会话在调用 get_guide 后自动绑定的说明书版本（卡 `842a9879`） */
+let sessionSkillVersion: string | undefined
 export function buildChildEnv(
   actor: string | undefined,
   base: NodeJS.ProcessEnv = process.env
@@ -587,6 +589,7 @@ export function buildChildEnv(
   return {
     ...base,
     ...(actor ? { DESKPARTNER_AGENT: actor } : {}),
+    ...(sessionSkillVersion ? { DESKPARTNER_SKILL_VERSION: sessionSkillVersion } : {}),
     DESKPARTNER_SURFACE: MCP_SURFACE
   }
 }
@@ -973,6 +976,10 @@ export function registerTools(
          * 见 `InvokeResult.rawText`。
          */
         if (tool.outputKind === 'text' && result.ok && result.rawText !== undefined) {
+          if (tool.name === 'get_guide') {
+            const m = result.rawText.match(/^version:\s*"?([^"\r\n]+)"?/m)
+            if (m?.[1]) sessionSkillVersion = m[1].trim()
+          }
           return {
             content: [{ type: 'text' as const, text: result.rawText }],
             isError: false

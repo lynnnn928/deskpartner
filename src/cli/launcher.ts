@@ -183,6 +183,7 @@ const callerSkillVersion = process.env.DESKPARTNER_SKILL_VERSION?.trim() || unde
  * 默认 cli：人/脚本直接敲时没有任何声明，这也是绝大多数调用。
  */
 const callerSurface = process.env.DESKPARTNER_SURFACE?.trim() || 'cli'
+const callerCliEnv = process.env.DESKPARTNER_CLI?.trim() || null
 
 /**
  * 多份凭据 + 没声明身份 = 不猜（1.0.37）
@@ -325,7 +326,8 @@ function tryPipe(stdin?: string): Promise<PipeResponse | null> {
           session: callerSession,
           ...(ambiguousIds ? { ambiguousIds } : {}),
           ...(callerSkillVersion ? { skillVersion: callerSkillVersion } : {}),
-          surface: callerSurface
+          surface: callerSurface,
+          cliEnv: callerCliEnv
         } as PipeRequest)
       )
     })

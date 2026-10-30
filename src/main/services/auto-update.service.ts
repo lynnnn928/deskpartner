@@ -31,6 +31,7 @@ export class AutoUpdateService {
   }
 
   private updater: AppUpdater | null = null
+  private checkInFlight: Promise<UpdateStatus> | null = null
 
   private ensureUpdater(): AppUpdater {
     if (this.updater) return this.updater
@@ -168,32 +169,60 @@ export class AutoUpdateService {
     }
   }
 
-  async checkForUpdates(): Promise<UpdateStatus> {
-    const feedOverride = process.env.DESKPARTNER_UPDATE_FEED_URL?.trim()
-    if (!app?.isPackaged && !feedOverride) {
+  async checkForUpdates(timeoutMs = 10_000): Promise<UpdateStatus> {
+    if (this.checkInFlight) {
+      return this.checkInFlight
+    }
+
+    const run = async (): Promise<UpdateStatus> => {
+      const feedOverride = process.env.DESKPARTNER_UPDATE_FEED_URL?.trim()
+      if (!app?.isPackaged && !feedOverride) {
+        this.state = {
+          ...this.state,
+          currentVersion: safeAppVersion(),
+          status: 'not-available',
+          availableVersion: safeAppVersion(),
+          errorMessage: null,
+          checkedAt: new Date().toISOString()
+        }
+        return this.getState()
+      }
+
+      const updater = this.ensureUpdater()
       this.state = {
         ...this.state,
         currentVersion: safeAppVersion(),
-        status: 'not-available',
-        availableVersion: safeAppVersion(),
-        errorMessage: null,
-        checkedAt: new Date().toISOString()
+        status: 'checking',
+        errorMessage: null
+      }
+
+      let timer: ReturnType<typeof setTimeout> | null = null
+      try {
+        await Promise.race([
+          updater.checkForUpdates(),
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => {
+              reject(new Error('连接更新源超时，请稍后重试'))
+            }, timeoutMs)
+          })
+        ])
+      } catch (err) {
+        this.state = {
+          ...this.state,
+          status: 'error',
+          errorMessage: err instanceof Error ? err.message : String(err),
+          checkedAt: new Date().toISOString()
+        }
+      } finally {
+        if (timer) clearTimeout(timer)
       }
       return this.getState()
     }
 
-    const updater = this.ensureUpdater()
-    try {
-      await updater.checkForUpdates()
-    } catch (err) {
-      this.state = {
-        ...this.state,
-        status: 'error',
-        errorMessage: err instanceof Error ? err.message : String(err),
-        checkedAt: new Date().toISOString()
-      }
-    }
-    return this.getState()
+    this.checkInFlight = run().finally(() => {
+      this.checkInFlight = null
+    })
+    return this.checkInFlight
   }
 
   async downloadUpdate(): Promise<UpdateStatus> {

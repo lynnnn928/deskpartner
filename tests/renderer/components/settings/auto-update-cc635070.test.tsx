@@ -217,4 +217,70 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
       expect(fs.existsSync(path.join(root, rel)), `缺少工程文件: ${rel}`).toBe(true)
     }
   })
+
+  it('5. 后台自动检查更新期间打开设置页会自动轮询收口，且更新源连接挂起时按超时收口为 error（6dce84a6）', async () => {
+    let pollCount = 0
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'app:info') return { version: '1.0.134', dataDir: 'C:/Data/desk-partner' }
+      if (channel === 'app:getUpdateState') {
+        pollCount += 1
+        if (pollCount === 1) {
+          return {
+            status: 'checking',
+            currentVersion: '1.0.134',
+            availableVersion: null,
+            releaseDate: null,
+            progressPercent: null,
+            errorMessage: null,
+            checkedAt: null
+          }
+        }
+        return {
+          status: 'not-available',
+          currentVersion: '1.0.134',
+          availableVersion: '1.0.134',
+          releaseDate: null,
+          progressPercent: null,
+          errorMessage: null,
+          checkedAt: '2026-10-30T00:00:00.000Z'
+        }
+      }
+      return {}
+    })
+
+    const { getByTestId, getByText } = render(<SystemSection />)
+
+    await waitFor(() => {
+      expect(getByTestId('check-update-btn').textContent).toContain('检查中…')
+    })
+
+    await waitFor(
+      () => {
+        expect(getByTestId('check-update-btn').textContent).toContain('检查更新')
+        expect(getByText('已是最新')).toBeTruthy()
+      },
+      { timeout: 2500 }
+    )
+
+    // 模拟更新源挂起不响应，验证 checkForUpdates 超时保护
+    const hangingServer = http.createServer((_req, _res) => {
+      // 故意不返回响应
+    })
+    await new Promise<void>((resolve) => hangingServer.listen(0, '127.0.0.1', () => resolve()))
+    const addr = hangingServer.address() as { port: number }
+    const prevFeed = process.env.DESKPARTNER_UPDATE_FEED_URL
+    process.env.DESKPARTNER_UPDATE_FEED_URL = `http://127.0.0.1:${addr.port}`
+
+    try {
+      const svc = new AutoUpdateService()
+      const res = await svc.checkForUpdates(150)
+      expect(res.status).toBe('error')
+      expect(res.errorMessage).toContain('超时')
+    } finally {
+      if (prevFeed === undefined) delete process.env.DESKPARTNER_UPDATE_FEED_URL
+      else process.env.DESKPARTNER_UPDATE_FEED_URL = prevFeed
+      hangingServer.closeAllConnections?.()
+      await new Promise<void>((resolve) => hangingServer.close(() => resolve()))
+    }
+  })
 })

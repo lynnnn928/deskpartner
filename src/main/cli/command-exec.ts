@@ -500,7 +500,18 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
      * 无头通道反而正常。Bob驳回并给了实测。现在改读 `ctx.skillVersion`
      * （由启动器带进请求体），两条通道共用同一判据。
      */
-    const skillVersion = ctx.skillVersion
+    const ackedSkillVersion =
+      ctx.actor?.startsWith('agent:')
+        ? (() => {
+            try {
+              return ctx.deps.reminderReceiptRepo?.getSkillReadVersion?.(ctx.actor) ?? undefined
+            } catch {
+              return undefined
+            }
+          })()
+        : undefined
+    const skillVersion =
+      ackedSkillVersion && ackedSkillVersion === ctx.meta?.version ? ackedSkillVersion : ctx.skillVersion
     if (skillVersion && isVersionOlder(skillVersion, ctx.meta.version)) {
       /**
        * ⚠️ 别让人去跑 `dp skill`（卡 `cb7924c2`，1.0.133）：**本机没有 `dp` 这条命令** ——

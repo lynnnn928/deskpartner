@@ -44,7 +44,18 @@ export const doctorCommands: CommandSpec[] = [
        * （Bob 3f90eab6：本机散着三份说明书副本，谁新谁旧只能逐字节 diff。）
        */
       skillVersion: ctx.meta.version,
-      declaredSkillVersion: ctx.skillVersion ?? null,
+      declaredSkillVersion:
+        ctx.skillVersion ??
+        (ctx.actor?.startsWith('agent:')
+          ? (() => {
+              try {
+                const acked = ctx.deps.reminderReceiptRepo?.getSkillReadVersion?.(ctx.actor)
+                return acked === ctx.meta.version ? acked : null
+              } catch {
+                return null
+              }
+            })()
+          : null),
       dbPath: ctx.meta.dbPath,
       schemaVersion: ctx.meta.schemaVersion,
       /** 并发相关配置，出问题时要能直接读到而不是猜 */
@@ -74,8 +85,10 @@ export const doctorCommands: CommandSpec[] = [
        * 只能说"本进程没看到"。措辞上不要写成断言。
        */
       cli: (() => {
-        const fromEnv = process.env.DESKPARTNER_CLI?.trim() || null
+        const fromEnv =
+          (ctx.cliEnv !== undefined ? ctx.cliEnv : process.env.DESKPARTNER_CLI?.trim()) || null
         const fallback = resolveLauncherPath()
+        const fallbackSlash = fallback.replace(/\\/g, '/')
         const effective = fromEnv ?? fallback
         let exists = false
         try {
@@ -91,13 +104,14 @@ export const doctorCommands: CommandSpec[] = [
         return {
           envVar: 'DESKPARTNER_CLI',
           value: effective.replace(/\\/g, '/'),
+          fallbackPath: fallbackSlash,
           source,
           exists,
           note:
             source === 'env'
               ? '已用环境变量寻址，安装目录搬家也不会失效'
               : source === 'env-missing-file'
-                ? '变量指向的文件不存在 —— DeskPartner 可能被挪走或卸载了。请让用户重新安装，或启动一次界面让它重写这个变量'
+                ? `变量指向的文件不存在 —— DeskPartner 可能被挪走或卸载了。请让用户重新安装，或启动一次界面让它重写这个变量；当前可直接复制使用的有效路径：${fallbackSlash}`
                 : '本进程没读到环境变量（开发态，或界面还没启动过）。当前用实测路径兜底'
         }
       })(),

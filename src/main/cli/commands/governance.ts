@@ -15,10 +15,22 @@
  *      · rulesCommands
  */
 
-import { NotFoundError } from '../../lib/domain-errors'
+import { NotFoundError, UsageError } from '../../lib/domain-errors'
 import { GATES } from '../gates'
 import { actorOf } from '../command-core'
-import type { CommandSpec } from '../command-core'
+import type { CliContext, CommandSpec } from '../command-core'
+
+function resolveGovernanceProjectId(ctx: CliContext, raw: unknown): string {
+  const ref = String(raw ?? '').trim()
+  const hit = ctx.deps.projectRepo.list().find((item) => item.id === ref || item.name === ref)
+  if (hit) return hit.id
+  try {
+    return ctx.deps.projectRepo.resolveId(ref)
+  } catch (err) {
+    if (err instanceof UsageError) throw err
+    throw new NotFoundError(`项目不存在：${String(raw)}`)
+  }
+}
 import { PROFILE_BLOCK_KEYS } from '../../database/profile.repository'
 import { PROTOCOL_BLOCK_KEYS } from '../../database/protocol.repository'
 
@@ -33,9 +45,8 @@ export const protocolGetCommands: CommandSpec[] = [
       const repo = ctx.deps.protocolRepo
       const rawProject = flags['--project']
       if (rawProject) {
-        const project = ctx.deps.projectRepo.list().find((item) => item.id === rawProject || item.name === rawProject)
-        if (!project) throw new NotFoundError(`项目不存在：${String(rawProject)}`)
-        return { scope: 'project', projectId: project.id, blocks: repo.list({ scope: 'project', projectId: project.id }), gates: GATES }
+        const projectId = resolveGovernanceProjectId(ctx, rawProject)
+        return { scope: 'project', projectId, blocks: repo.list({ scope: 'project', projectId }), gates: GATES }
       }
       return { scope: 'global', blocks: repo.list({ scope: 'global' }), gates: GATES }
     }
@@ -53,9 +64,8 @@ export const profileCommands: CommandSpec[] = [
       const repo = ctx.deps.profileRepo
       const rawProject = flags['--project']
       if (rawProject) {
-        const project = ctx.deps.projectRepo.list().find((item) => item.id === rawProject || item.name === rawProject)
-        if (!project) throw new NotFoundError(`项目不存在：${String(rawProject)}`)
-        return { scope: 'project', projectId: project.id, blocks: repo.list({ scope: 'project', projectId: project.id }) }
+        const projectId = resolveGovernanceProjectId(ctx, rawProject)
+        return { scope: 'project', projectId, blocks: repo.list({ scope: 'project', projectId }) }
       }
       return { scope: 'global', blocks: repo.list({ scope: 'global' }) }
     }
@@ -78,12 +88,9 @@ export const profileCommands: CommandSpec[] = [
       const repo = ctx.deps.profileRepo
       const blockKey = String(flags['--block'] ?? '') as import('../../database/profile.repository').ProfileBlockKey
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined
-      const project = rawProject
-        ? ctx.deps.projectRepo.list().find((item) => item.id === rawProject || item.name === rawProject)
-        : undefined
-      if (rawProject && !project) throw new NotFoundError(`项目不存在：${rawProject}`)
+      const projectId = rawProject ? resolveGovernanceProjectId(ctx, rawProject) : undefined
       return repo.propose(
-        project ? { scope: 'project', projectId: project.id } : { scope: 'global' },
+        projectId ? { scope: 'project', projectId } : { scope: 'global' },
         blockKey,
         String(flags['--body'] ?? ''),
         actorOf(ctx)
@@ -114,12 +121,9 @@ export const protocolProposalCommands: CommandSpec[] = [
       const repo = ctx.deps.protocolRepo
       const blockKey = String(flags['--block'] ?? '') as import('../../database/protocol.repository').ProtocolBlockKey
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined
-      const project = rawProject
-        ? ctx.deps.projectRepo.list().find((item) => item.id === rawProject || item.name === rawProject)
-        : undefined
-      if (rawProject && !project) throw new NotFoundError(`项目不存在：${rawProject}`)
+      const projectId = rawProject ? resolveGovernanceProjectId(ctx, rawProject) : undefined
       return repo.propose(
-        project ? { scope: 'project', projectId: project.id } : { scope: 'global' },
+        projectId ? { scope: 'project', projectId } : { scope: 'global' },
         blockKey,
         String(flags['--body'] ?? ''),
         actorOf(ctx)
@@ -147,12 +151,11 @@ export const rulesCommands: CommandSpec[] = [
       const repo = ctx.deps.rulesRepo
       const rawProject = flags['--project']
       if (rawProject) {
-        const project = ctx.deps.projectRepo.list().find((item) => item.id === rawProject || item.name === rawProject)
-        if (!project) throw new NotFoundError(`项目不存在：${String(rawProject)}`)
-        const scope = { scope: 'project' as const, projectId: project.id }
+        const projectId = resolveGovernanceProjectId(ctx, rawProject)
+        const scope = { scope: 'project' as const, projectId }
         return {
           scope: 'project',
-          projectId: project.id,
+          projectId,
           rules: repo.listRules(scope),
           permissions: repo.listPermissions(scope)
         }
@@ -178,12 +181,9 @@ export const rulesCommands: CommandSpec[] = [
       const ruleKey = String(flags['--rule'] ?? '')
       const enforcement = String(flags['--enforcement'] ?? '') as import('../../database/rules').RuleEnforcement
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined
-      const project = rawProject
-        ? ctx.deps.projectRepo.list().find((item) => item.id === rawProject || item.name === rawProject)
-        : undefined
-      if (rawProject && !project) throw new NotFoundError(`项目不存在：${rawProject}`)
+      const projectId = rawProject ? resolveGovernanceProjectId(ctx, rawProject) : undefined
       return repo.propose(
-        project ? { scope: 'project', projectId: project.id } : { scope: 'global' },
+        projectId ? { scope: 'project', projectId } : { scope: 'global' },
         ruleKey,
         enforcement,
         actorOf(ctx)

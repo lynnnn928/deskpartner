@@ -218,7 +218,8 @@ export class CliServerService {
            * 命令层（如 whoami）用它给"你正通过 MCP 调用"这类对话定调；
            * 埋点也用它区分 mcp/cli —— 此前硬编码 'cli'，MCP 用量看不见。
            */
-          ...(req.surface?.trim() ? { surface: req.surface.trim() } : {})
+          ...(req.surface?.trim() ? { surface: req.surface.trim() } : {}),
+          ...(req.cliEnv !== undefined ? { cliEnv: req.cliEnv } : {})
         },
         req.argv.map(String)
       )

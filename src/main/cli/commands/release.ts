@@ -94,7 +94,7 @@ export const releaseCommands: CommandSpec[] = [
         note:
           '登记完成（项目接手说明已自动标为待复核）。下一步：① 把卡片归到这一版：todo update <id> --fixed-in ' +
           release.version +
-          '；② 更新接手说明：project handoff-propose <项目名> --body-file <文件>'
+          '；② 若本次发版改变了项目方向、关键决定、工作入口或当前主线，请用 project handoff-propose <项目名> --body-file <文件> 更新接手说明（切勿把发版日志或状态计数手抄进说明）'
       }
     }
   },

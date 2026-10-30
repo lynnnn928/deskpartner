@@ -17,7 +17,7 @@
 import { NotFoundError } from '../../lib/domain-errors'
 import { buildAgentGuideIndex, buildAgentGuideTopic } from '../agent-guide'
 import { guideTopicNames } from '../guide-topics'
-import { riskOf } from '../command-core'
+import { actorOf, riskOf } from '../command-core'
 import type { CommandSpec } from '../command-core'
 import { buildSchema } from '../command-schema'
 import { commands, commandUsage } from '../command-table'
@@ -56,9 +56,19 @@ export const skillCommands: CommandSpec[] = [
     output: 'text',
     run: (ctx, _flags, positional) => {
       const topic = positional[0]
-      if (!topic) return buildAgentGuideIndex(undefined, ctx.meta.version)
       if (topic === 'list') return guideTopicNames().join('\n')
-      return buildAgentGuideTopic(topic, undefined, ctx.meta.version)
+      const out = !topic
+        ? buildAgentGuideIndex(undefined, ctx.meta.version)
+        : buildAgentGuideTopic(topic, undefined, ctx.meta.version)
+      const actor = actorOf(ctx)
+      if (actor.startsWith('agent:')) {
+        try {
+          ctx.deps.reminderReceiptRepo?.recordSkillRead?.(actor, ctx.meta.version)
+        } catch {
+          /* 只读命令不能因登记已读版本失败而中断 */
+        }
+      }
+      return out
     }
   },
 ]

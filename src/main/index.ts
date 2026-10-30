@@ -562,7 +562,8 @@ app.whenReady().then(async () => {
       skillVersion: process.env.DESKPARTNER_SKILL_VERSION?.trim() || undefined,
       // 通道标识（1.0.63）：无头路径下服务端就是调用方子进程，读 env 是对的；
       // 管道读请求体（cli-server.service.ts）。与 skillVersion 同一规矩。
-      surface: process.env.DESKPARTNER_SURFACE?.trim() || undefined
+      surface: process.env.DESKPARTNER_SURFACE?.trim() || undefined,
+      cliEnv: process.env.DESKPARTNER_CLI?.trim() || null
     })
     return
   }

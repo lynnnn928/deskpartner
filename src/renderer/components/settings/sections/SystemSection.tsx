@@ -46,6 +46,24 @@ export const SystemSection: React.FC = () => {
     }
   }, [])
 
+  useEffect(() => {
+    if (updateState?.status !== 'checking' && updateState?.status !== 'downloading') {
+      return
+    }
+    let alive = true
+    const timer = setInterval(() => {
+      invoke('app:getUpdateState')
+        .then((u) => {
+          if (alive) setUpdateState(u)
+        })
+        .catch(() => undefined)
+    }, 800)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+  }, [updateState?.status])
+
   const saveAppName = async () => {
     const trimmed = appNameDraft.trim()
     if (trimmed === (settings.appName ?? '')) return

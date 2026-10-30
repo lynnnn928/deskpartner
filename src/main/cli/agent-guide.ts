@@ -609,7 +609,7 @@ dp todo close <id> \\
 1. \`dp todo comment <id> --body "…"\` —— 写清做了什么、结论、遗留
 2. \`dp todo update <id> --fixed-in <版本>\` —— 标它在哪一版修的
 3. \`dp todo update <id> --status awaiting_review\` —— **推进待验收，人才能看见**
-4. \`dp project handoff-propose "<项目名>" --body-file handoff.md\` —— **每完成一轮工作或发版后更新接手说明**（审批页采纳后生效，让别的 agent 随时能接手）
+4. \`dp project handoff-propose "<项目名>" --body-file handoff.md\` —— **当项目目标、关键决定（做与不做）、工作入口或当前主线变化时更新接手说明**（审批页采纳后生效；不要把发版日志或实时状态计数手抄进说明）
 
 **自检**：\`dp todo list --status awaiting_review\` 里应该有你刚做完的卡。
 **空，就是漏了第 3 步。**
@@ -1036,7 +1036,7 @@ version: "${version}"
 
 - 先用 \`dp help <命令>\` 查参数，需要全量枚举时才用 \`dp schema\`。**参数写错会得到明确的 \`usage_error\`**（未知 flag、多写位置参数都是），报错里列出它真正接受的参数 —— 照着改一次重试，不是静默降级。
 - 事项必须带项目；不要把进度和结论追加到 description，往来写 comment。
-- 完成一轮工作后：写结论评论 → 标记 fixed-in → 推进 awaiting_review → 用 \`dp project handoff-propose <项目名> --body-file ...\` 提交接手说明更新提议（保证其他 agent 随时能接手）。
+- 完成一轮工作后：写结论评论 → 标记 fixed-in → 推进 awaiting_review；若项目方向、关键决定、工作入口或当前主线发生变更，再用 \`dp project handoff-propose <项目名> --body-file ...\` 提交接手说明更新提议（不要手抄发版日志或状态计数）。
 - 修一张卡：**用例名里带上这张卡的 8 位 id**（如 \`...g5-closure-structure-eec2e1e7.test.ts\`）——
   没有它，"哪张卡当初坏在哪"只活在当时的对话里（2026-10-15 审计：全仓仅 12 条带卡 id，占 0.8%）。
   自检 \`find tests -name '*.test.ts' | grep -E '[0-9a-f]{8}'\`；改完反向验证一次（改回去该变红）。
@@ -1051,7 +1051,7 @@ ${topicLines}
 
 ## 调用入口
 
-开发态：\`node ${cli} <命令>\`；打包态优先使用环境变量 \`DESKPARTNER_CLI\`。
+优先使用环境变量：\`node "$DESKPARTNER_CLI" <命令>\`；若当前终端环境变量未生效或指向旧路径，可直接运行本机实测路径（打包态与开发态均可用）：\`node "${cli}" <命令>\`。
 运行 \`dp doctor\` 可确认当前 CLI、版本和 skill 是否匹配。
 
 > 详细规则只在需要时按主题读取；不要把本页全文复制进自己的长期记忆。

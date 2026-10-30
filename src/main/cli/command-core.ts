@@ -426,7 +426,8 @@ export interface CliDeps {
     'create' | 'listPage' | 'countPage' | 'markReadBy' | 'unreadCount' | 'unreadCountFor'
   >
   /** 会话提醒回执（同上）：`shouldExpand` 每次写命令后判一次、`markSeen` 给 snooze 用 */
-  reminderReceiptRepo: Pick<ReminderReceiptRepository, 'shouldExpand' | 'markSeen'>
+  reminderReceiptRepo: Pick<ReminderReceiptRepository, 'shouldExpand' | 'markSeen'> &
+    Partial<Pick<ReminderReceiptRepository, 'recordSkillRead' | 'getSkillReadVersion'>>
   /**
    * 协作规则（同上）：**两个用处** —— `rules` 命令族，以及权限判定。
    * `GuardResolver` 只用 `listRules` / `listPermissions`，所以它的构造参数
@@ -626,6 +627,8 @@ export interface CliContext {
    * 埋点另走 run.ts / cli-server 的同名判据。
    */
   surface?: string
+  /** 调用方 shell 进程看到的 DESKPARTNER_CLI 环境变量值（卡 `9b3db53b`） */
+  cliEnv?: string | null
 }
 
 /**
@@ -797,10 +800,18 @@ export function resolveProjectForWrite(
 ): string {
   const name = raw.trim()
   const all = ctx.deps.projectRepo.list()
-  const hit = all.find((p) => p.name === name)
+  const hit = all.find((p) => p.name === name || p.id === name)
   if (hit) return hit.id
 
-  if (allowCreate) return ctx.deps.projectRepo.create({ name }).id
+  if (!allowCreate) {
+    try {
+      return ctx.deps.projectRepo.resolveId(name)
+    } catch (err) {
+      if (err instanceof UsageError) throw err
+    }
+  } else {
+    return ctx.deps.projectRepo.create({ name }).id
+  }
 
   const available = all.map((p) => p.name).join('、') || '（暂无项目）'
   throw new NotFoundError(

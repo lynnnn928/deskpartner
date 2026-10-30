@@ -26,7 +26,7 @@
  * 同一个 `fitToBudget`，不另写一套 20KB。
  */
 
-import { NotFoundError } from '../../lib/domain-errors'
+import { NotFoundError, UsageError } from '../../lib/domain-errors'
 import type { Todo } from '../../../renderer/types/todo'
 import { LIMIT_ZERO_DOC, parseLimit } from '../command-text'
 import { actorOf } from '../command-core'
@@ -124,12 +124,18 @@ export const workCommands: CommandSpec[] = [
       let projectId: string | null = null
       if (rawProject) {
         const hit = projects.find((p) => p.id === rawProject || p.name === rawProject)
-        if (!hit) {
-          throw new NotFoundError(
-            `项目不存在：${rawProject}（已有：${projects.map((p) => p.name).join(' / ') || '无'}）`
-          )
+        if (hit) {
+          projectId = hit.id
+        } else {
+          try {
+            projectId = ctx.deps.projectRepo.resolveId(rawProject)
+          } catch (err) {
+            if (err instanceof UsageError) throw err
+            throw new NotFoundError(
+              `项目不存在：${rawProject}（已有：${projects.map((p) => p.name).join(' / ') || '无'}）`
+            )
+          }
         }
-        projectId = hit.id
       }
 
       const archivedProjectIds = new Set(projects.filter((p) => p.archived).map((p) => p.id))

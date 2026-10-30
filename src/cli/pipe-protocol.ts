@@ -189,6 +189,11 @@ export interface PipeRequest {
    * "这条通道到底有没有人用"。
    */
   surface?: string
+  /**
+   * 调用方 shell 进程看到的 DESKPARTNER_CLI 环境变量值（卡 `9b3db53b`）。
+   * 传 null 表示调用方进程环境中未设置该变量。
+   */
+  cliEnv?: string | null
 }
 
 /**

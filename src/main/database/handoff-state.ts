@@ -42,7 +42,29 @@ import type {
 export const HANDOFF_STALE_AFTER_DAYS = 7
 
 /** 回执里最多列几条原因（再多也没人看；完整原因在标记里） */
-export const HANDOFF_MAX_REASONS = 5
+export const HANDOFF_MAX_REASONS = 8
+
+/**
+ * 合并事实差异与待复核标记原因，并在超出上限时保留全部事实差异与**最新**的待复核原因（卡 `6691335f`）。
+ *
+ * 为什么不能简单做 `[...diff, ...dirty].slice(0, max)`：
+ * `markHandoffDirty` 按时间顺序往末尾追加原因（如 `发布了 1.0.132`、`发布了 1.0.133`、`发布了 1.0.134`），
+ * 从头截断会保留最早的变更、反而把最新一次发布（1.0.134）静默丢掉，造成 `dirty.reasons` 与 `freshness.reasons` 不一致。
+ */
+function capFreshnessReasons(
+  diffReasons: string[],
+  dirtyReasons: string[],
+  extraReasons: string[] = []
+): string[] {
+  const head = [...new Set([...diffReasons, ...extraReasons])]
+  const headSet = new Set(head)
+  const tail = [...new Set(dirtyReasons)].filter((r) => !headSet.has(r))
+  if (head.length + tail.length <= HANDOFF_MAX_REASONS) {
+    return [...head, ...tail]
+  }
+  const remaining = Math.max(0, HANDOFF_MAX_REASONS - head.length)
+  return [...head.slice(0, HANDOFF_MAX_REASONS), ...(remaining > 0 ? tail.slice(-remaining) : [])]
+}
 
 /**
  * 类型住在共享类型里（CLI / IPC / 界面同一份形状），这里转出一次：
@@ -136,19 +158,19 @@ export function freshnessOf(input: {
      * 没有说明本身就是 stale，但**别把待复核的原因吞掉**：
      * 一条被拒的提议、一次发布，都是"为什么还没有/仍是旧说明"的线索。
      */
-    const reasons = ['还没有接手说明', ...(input.dirty?.reasons ?? [])]
-    return { ...base, state: 'stale', reasons: [...new Set(reasons)].slice(0, HANDOFF_MAX_REASONS) }
+    return {
+      ...base,
+      state: 'stale',
+      reasons: capFreshnessReasons(['还没有接手说明'], input.dirty?.reasons ?? [])
+    }
   }
 
-  const reasons: string[] = []
-  if (!input.snapshot) {
-    reasons.push('说明没有事实快照（旧版），无法核对它基于什么')
-  } else {
-    reasons.push(...diffFacts(input.snapshot.facts, input.current))
-  }
-  if (input.dirty) reasons.push(...input.dirty.reasons)
+  const diffReasons = !input.snapshot
+    ? ['说明没有事实快照（旧版），无法核对它基于什么']
+    : diffFacts(input.snapshot.facts, input.current)
+  const dirtyReasons = input.dirty?.reasons ?? []
 
-  const unique = [...new Set(reasons)].slice(0, HANDOFF_MAX_REASONS)
+  const unique = capFreshnessReasons(diffReasons, dirtyReasons)
   if (!unique.length) return { ...base, state: 'fresh', reasons: [] }
 
   const dirtyDays = input.dirty
@@ -158,10 +180,9 @@ export function freshnessOf(input: {
     return {
       ...base,
       state: 'stale',
-      reasons: [...new Set([...unique, `待复核已超过 ${HANDOFF_STALE_AFTER_DAYS} 天`])].slice(
-        0,
-        HANDOFF_MAX_REASONS
-      )
+      reasons: capFreshnessReasons(diffReasons, dirtyReasons, [
+        `待复核已超过 ${HANDOFF_STALE_AFTER_DAYS} 天`
+      ])
     }
   }
   return { ...base, state: 'review_required', reasons: unique }

@@ -1069,9 +1069,14 @@ export const todoCommands: CommandSpec[] = [
       if (flags['--project']) {
         const names = String(flags['--project']).split(',').map((s) => s.trim()).filter(Boolean)
         const ids = names.map((name) => {
-          const hit = ctx.deps.projectRepo.list().find((p) => p.name === name)
-          if (!hit) throw new NotFoundError(`项目不存在: ${name}`)
-          return hit.id
+          const hit = ctx.deps.projectRepo.list().find((p) => p.name === name || p.id === name)
+          if (hit) return hit.id
+          try {
+            return ctx.deps.projectRepo.resolveId(name)
+          } catch (err) {
+            if (err instanceof UsageError) throw err
+            throw new NotFoundError(`项目不存在: ${name}`)
+          }
         })
         out = out.filter((t) => t.projectId !== null && ids.includes(t.projectId))
       }

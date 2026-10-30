@@ -23,6 +23,8 @@ import { getDatabase } from './index'
 export class ReminderReceiptRepository {
   /** 未声明会话时的兜底记账键（一个身份一行） */
   static readonly NO_SESSION_KEY = '(no-session)'
+  /** Agent 已读说明书版本的持久化键（卡 `842a9879`） */
+  static readonly SKILL_VERSION_KEY = '__skill_version__'
 
   private static keyOf(session?: string): string {
     return session?.trim() || ReminderReceiptRepository.NO_SESSION_KEY
@@ -86,5 +88,34 @@ export class ReminderReceiptRepository {
       same,
       key: ReminderReceiptRepository.keyOf(session)
     }
+  }
+
+  /**
+   * 登记该 Agent 已读取当前版本的内置说明书（卡 `842a9879`）。
+   */
+  recordSkillRead(actor: string, version: string): void {
+    const trimmedActor = actor.trim()
+    const trimmedVer = version.trim()
+    if (!trimmedActor || !trimmedVer) return
+    const db = getDatabase()
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO cli_reminder_receipts (actor, session_id, fingerprint, updated_at)
+       VALUES (?, ?, ?, ?) ON CONFLICT(actor, session_id) DO UPDATE SET
+       fingerprint = excluded.fingerprint, updated_at = excluded.updated_at`
+    ).run(trimmedActor, ReminderReceiptRepository.SKILL_VERSION_KEY, trimmedVer, now)
+  }
+
+  /** 读取该 Agent 最近登记已读的说明书版本（卡 `842a9879`） */
+  getSkillReadVersion(actor: string): string | null {
+    const trimmedActor = actor.trim()
+    if (!trimmedActor) return null
+    const db = getDatabase()
+    const row = db
+      .prepare('SELECT fingerprint FROM cli_reminder_receipts WHERE actor = ? AND session_id = ?')
+      .get(trimmedActor, ReminderReceiptRepository.SKILL_VERSION_KEY) as
+      | { fingerprint: string }
+      | undefined
+    return row?.fingerprint?.trim() || null
   }
 }
