@@ -141,10 +141,10 @@ describe('协作规则迁移 v44', () => {
     const resolver = new GuardResolver(repo)
 
     repo.savePermission({ scope: 'global' }, 'update_handoff', 'all_agents', 'allow', 'human')
-    expect(resolver.checkPermission('update_handoff', 'agent:penguin', { scope: 'global' })).toBe('allow')
+    expect(resolver.checkPermission('update_handoff', 'agent:carol', { scope: 'global' })).toBe('allow')
 
-    repo.savePermission({ scope: 'global' }, 'update_handoff', 'agent:penguin', 'deny', 'human')
-    expect(resolver.checkPermission('update_handoff', 'agent:penguin', { scope: 'global' })).toBe('deny')
+    repo.savePermission({ scope: 'global' }, 'update_handoff', 'agent:carol', 'deny', 'human')
+    expect(resolver.checkPermission('update_handoff', 'agent:carol', { scope: 'global' })).toBe('deny')
     expect(resolver.checkPermission('update_handoff', 'agent:other', { scope: 'global' })).toBe('allow')
   })
 

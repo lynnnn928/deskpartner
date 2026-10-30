@@ -31,7 +31,7 @@ import {
 } from '../../../src/cli/credentials'
 
 /** 库里在册的身份（其余都算孤儿） */
-const REGISTERED = ['agent:zed', 'agent:penguin']
+const REGISTERED = ['agent:zed', 'agent:carol']
 
 function makeCtx() {
   return {
@@ -73,7 +73,7 @@ let file: string
 /**
  * 造一份"有一份孤儿"的凭据文件
  *
- * 三份：zed（在册、默认）、qwen（**孤儿**）、penguin（在册）。
+ * 三份：zed（在册、默认）、qwen（**孤儿**）、carol（在册）。
  * 默认身份故意设成 zed —— 删孤儿时不该动它。
  */
 function seed() {
@@ -86,7 +86,7 @@ function seed() {
         profiles: {
           'agent:zed': { token: 'token-zed-PLAINTEXT', issuedAt: '2026-09-01T00:00:00.000Z' },
           'agent:qwen': { token: 'token-qwen-PLAINTEXT', issuedAt: '2026-10-06T00:00:00.000Z' },
-          'agent:penguin': { token: 'token-penguin-PLAINTEXT', issuedAt: '2026-10-10T00:00:00.000Z' }
+          'agent:carol': { token: 'token-carol-PLAINTEXT', issuedAt: '2026-10-10T00:00:00.000Z' }
         }
       },
       null,
@@ -120,7 +120,7 @@ describe('agent credentials：看得见（1.0.116）', () => {
     const rows = (res.data ?? []) as Record<string, unknown>[]
 
     expect(res.ok, JSON.stringify(res).slice(0, 200)).toBe(true)
-    expect(rows.map((r) => r.agentId)).toEqual(['agent:penguin', 'agent:qwen', 'agent:zed'])
+    expect(rows.map((r) => r.agentId)).toEqual(['agent:carol', 'agent:qwen', 'agent:zed'])
     expect(rows.find((r) => r.agentId === 'agent:qwen')?.registered).toBe(false)
     expect(rows.find((r) => r.agentId === 'agent:zed')?.registered).toBe(true)
     expect(rows.find((r) => r.agentId === 'agent:zed')?.isDefault).toBe(true)
@@ -159,7 +159,7 @@ describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）'
     expect(data.remaining).toBe(2)
 
     const after = readCredentials()
-    expect(Object.keys(after.profiles)).toEqual(['agent:penguin', 'agent:zed'])
+    expect(Object.keys(after.profiles)).toEqual(['agent:carol', 'agent:zed'])
     // 默认身份没被牵连
     expect(after.default).toBe('agent:zed')
   })
@@ -176,7 +176,7 @@ describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）'
 
   it('已注册身份不受理：报 usage_error 并指向 agent revoke，文件不动', async () => {
     const before = rawText()
-    const res = await run(['agent', 'purge-credentials', '--id', 'agent:penguin', '--yes'])
+    const res = await run(['agent', 'purge-credentials', '--id', 'agent:carol', '--yes'])
 
     expect(res.ok).toBe(false)
     expect(res.errorCode).toBe('usage_error')
@@ -201,8 +201,8 @@ describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）'
     expect(res.ok).toBe(true)
     const data = res.data as Record<string, unknown>
     expect(data.wasDefault).toBe(true)
-    expect(data.defaultAfter).toBe('agent:penguin')
-    expect(readCredentials().default).toBe('agent:penguin')
+    expect(data.defaultAfter).toBe('agent:carol')
+    expect(readCredentials().default).toBe('agent:carol')
   })
 })
 

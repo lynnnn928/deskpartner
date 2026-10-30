@@ -434,7 +434,7 @@ DeskPartner 同时是个 **MCP server**（\`mcp.cjs\` 随包发布，stdio trans
 3. \`dp todo list --project \"<项目名>\" --status any --limit 20 --brief\`：再看当前与历史事项分布，避免一次读取全库；
 4. 从结果中选择一条真正未完成的事项，先读详情和最近评论，再开始写入。
 
-接手说明负责背景、入口、当前决定和下一步；事项状态与进度从数据库实时读取，不能把实时计数手抄进说明。历史评论和流转属于交接材料，备份导出也必须一并保留。
+接手说明负责背景、入口、当前决定和下一步；仅当项目目标/方向、关键决定（做与不做）、工作入口或当前主线变更时才更新接手说明，禁止手抄发版日志与实时计数（事项状态与进度从数据库实时读取，不要手抄发版日志或状态计数）。历史评论和流转属于交接材料，备份导出也必须一并保留。
 
 Agent 更新接手说明时，不得直接调用 \`project handoff-update\`；应提交提议并等待主用户在「审批」页处理：
 
@@ -444,7 +444,7 @@ dp project handoff-proposals
 dp project handoff-proposals --all
 \`\`\`
 
-提议采纳后才会成为当前接手说明，并新增修订记录；可用 \`project get\` 回读。主用户在 GUI 概览中可直接编辑，CLI 的 \`project handoff-update\` 仅供主用户直接保存。
+提议采纳后才会成为当前接手说明，并新增修订记录；可用 \`project get\` 回读（若刚提交的 pending 提议有误，发起人可用 \`--withdraw <id>\` 自行撤回）。主用户在 GUI 概览中可直接编辑，CLI 的 \`project handoff-update\` 仅供主用户直接保存。
 
 跨身份协作沟通三分法：**有具体事项 → 事项评论（\`todo comment\`）；需主用户拍板决策 → 待确认事项（\`todo add --status proposed\`）；无具体事项、跨身份留口信 → 备忘（\`memo add --to <身份>\`，对方可用 \`memo add --reply-to <id>\` 在同一线程回复，别把口信塞进评论或待确认队列）**。
 
@@ -609,7 +609,7 @@ dp todo close <id> \\
 1. \`dp todo comment <id> --body "…"\` —— 写清做了什么、结论、遗留
 2. \`dp todo update <id> --fixed-in <版本>\` —— 标它在哪一版修的
 3. \`dp todo update <id> --status awaiting_review\` —— **推进待验收，人才能看见**
-4. \`dp project handoff-propose "<项目名>" --body-file handoff.md\` —— **当项目目标、关键决定（做与不做）、工作入口或当前主线变化时更新接手说明**（审批页采纳后生效；不要把发版日志或实时状态计数手抄进说明）
+4. \`dp project handoff-propose "<项目名>" --body-file handoff.md\` —— **仅当项目目标、关键决定（做与不做）、工作入口或当前主线变化时才更新接手说明，禁止手抄发版日志与实时计数**（审批页采纳后生效；不要把发版日志或实时状态计数手抄进说明）
 
 **自检**：\`dp todo list --status awaiting_review\` 里应该有你刚做完的卡。
 **空，就是漏了第 3 步。**
@@ -1036,7 +1036,7 @@ version: "${version}"
 
 - 先用 \`dp help <命令>\` 查参数，需要全量枚举时才用 \`dp schema\`。**参数写错会得到明确的 \`usage_error\`**（未知 flag、多写位置参数都是），报错里列出它真正接受的参数 —— 照着改一次重试，不是静默降级。
 - 事项必须带项目；不要把进度和结论追加到 description，往来写 comment。
-- 完成一轮工作后：写结论评论 → 标记 fixed-in → 推进 awaiting_review；若项目方向、关键决定、工作入口或当前主线发生变更，再用 \`dp project handoff-propose <项目名> --body-file ...\` 提交接手说明更新提议（不要手抄发版日志或状态计数）。
+- 完成一轮工作后：写结论评论 → 标记 fixed-in → 推进 awaiting_review；若项目方向、关键决定、工作入口或当前主线发生变更时才更新接手说明，再用 \`dp project handoff-propose <项目名> --body-file ...\` 提交接手说明更新提议（禁止手抄发版日志与实时计数 / 不要手抄发版日志或状态计数）。
 - 修一张卡：**用例名里带上这张卡的 8 位 id**（如 \`...g5-closure-structure-eec2e1e7.test.ts\`）——
   没有它，"哪张卡当初坏在哪"只活在当时的对话里（2026-10-15 审计：全仓仅 12 条带卡 id，占 0.8%）。
   自检 \`find tests -name '*.test.ts' | grep -E '[0-9a-f]{8}'\`；改完反向验证一次（改回去该变红）。

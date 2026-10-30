@@ -63,12 +63,12 @@ describe('项目关联本地 Markdown 文档目录（a3bd40d8 / 095b2006）', ()
     `)
     projects = new ProjectRepository()
     agents = new AgentRepository()
-    agents.register({ id: 'agent:penguin', displayName: 'Penguin', color: '#8B5CF6' } as never)
-    agents.setApproved('agent:penguin', true)
-    agentToken = agents.issueCredential('agent:penguin')?.token ?? ''
+    agents.register({ id: 'agent:carol', displayName: 'Carol', color: '#8B5CF6' } as never)
+    agents.setApproved('agent:carol', true)
+    agentToken = agents.issueCredential('agent:carol')?.token ?? ''
   })
 
-  function mkCtx(actor = 'agent:penguin', credential = agentToken) {
+  function mkCtx(actor = 'agent:carol', credential = agentToken) {
     return {
       deps: {
         projectRepo: projects,

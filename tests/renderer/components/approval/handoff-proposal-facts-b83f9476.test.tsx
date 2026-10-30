@@ -42,8 +42,8 @@ describe('接手提议复核界面：提议依据的事实 vs 当前事实并排
           categoryId: null,
           projectId: 'proj-1',
           parentId: null,
-          createdBy: 'agent:penguin',
-          executedBy: 'agent:penguin',
+          createdBy: 'agent:carol',
+          executedBy: 'agent:carol',
           verifier: 'human',
           fixedInVersion: null,
           dueAt: null,
@@ -61,7 +61,7 @@ describe('接手提议复核界面：提议依据的事实 vs 当前事实并排
     invokeMock.mockImplementation(async (channel: string) => {
       switch (channel) {
         case 'agent:list':
-          return [{ id: 'agent:penguin', displayName: 'PenguinHarness', approved: true }]
+          return [{ id: 'agent:carol', displayName: 'Carol', approved: true }]
         case 'agent:listGrants':
         case 'profile:proposals':
         case 'protocol:proposals':
@@ -79,7 +79,7 @@ describe('接手提议复核界面：提议依据的事实 vs 当前事实并排
               currentBody: '# 旧接手说明\n1.0.97',
               baseRevision: 4,
               decidedBody: null,
-              proposer: 'agent:penguin',
+              proposer: 'agent:carol',
               status: 'pending',
               decidedBy: null,
               decidedAt: null,
@@ -155,7 +155,7 @@ describe('接手提议复核界面：提议依据的事实 vs 当前事实并排
     invokeMock.mockImplementation(async (channel: string) => {
       switch (channel) {
         case 'agent:list':
-          return [{ id: 'agent:penguin', displayName: 'PenguinHarness', approved: true }]
+          return [{ id: 'agent:carol', displayName: 'Carol', approved: true }]
         case 'agent:listGrants':
         case 'profile:proposals':
         case 'protocol:proposals':
@@ -173,7 +173,7 @@ describe('接手提议复核界面：提议依据的事实 vs 当前事实并排
               currentBody: staleFlag ? '# 后来被别人改过的当前说明' : '# 基准说明',
               baseRevision: 4,
               decidedBody: null,
-              proposer: 'agent:penguin',
+              proposer: 'agent:carol',
               status: 'pending',
               decidedBy: null,
               decidedAt: null,

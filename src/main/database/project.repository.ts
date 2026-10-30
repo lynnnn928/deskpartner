@@ -322,6 +322,40 @@ export class ProjectRepository {
     return this.mapHandoffProposal(this.db.prepare('SELECT * FROM project_handoff_proposals WHERE id = ?').get(id) as Record<string, unknown>)
   }
 
+  withdrawHandoffProposal(
+    idOrPrefix: string,
+    actor: string
+  ): import('../../renderer/types/project').HandoffProposal & { withdrawn: boolean } {
+    const ref = String(idOrPrefix ?? '').trim()
+    if (!ref) throw new UsageError('缺少接手说明提议 id')
+    const now = new Date().toISOString()
+    let targetId = ''
+    const tx = this.db.transaction(() => {
+      const rows = this.db
+        .prepare('SELECT * FROM project_handoff_proposals WHERE id = ? OR id LIKE ? ORDER BY created_at DESC, id ASC')
+        .all(ref, `${ref}%`) as Array<Record<string, unknown>>
+      const exact = rows.find((r) => r.id === ref)
+      if (!exact && rows.length === 0) throw new NotFoundError(`接手说明提议不存在：${ref}`)
+      if (!exact && rows.length > 1) throw new UsageError(`接手说明提议 id 前缀不唯一：${ref}`)
+      const row = exact ?? rows[0]
+      if (row.proposer !== actor) {
+        throw new GuardError(`不能撤回别人提交的接手说明提议（提议人：${String(row.proposer)}，当前身份：${actor}）`)
+      }
+      if (row.status !== 'pending') {
+        throw new GuardError(`不能撤回已处理的接手说明提议（当前状态：${String(row.status)}）`)
+      }
+      targetId = String(row.id)
+      this.db
+        .prepare('UPDATE project_handoff_proposals SET status = ?, decided_by = ?, decided_at = ? WHERE id = ? AND status = ?')
+        .run('rejected', actor, now, targetId, 'pending')
+    })
+    tx()
+    const mapped = this.mapHandoffProposal(
+      this.db.prepare('SELECT * FROM project_handoff_proposals WHERE id = ?').get(targetId) as Record<string, unknown>
+    )
+    return { ...mapped, withdrawn: true }
+  }
+
   private mapHandoffProposal(row: Record<string, unknown>): import('../../renderer/types/project').HandoffProposal {
     let sourceTodoIds: string[] = []
     if (typeof row.source_todo_ids === 'string' && row.source_todo_ids.trim()) {
@@ -332,6 +366,7 @@ export class ProjectRepository {
         /* 坏数据当"没有来源" —— 不抛错，界面照样能看正文 */
       }
     }
+    const withdrawn = row.status === 'rejected' && Boolean(row.decided_by) && row.decided_by === row.proposer
     return {
       id: row.id as string, projectId: row.project_id as string, body: row.body as string,
       originalBody: (row.original_body as string) ?? '', baseRevision: row.base_revision as number,
@@ -339,7 +374,8 @@ export class ProjectRepository {
       status: row.status as 'pending' | 'approved' | 'rejected', decidedBy: (row.decided_by as string | null) ?? null,
       decidedAt: (row.decided_at as string | null) ?? null, createdAt: row.created_at as string,
       factsSnapshot: parseFacts(row.facts_snapshot),
-      sourceTodoIds
+      sourceTodoIds,
+      ...(withdrawn ? { withdrawn: true } : {})
     }
   }
 

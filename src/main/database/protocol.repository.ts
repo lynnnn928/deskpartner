@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { getDatabase } from './index'
 import { nowVersion } from '../lib/version-stamp'
 import { markHandoffDirty } from './handoff-state'
+import { GuardError, NotFoundError, UsageError } from '../lib/domain-errors'
 
 export const PROTOCOL_BLOCK_KEYS = ['roles', 'handoff', 'recording', 'communication', 'language'] as const
 export type ProtocolBlockKey = (typeof PROTOCOL_BLOCK_KEYS)[number]
@@ -317,6 +318,34 @@ export class ProtocolRepository {
     tx()
     return toProposal(this.db.prepare(`SELECT * FROM protocol_proposals WHERE id = ?`).get(id))
   }
+
+  withdrawProposal(idOrPrefix: string, actor: string): ProtocolProposal {
+    const ref = String(idOrPrefix ?? '').trim()
+    if (!ref) throw new UsageError('缺少协作协议提议 id')
+    const now = nowVersion()
+    let targetId = ''
+    const tx = this.db.transaction(() => {
+      const rows = this.db
+        .prepare(`SELECT * FROM protocol_proposals WHERE id = ? OR id LIKE ? ORDER BY created_at DESC, id ASC`)
+        .all(ref, `${ref}%`) as any[]
+      const exact = rows.find((r) => r.id === ref)
+      if (!exact && rows.length === 0) throw new NotFoundError(`协作协议提议不存在：${ref}`)
+      if (!exact && rows.length > 1) throw new UsageError(`协作协议提议 id 前缀不唯一：${ref}`)
+      const row = exact ?? rows[0]
+      if (row.proposer !== actor) {
+        throw new GuardError(`不能撤回别人提交的协作协议提议（提议人：${row.proposer}，当前身份：${actor}）`)
+      }
+      if (row.status !== 'pending') {
+        throw new GuardError(`不能撤回已处理的协作协议提议（当前状态：${row.status}）`)
+      }
+      targetId = row.id
+      this.db
+        .prepare(`UPDATE protocol_proposals SET status = 'rejected', decided_by = ?, decided_at = ? WHERE id = ? AND status = 'pending'`)
+        .run(actor, now, targetId)
+    })
+    tx()
+    return toProposal(this.db.prepare(`SELECT * FROM protocol_proposals WHERE id = ?`).get(targetId))
+  }
 }
 
 export interface ProtocolProposal {
@@ -336,6 +365,7 @@ export interface ProtocolProposal {
   decidedBy: string | null
   decidedAt: string | null
   createdAt: string
+  withdrawn?: boolean
 }
 
 export interface ProtocolRevision {
@@ -351,11 +381,13 @@ export interface ProtocolRevision {
 }
 
 function toProposal(row: any): ProtocolProposal {
+  const withdrawn = row.status === 'rejected' && Boolean(row.decided_by) && row.decided_by === row.proposer
   return {
     id: row.id, scope: row.scope, projectId: row.project_id ?? null, blockKey: row.block_key,
     body: row.body, originalBody: row.original_body ?? null, baseUpdatedAt: row.base_updated_at ?? null,
     decidedBody: row.decided_body ?? null, proposer: row.proposer, status: row.status,
-    decidedBy: row.decided_by ?? null, decidedAt: row.decided_at ?? null, createdAt: row.created_at
+    decidedBy: row.decided_by ?? null, decidedAt: row.decided_at ?? null, createdAt: row.created_at,
+    ...(withdrawn ? { withdrawn: true } : {})
   }
 }
 

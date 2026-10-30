@@ -70,7 +70,7 @@ describe('协作协议 CLI/MCP 出口', () => {
     const proposals = commands.find((item) => item.name === 'project handoff-proposals')
     expect(propose).toBeDefined()
     expect(riskOf(propose!)).toBe('write')
-    expect(propose!.args.map((arg) => arg.flag)).toEqual(['--body', '--body-file'])
+    expect(propose!.args.map((arg) => arg.flag)).toEqual(['--body', '--body-file', '--withdraw'])
     expect(proposals).toBeDefined()
     expect(riskOf(proposals!)).toBe('read')
     expect(mcpToolName('project handoff-propose')).toBe('propose_handoff')

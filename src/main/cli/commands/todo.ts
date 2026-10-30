@@ -329,6 +329,11 @@ export const todoInboxCommands: CommandSpec[] = [
         flag: '--leftover',
         type: 'string',
         desc: '取舍与遗留：没做什么、留下的坑、后续谁接（可留空，但会提醒）'
+      },
+      {
+        flag: '--notify',
+        type: 'string',
+        desc: '收口时显式指定提醒对象（如 human 或 agent:alice，多个用逗号分隔），向其投递未读备忘与收口通知'
       }
     ],
     positional: { name: 'id', required: true, desc: '待办 ID（支持前缀）' },
@@ -388,19 +393,42 @@ export const todoInboxCommands: CommandSpec[] = [
        * 2）向执行方投递一条关联该事项的未读备忘（`memo list --to-me --unread-only` 可见，且支持 `--reply-to` 同线程回复结清）；
        * 3）写入一条给执行方的 `review` 通知（`notification list --to-me` 与 GUI 通知中心按项目可查）。
        */
+      const rawNotify = flags['--notify'] !== undefined ? String(flags['--notify']).trim() : ''
+      if (flags['--notify'] !== undefined && !rawNotify) {
+        throw new UsageError('--notify 不能为空（请传 human 或 agent:<id>，多个用逗号分隔）')
+      }
+      const explicitTargets = rawNotify
+        ? rawNotify
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : []
+      for (const target of explicitTargets) {
+        if (target !== 'human' && !/^agent:[a-z0-9][a-z0-9_-]*$/i.test(target)) {
+          throw new UsageError(`--notify 目标格式非法：${target}（应为 human 或 agent:<id>）`)
+        }
+      }
+
       const executor = (todo.executedBy ?? todo.createdBy ?? '').trim()
       const cleanedLeftover = leftover.replace(/^[（(]|[）)。.!！~～；;，,\s]+$/g, '').trim()
       const hasActionableLeftover = cleanedLeftover.length > 0 && !/^(无|没有|暂无|无遗留|无风险|无风险与遗留|同上|未填|none|n\/a|nil|-|—)$/i.test(cleanedLeftover)
       const leftoverTarget = hasActionableLeftover && executor && executor !== actor ? executor : null
+      const notifyTargets = Array.from(
+        new Set([
+          ...(leftoverTarget ? [leftoverTarget] : []),
+          ...explicitTargets.filter((t) => t !== actor)
+        ])
+      )
+      const commentRecipient = explicitTargets[0] ?? leftoverTarget ?? null
 
-      const { comment, updated, leftoverMemoId } = getDatabase().transaction(() => {
+      const { comment, updated, leftoverMemoId, notifiedMemoIds } = getDatabase().transaction(() => {
         const comment = ctx.deps.commentRepo.create({
           todoId: id,
           body,
           authorType: actor === 'human' ? 'human' : 'agent',
           authorId: actor,
           kind: 'comment',
-          recipient: leftoverTarget
+          recipient: commentRecipient
         })
         const updated = ctx.deps.todoRepo.update({
           id,
@@ -409,18 +437,36 @@ export const todoInboxCommands: CommandSpec[] = [
           preApprovedGrantId: ctx.preApprovedGrantId
         })
         let leftoverMemoId: string | null = null
-        if (leftoverTarget) {
+        const notifiedMemoIds: string[] = []
+        const noteText = leftover || did
+        for (const target of notifyTargets) {
           if (typeof ctx.deps.memoRepo?.create === 'function') {
             const memo = ctx.deps.memoRepo.create({
               author: actor,
-              recipient: leftoverTarget,
+              recipient: target,
               linkedTodoId: id,
-              text: `【验收收口遗留 #${id.slice(0, 8)}《${todo.title}》】${leftover}`
+              text: `【验收收口遗留 #${id.slice(0, 8)}《${todo.title}》】${noteText}`
             })
-            leftoverMemoId = memo?.id ?? null
+            if (memo?.id) {
+              notifiedMemoIds.push(memo.id)
+              if (target === leftoverTarget) leftoverMemoId = memo.id
+            }
+          }
+          if (explicitTargets.includes(target) && target !== executor && typeof ctx.deps.notificationRepo?.create === 'function') {
+            ctx.deps.notificationRepo.create({
+              type: 'review',
+              title: `验收收口待办提醒：${todo.title}`,
+              summary: `${actor} 在 #${id.slice(0, 8)} 收口时点名提醒你：${noteText}`,
+              refId: id,
+              actor,
+              recipient: target
+            })
           }
         }
-        return { comment, updated, leftoverMemoId }
+        if (!leftoverMemoId && notifiedMemoIds.length > 0) {
+          leftoverMemoId = notifiedMemoIds[0]
+        }
+        return { comment, updated, leftoverMemoId, notifiedMemoIds }
       })()
 
       return {
@@ -433,6 +479,7 @@ export const todoInboxCommands: CommandSpec[] = [
           status: updated.status,
           commentId: comment.id,
           ...(leftoverTarget ? { leftoverNotifiedTo: leftoverTarget, leftoverMemoId } : {}),
+          ...(explicitTargets.length ? { notifiedTo: notifyTargets, notifiedMemoIds } : {}),
           message:
             '已写入四段收口结论并推进状态。' +
             '若这次是别人的活，确认你**不是执行者** —— 1.0.67 起验收按角色定权。'

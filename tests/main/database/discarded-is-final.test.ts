@@ -81,14 +81,14 @@ describe('已废弃是正式终态（a6032512 e）', () => {
     'agent 不得把已废弃事项自行推进到 %s',
     (status) => {
       const t = seed({ status: 'discarded' })
-      expect(() => todos.update({ id: t.id, status, actor: 'agent:newmax' } as never)).toThrow('事项已废弃')
+      expect(() => todos.update({ id: t.id, status, actor: 'agent:dave' } as never)).toThrow('事项已废弃')
       expect(todos.getById(t.id)!.status).toBe('discarded')
     }
   )
 
   it('人在界面上可以明确重开，agent仍可补充废弃理由', () => {
     const t = seed({ status: 'discarded' })
-    todos.update({ id: t.id, title: '补充废弃说明', actor: 'agent:newmax' })
+    todos.update({ id: t.id, title: '补充废弃说明', actor: 'agent:dave' })
     expect(todos.getById(t.id)!.status).toBe('discarded')
     todos.update({ id: t.id, status: 'todo', source: 'gui', actor: 'human' })
     expect(todos.getById(t.id)!.status).toBe('todo')

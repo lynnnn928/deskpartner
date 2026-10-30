@@ -132,7 +132,7 @@ describe('分页族：声明了 --limit 就得能翻页（7f21841f）', () => {
       },
       meta: { version: '1.0.108', dbPath: ':memory:', schemaVersion: 45, via: 'pipe' },
       interactive: true,
-      actor: 'agent:penguin'
+      actor: 'agent:carol'
     } as never
   })
 
@@ -151,7 +151,7 @@ describe('分页族：声明了 --limit 就得能翻页（7f21841f）', () => {
         body: `@我一下 ${i}`,
         authorType: 'agent',
         authorId: 'agent:alice',
-        recipient: 'agent:penguin'
+        recipient: 'agent:carol'
       } as never)
     }
   }
@@ -166,7 +166,7 @@ describe('分页族：声明了 --limit 就得能翻页（7f21841f）', () => {
     for (let i = 0; i < n; i++) {
       telemetry.record({
         sessionId: 's-probe',
-        actor: 'agent:penguin',
+        actor: 'agent:carol',
         surface: 'cli',
         category: 'cli',
         event: `probe.${String(i).padStart(2, '0')}`

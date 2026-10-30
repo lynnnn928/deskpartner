@@ -110,7 +110,7 @@ describe('永久删除项目：清空、可核对、可回滚（卡 c177e466）'
     const todo = todos.create({ title: `${tag} 的事`, categoryIds: [CAT], projectId })
     comments.create({ todoId: todo.id, body: `${tag} 的评论` })
     // 推进一次状态：落一条 todo_transitions（这张表**没有外键**，级联删不掉）
-    todos.update({ id: todo.id, status: 'in_progress', actor: 'agent:newmax' })
+    todos.update({ id: todo.id, status: 'in_progress', actor: 'agent:dave' })
     notifications.create({ type: 'review', title: `${tag} 的通知`, refId: todo.id })
     return todo
   }

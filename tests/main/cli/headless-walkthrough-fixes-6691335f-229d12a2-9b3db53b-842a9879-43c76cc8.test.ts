@@ -229,7 +229,7 @@ describe('阶段3 Headless 实测反馈五项修复（6691335f / 229d12a2 / 9b3d
   it('4. [842a9879] Agent 调用 skill 后自动登记已读当前说明书版本，后续调用不再刷 G8 落后或未声明提醒', async () => {
     const agentCtx = makeCtx({
       interactive: false,
-      actor: 'agent:newmax',
+      actor: 'agent:dave',
       skillVersion: '1.0.74'
     })
 
@@ -255,7 +255,7 @@ describe('阶段3 Headless 实测反馈五项修复（6691335f / 229d12a2 / 9b3d
     expect(afterRead.notice).toBeUndefined()
 
     const afterReadNoEnv = (await executeOne(
-      makeCtx({ interactive: false, actor: 'agent:newmax', skillVersion: undefined }),
+      makeCtx({ interactive: false, actor: 'agent:dave', skillVersion: undefined }),
       ['doctor']
     )) as {
       ok: boolean

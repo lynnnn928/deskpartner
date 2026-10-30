@@ -59,7 +59,7 @@ describe('发版对账：版本登记 vs 卡片标注（c291b93a）', () => {
       },
       meta: { version: 'test', dbPath: ':memory:', schemaVersion: 99, via: 'pipe' },
       interactive: false,
-      actor: 'agent:penguin'
+      actor: 'agent:carol'
     }) as never
 
   /** 造一张卡并直接钉死 completed_at（窗口判定按这个字段走） */
@@ -72,7 +72,7 @@ describe('发版对账：版本登记 vs 卡片标注（c291b93a）', () => {
     const t = todos.create({
       title: opts.title ?? '一张卡',
       projectId,
-      createdBy: 'agent:penguin',
+      createdBy: 'agent:carol',
       status: opts.status ?? 'done',
       ...(opts.fixedIn ? { fixedInVersion: opts.fixedIn } : {})
     } as never)
@@ -164,7 +164,7 @@ describe('发版对账：版本登记 vs 卡片标注（c291b93a）', () => {
     const orphan = todos.create({
       title: '别人的卡',
       projectId: other,
-      createdBy: 'agent:penguin',
+      createdBy: 'agent:carol',
       status: 'done'
     } as never)
     db.prepare('UPDATE todos SET completed_at = ? WHERE id = ?').run('2026-01-16T00:00:00.000Z', orphan.id)

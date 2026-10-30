@@ -49,8 +49,8 @@ describe('设置页与工作台整体重构验证', () => {
     useAgentStore.setState({
       agents: [
         {
-          id: 'agent:penguin',
-          displayName: 'PenguinHarness',
+          id: 'agent:carol',
+          displayName: 'Carol',
           color: '#5388F6',
           approved: true,
           rejectedAt: null,
@@ -75,7 +75,7 @@ describe('设置页与工作台整体重构验证', () => {
           priority: 'high',
           type: 'task',
           createdBy: 'human',
-          executedBy: 'agent:penguin',
+          executedBy: 'agent:carol',
           verifier: 'human',
           dueAt: null,
           remindAt: null,
@@ -121,7 +121,7 @@ describe('设置页与工作台整体重构验证', () => {
     render(<WorkbenchView />)
     expect(screen.getByRole('heading', { name: '我的工作' })).toBeTruthy()
     expect(screen.queryByText(/跨项目汇总仍需要/)).toBeNull()
-    expect(screen.getByText('PenguinHarness')).toBeTruthy()
-    expect(screen.queryByText('agent:penguin')).toBeNull()
+    expect(screen.getByText('Carol')).toBeTruthy()
+    expect(screen.queryByText('agent:carol')).toBeNull()
   })
 })

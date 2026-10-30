@@ -41,7 +41,6 @@ Thumbs.db
 # 与 .tmp-check/ 同类：属于"随手往里丢、不必每轮清理"，不进版本控制
 .*buddy/
 .claude/
-.newmax/
 outputs/
 
 # NSIS 中文安装路径事故留下的乱码残留目录
@@ -54,7 +53,7 @@ ProgramsK*/
 start-dev.cmd
 
 # 本机存档目录（接手报告等留档）：只留在本机，不进版本控制
-penguin-test/
+*-test/
 design-output/
 
 # 未定稿的草稿（1.0.106 体验测试、10-18 体验场景）：待评审后再决定是否入库

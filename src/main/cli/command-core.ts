@@ -353,6 +353,7 @@ export interface CliDeps {
     | 'saveHandoff'
     | 'listHandoffProposals'
     | 'proposeHandoff'
+    | 'withdrawHandoffProposal'
     /** 1.0.111 归档 / 取消归档（卡 `c177e466`）：置 archived 标志，数据一条不动 */
     | 'update'
     | 'listProjectDocs'
@@ -433,11 +434,11 @@ export interface CliDeps {
    * `GuardResolver` 只用 `listRules` / `listPermissions`，所以它的构造参数
    * 也收成这两个方法的 Pick —— 依赖给的正好是它要的，不多不少。
    */
-  rulesRepo: Pick<RulesRepository, 'listRules' | 'listPermissions' | 'propose' | 'listProposals'>
+  rulesRepo: Pick<RulesRepository, 'listRules' | 'listPermissions' | 'propose' | 'listProposals' | 'withdrawProposal'>
   /** 协作协议（同上） */
-  protocolRepo: Pick<ProtocolRepository, 'list' | 'propose' | 'listProposals'>
+  protocolRepo: Pick<ProtocolRepository, 'list' | 'propose' | 'listProposals' | 'withdrawProposal'>
   /** 主用户档案（同上） */
-  profileRepo: Pick<ProfileRepository, 'list' | 'propose' | 'listProposals'>
+  profileRepo: Pick<ProfileRepository, 'list' | 'propose' | 'listProposals' | 'withdrawProposal'>
   /** 让正在运行的 GUI 察觉到本次写入 */
   events: {
     append: (type: string, actor: string, payload?: Record<string, unknown> | null) => void
@@ -710,7 +711,7 @@ export function resolveCreatedBy(
  * 来完成调用（1.0.37 给 bob 补的兼容）。于是调用方声明了 A、又写了
  * `--created-by B` 时，动作人、动态、提出人**整条链**一起记成 B ——
  * 卡「谁提的、谁做的」一起错，而错记的身份事后无法还原
- * （`601f8ee6`：卡是 newmax 建、newmax 执行的，动态里却是 alice）。
+ * （`601f8ee6`：卡是 bob 建、bob 执行的，动态里却是 alice）。
  *
  * ## 判据：比的是"这次调用自己给出的两个说法"
  *
@@ -2319,7 +2320,7 @@ export interface CommandSpec {
    * 但实测只有 **list 类**命令成立：`todo get` / `todo children` / `project get` /
    * `notification list` 的 `data` 是**对象**，而 schema 里一个字都没说 ——
    * 调用方只能逐条跑一遍看它是 `[]` 还是 `{}`，写紧凑化／计数小工具时逐命令分支
-   * （PenguinHarness 评测会话 2026-10-15 · 报告 §4.2 P10 · 1.0.97 实测报的）。
+   * （Alice 评测会话 2026-10-15 · 报告 §4.2 P10 · 1.0.97 实测报的）。
    *
    * ## 为什么是"声明形状"而不是"统一形状"
    *
