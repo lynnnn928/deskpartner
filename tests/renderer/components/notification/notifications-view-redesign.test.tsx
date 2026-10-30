@@ -17,7 +17,7 @@ function setupMockInbox() {
     switch (channel) {
       case 'agent:list':
         return [
-          { id: 'agent:penguin', displayName: 'PenguinHarness', approved: true },
+          { id: 'agent:carol', displayName: 'Carol', approved: true },
           { id: 'agent:bob', displayName: 'Bob', approved: true },
           { id: 'agent:alice', displayName: 'Alice', approved: true }
         ]
@@ -39,7 +39,7 @@ function setupMockInbox() {
               title: '已通过并执行：todo rm「演示：横幅验收（父卡，会被删）」',
               summary: '已按你的允许执行完毕',
               refId: 'grant-1',
-              actor: 'agent:penguin',
+              actor: 'agent:carol',
               recipient: null,
               status: 'unread',
               readBy: null,
@@ -168,7 +168,7 @@ describe('NotificationsView 视觉与人话化改造验证', () => {
     expect(queryByText(/todo children/)).toBeNull()
 
     // 来源列展示 Agent 显示名称而非裸 id
-    expect(getAllByText('PenguinHarness').length).toBeGreaterThanOrEqual(1)
+    expect(getAllByText('Carol').length).toBeGreaterThanOrEqual(1)
     expect(getAllByText('Bob').length).toBeGreaterThanOrEqual(1)
 
     // 点击展开成功回执，验证展开详情卡片中不再显示 `已执行：release rm 9.9.8 --project DeskPartner --yes`

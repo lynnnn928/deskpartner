@@ -101,10 +101,16 @@ export const profileCommands: CommandSpec[] = [
        */
       { flag: '--block', type: 'enum', enum: PROFILE_BLOCK_KEYS, required: true, desc: '档案区块' },
       { flag: '--body', type: 'string', required: true, desc: '提议内容' },
-      { flag: '--append', type: 'boolean', desc: '追加模式：在当前已生效正文末尾换行追加 --body，免去手抄整段原文' }
+      { flag: '--append', type: 'boolean', desc: '追加模式：在当前已生效正文末尾换行追加 --body，免去手抄整段原文' },
+      { flag: '--withdraw', type: 'string', desc: '撤回本人刚提交且尚处于 pending 的提议（传提议 id 或前缀；不许撤他人或已处理的提议）' }
     ],
     run: (ctx, flags) => {
       const repo = ctx.deps.profileRepo
+      if (flags['--withdraw'] !== undefined) {
+        const withdrawId = typeof flags['--withdraw'] === 'string' ? flags['--withdraw'].trim() : ''
+        if (!withdrawId) throw new UsageError('--withdraw 需要传入待撤回的用户档案提议 id（支持前缀）')
+        return { ...repo.withdrawProposal(withdrawId, actorOf(ctx)), withdrawn: true }
+      }
       const blockKey = String(flags['--block'] ?? '') as import('../../database/profile.repository').ProfileBlockKey
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined
       const projectId = rawProject ? resolveGovernanceProjectId(ctx, rawProject) : undefined
@@ -142,10 +148,16 @@ export const protocolProposalCommands: CommandSpec[] = [
       { flag: '--project', type: 'string', desc: '项目名或项目 ID；不传为全局协议' },
       { flag: '--block', type: 'enum', enum: PROTOCOL_BLOCK_KEYS, required: true, desc: '协议区块' },
       { flag: '--body', type: 'string', required: true, desc: '提议内容' },
-      { flag: '--append', type: 'boolean', desc: '追加模式：在当前已生效正文末尾换行追加 --body，免去手抄整段原文' }
+      { flag: '--append', type: 'boolean', desc: '追加模式：在当前已生效正文末尾换行追加 --body，免去手抄整段原文' },
+      { flag: '--withdraw', type: 'string', desc: '撤回本人刚提交且尚处于 pending 的提议（传提议 id 或前缀；不许撤他人或已处理的提议）' }
     ],
     run: (ctx, flags) => {
       const repo = ctx.deps.protocolRepo
+      if (flags['--withdraw'] !== undefined) {
+        const withdrawId = typeof flags['--withdraw'] === 'string' ? flags['--withdraw'].trim() : ''
+        if (!withdrawId) throw new UsageError('--withdraw 需要传入待撤回的协作协议提议 id（支持前缀）')
+        return { ...repo.withdrawProposal(withdrawId, actorOf(ctx)), withdrawn: true }
+      }
       const blockKey = String(flags['--block'] ?? '') as import('../../database/protocol.repository').ProtocolBlockKey
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined
       const projectId = rawProject ? resolveGovernanceProjectId(ctx, rawProject) : undefined
@@ -208,10 +220,16 @@ export const rulesCommands: CommandSpec[] = [
     args: [
       { flag: '--project', type: 'string', desc: '项目名或项目 ID；不传为全局规则' },
       { flag: '--rule', type: 'string', required: true, desc: '规则编号：G1 / G2 / G4-status / G4-delete / G6 / G10 / G3 / G5 / G7 / G8 / G9' },
-      { flag: '--enforcement', type: 'string', required: true, desc: '强度：block / authorize / notice / off' }
+      { flag: '--enforcement', type: 'string', required: true, desc: '强度：block / authorize / notice / off' },
+      { flag: '--withdraw', type: 'string', desc: '撤回本人刚提交且尚处于 pending 的提议（传提议 id 或前缀；不许撤他人或已处理的提议）' }
     ],
     run: (ctx, flags) => {
       const repo = ctx.deps.rulesRepo
+      if (flags['--withdraw'] !== undefined) {
+        const withdrawId = typeof flags['--withdraw'] === 'string' ? flags['--withdraw'].trim() : ''
+        if (!withdrawId) throw new UsageError('--withdraw 需要传入待撤回的协作规则提议 id（支持前缀）')
+        return { ...repo.withdrawProposal(withdrawId, actorOf(ctx)), withdrawn: true }
+      }
       const ruleKey = String(flags['--rule'] ?? '')
       const enforcement = String(flags['--enforcement'] ?? '') as import('../../database/rules').RuleEnforcement
       const rawProject = flags['--project'] ? String(flags['--project']) : undefined

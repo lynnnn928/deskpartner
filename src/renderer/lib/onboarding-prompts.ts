@@ -134,5 +134,5 @@ export const RECOMMENDED_AGENTS = [
   { name: 'Alice', note: '桌面 AI 工作助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' },
   { name: 'Bob', note: '阿里云 AI 办公助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' },
   { name: 'zcode', note: '编程与通用 AI 助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' },
-  { name: 'NewMax AI', note: '中文 AI 工作助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' }
+  { name: 'Carol', note: '中文 AI 工作助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' }
 ] as const

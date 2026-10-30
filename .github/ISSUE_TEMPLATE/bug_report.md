@@ -19,7 +19,7 @@ labels: bug
 ## 环境信息
 - **DeskPartner 版本**（在「设置 → 系统 → 当前版本」或运行 `node "$DESKPARTNER_CLI" doctor` 查看）：
 - **Windows 版本**：
-- **接入的 AI 客户端**（如 Claude Desktop / Cursor / Penguin / Codex / 命令行等，若不涉及可填无）：
+- **接入的 AI 客户端**（如 Claude Desktop / Cursor / Windsurf / Codex / 命令行等，若不涉及可填无）：
 
 ## 截图或日志输出（可选）
 请粘贴报错信息、截图或 `doctor` 输出（注意抹去个人隐私路径）：

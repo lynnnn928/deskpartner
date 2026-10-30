@@ -138,8 +138,8 @@ describe('--limit 0 的族内含义（8d78af0d）', () => {
       } as never)
     }
     const memos = new MemoRepository()
-    memos.create({ author: 'agent:penguin', text: '备忘一' })
-    memos.create({ author: 'agent:penguin', text: '备忘二', recipient: 'agent:alice' })
+    memos.create({ author: 'agent:carol', text: '备忘一' })
+    memos.create({ author: 'agent:carol', text: '备忘二', recipient: 'agent:alice' })
     memos.create({ author: 'agent:alice', text: '备忘三' })
     const notifications = new NotificationRepository()
     for (let i = 0; i < 25; i++) {

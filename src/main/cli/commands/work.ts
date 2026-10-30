@@ -182,6 +182,14 @@ export const workCommands: CommandSpec[] = [
             )
             continue
           }
+          if (t.status === 'in_progress' && mine) {
+            continueQueue.push(toItem(t, '进行中，指派给你', `todo get ${short}`, projectNames))
+            continue
+          }
+          if (t.status === 'todo' && mine) {
+            assignedQueue.push(toItem(t, '待办，指派给你', `todo get ${short}`, projectNames))
+            continue
+          }
           if (t.status === 'awaiting_review' && t.verifier !== 'human') {
             waiting.push(toItem(t, `等 ${t.verifier} 验收`, `todo get ${short}`, projectNames))
             continue
@@ -331,10 +339,53 @@ export const workCommands: CommandSpec[] = [
             'MCP 调 `get_guide` 的 core 主题，命令行跑 `node "$DESKPARTNER_CLI" skill core`'
         )
 
+        const humanUnreadMemos = (() => {
+          try {
+            const allMemos = ctx.deps.memoRepo?.list?.() ?? []
+            return allMemos
+              .filter((m) => m.status === 'unread' && m.recipient === 'human')
+              .slice(0, perBucket > 0 ? perBucket : 10)
+              .map((m) => ({
+                id: m.id,
+                from: m.author,
+                linkedTodoId: m.linkedTodoId ?? null,
+                text: m.text.slice(0, 120),
+                createdAt: m.createdAt
+              }))
+          } catch {
+            return []
+          }
+        })()
+        const pendingProposals = (() => {
+          try {
+            const profile = ctx.deps.profileRepo?.listProposals?.('pending')?.length ?? 0
+            const protocol = ctx.deps.protocolRepo?.listProposals?.('pending')?.length ?? 0
+            const rules = ctx.deps.rulesRepo?.listProposals?.('pending')?.length ?? 0
+            const handoff = ctx.deps.projectRepo?.listHandoffProposals?.('pending')?.length ?? 0
+            return {
+              total: profile + protocol + rules + handoff,
+              profile,
+              protocol,
+              rules,
+              handoff
+            }
+          } catch {
+            return { total: 0, profile: 0, protocol: 0, rules: 0, handoff: 0 }
+          }
+        })()
+        const waitingForHuman = {
+          unreadMemos: humanUnreadMemos,
+          pendingProposals,
+          proposedTodos: counts.proposed,
+          awaitingHumanReviewTodos: open.filter((t) => t.status === 'awaiting_review' && t.verifier === 'human').length,
+          assignedToHumanTodos: open.filter((t) => (t.status === 'todo' || t.status === 'in_progress') && executorOf(t) === 'human').length
+        }
+
         return {
           subject,
           scope: { project: projectId ? (projectNames.get(projectId) ?? null) : null },
           counts,
+          waitingForHuman,
           recommend: out.recommend,
           available: out.available,
           waiting: out.waiting,

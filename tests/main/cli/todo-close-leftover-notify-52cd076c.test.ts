@@ -62,9 +62,9 @@ describe('todo close --leftover 自动通知执行方（52cd076c）', () => {
     agents.setApproved('agent:bob', true)
     reviewerToken = agents.issueCredential('agent:bob')?.token ?? ''
 
-    agents.register({ id: 'agent:penguin', displayName: 'Penguin', color: '#8B5CF6' } as never)
-    agents.setApproved('agent:penguin', true)
-    executorToken = agents.issueCredential('agent:penguin')?.token ?? ''
+    agents.register({ id: 'agent:carol', displayName: 'Carol', color: '#8B5CF6' } as never)
+    agents.setApproved('agent:carol', true)
+    executorToken = agents.issueCredential('agent:carol')?.token ?? ''
   })
 
   function mkCtx(actor: string, credential: string) {
@@ -103,7 +103,7 @@ describe('todo close --leftover 自动通知执行方（52cd076c）', () => {
       categoryIds: ['cat-1'],
       status: 'awaiting_review',
       createdBy: 'agent:bob',
-      executedBy: 'agent:penguin',
+      executedBy: 'agent:carol',
       verifier: 'agent:bob'
     })
 
@@ -126,11 +126,11 @@ describe('todo close --leftover 自动通知执行方（52cd076c）', () => {
       leftoverNotifiedTo?: string
       leftoverMemoId?: string
     }
-    expect(data.leftoverNotifiedTo).toBe('agent:penguin')
+    expect(data.leftoverNotifiedTo).toBe('agent:carol')
     expect(data.leftoverMemoId).toBeTruthy()
 
     // 1. 执行方跑 todo inbox 能看到这条收口遗留评论
-    const inboxRes = await executeOne(mkCtx('agent:penguin', executorToken), [
+    const inboxRes = await executeOne(mkCtx('agent:carol', executorToken), [
       'todo',
       'inbox',
       '--replied-only'
@@ -140,7 +140,7 @@ describe('todo close --leftover 自动通知执行方（52cd076c）', () => {
     expect(inboxItems.some((x) => x.todoId === t.id && x.body.includes('本轮清'))).toBe(true)
 
     // 2. 执行方跑 memo list --to-me --unread 能看到遗留备忘，且可同线程回复
-    const memoRes = await executeOne(mkCtx('agent:penguin', executorToken), [
+    const memoRes = await executeOne(mkCtx('agent:carol', executorToken), [
       'memo',
       'list',
       '--to-me',
@@ -154,7 +154,7 @@ describe('todo close --leftover 自动通知执行方（52cd076c）', () => {
     expect(memoRows[0].text).toContain('本轮清')
 
     // 3. 执行方跑 notification list --to-me --type memo 能看到关联该事项的未读通知（不受 done 态 STALE_REVIEW 过滤）
-    const notifRes = await executeOne(mkCtx('agent:penguin', executorToken), [
+    const notifRes = await executeOne(mkCtx('agent:carol', executorToken), [
       'notification',
       'list',
       '--to-me',
@@ -173,7 +173,7 @@ describe('todo close --leftover 自动通知执行方（52cd076c）', () => {
       categoryIds: ['cat-1'],
       status: 'awaiting_review',
       createdBy: 'agent:bob',
-      executedBy: 'agent:penguin',
+      executedBy: 'agent:carol',
       verifier: 'agent:bob'
     })
 
@@ -192,7 +192,7 @@ describe('todo close --leftover 自动通知执行方（52cd076c）', () => {
     const data = closeRes.data as { leftoverNotifiedTo?: string }
     expect(data.leftoverNotifiedTo).toBeUndefined()
 
-    const memoRows = memos.list({ recipientFor: 'agent:penguin', unreadOnly: true })
+    const memoRows = memos.list({ recipientFor: 'agent:carol', unreadOnly: true })
     expect(memoRows).toHaveLength(0)
   })
 })

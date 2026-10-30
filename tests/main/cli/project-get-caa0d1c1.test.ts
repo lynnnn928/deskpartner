@@ -74,7 +74,7 @@ function makeCtx() {
       startedAt: 0
     },
     interactive: true,
-    actor: 'agent:penguin'
+    actor: 'agent:carol'
   } as never
 }
 

@@ -30,8 +30,8 @@ const todo = (over: Partial<Todo>): Todo => ({ createdBy: 'human', executedBy: n
 
 describe('实际执行人（b95e6bbb）', () => {
   it('① executedBy 空着 = 提出即执行：执行人取提出者', () => {
-    expect(effectiveExecutor(todo({ createdBy: 'agent:newmax', executedBy: null }))).toBe(
-      'agent:newmax'
+    expect(effectiveExecutor(todo({ createdBy: 'agent:dave', executedBy: null }))).toBe(
+      'agent:dave'
     )
     expect(effectiveExecutor(todo({ createdBy: 'human' }))).toBe('human')
     // 反向验证：把 `?? todo.createdBy` 改成 `?? 'human'` → 第一条红。
@@ -39,12 +39,12 @@ describe('实际执行人（b95e6bbb）', () => {
 
   it('① 指派给别人时取执行者（提出者不参与）', () => {
     expect(
-      effectiveExecutor(todo({ createdBy: 'agent:newmax', executedBy: 'agent:alice' }))
+      effectiveExecutor(todo({ createdBy: 'agent:dave', executedBy: 'agent:alice' }))
     ).toBe('agent:alice')
     // 提出即执行写成显式的同一个人，也是同一个人
     expect(
-      effectiveExecutor(todo({ createdBy: 'agent:newmax', executedBy: 'agent:newmax' }))
-    ).toBe('agent:newmax')
+      effectiveExecutor(todo({ createdBy: 'agent:dave', executedBy: 'agent:dave' }))
+    ).toBe('agent:dave')
   })
 
   it('② 详情页显示执行人，并把"提出即执行"说明白', () => {

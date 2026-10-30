@@ -117,7 +117,7 @@ export const AgentAccessSection: React.FC = () => {
   return (
     <Section
       title="AI 助手接入资料"
-      desc="将以下接入说明发给你的 AI 助手（Bob、PenguinHarness、Alice、Codex 等），它即可按本机真实路径读写事项与项目。"
+      desc="将以下接入说明发给你的 AI 助手（Claude Desktop、Cursor、Codex 等），它即可按本机真实路径读写事项与项目。"
     >
       <div className="rounded-button border border-accent/25 bg-accent/5 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3">
         <span className="text-label text-text-primary">

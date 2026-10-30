@@ -110,7 +110,7 @@ beforeAll(() => {
   process.env.DESKPARTNER_CREDENTIALS_FILE = tmpCred
   runMigrations(db)
   for (const [id, name] of [
-    ['agent:penguin', '企鹅'],
+    ['agent:carol', 'Carol'],
     ['agent:alice', 'Alice'],
     ['agent:bob', 'Bob']
   ]) {
@@ -140,8 +140,8 @@ beforeEach(() => {
 })
 
 describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别的 agent', () => {
-  it('① 声明 agent:penguin 却写 --created-by agent:alice → usage_error，且真的没写进去', async () => {
-    const res = await executeOne(asDeclared('agent:penguin') as never, [
+  it('① 声明 agent:carol 却写 --created-by agent:alice → usage_error，且真的没写进去', async () => {
+    const res = await executeOne(asDeclared('agent:carol') as never, [
       'todo',
       'add',
       '--title',
@@ -157,14 +157,14 @@ describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别�
     expect(res.errorCode).toBe('usage_error')
     // 报错要能照着改：说清"你写了谁""你是谁""该用什么"
     expect(res.message).toContain('agent:alice')
-    expect(res.message).toContain('agent:penguin')
+    expect(res.message).toContain('agent:carol')
     expect(res.message).toContain('--executed-by')
     expect(countTodos(), '拦下了却留了一条 —— 报了错还写进去是最坏的一种').toBe(0)
     // 反向验证：把 assertCreatedByNotImpersonating 那一行删掉 → ok=true，本条红。
   })
 
-  it('② 声明 agent:penguin 写自己的名字 / 不写：都照常（规则是"不许写别人"）', async () => {
-    const mine = await executeOne(asDeclared('agent:penguin') as never, [
+  it('② 声明 agent:carol 写自己的名字 / 不写：都照常（规则是"不许写别人"）', async () => {
+    const mine = await executeOne(asDeclared('agent:carol') as never, [
       'todo',
       'add',
       '--title',
@@ -174,12 +174,12 @@ describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别�
       '--project',
       '测试项目',
       '--created-by',
-      'agent:penguin'
+      'agent:carol'
     ])
     expect(mine.ok).toBe(true)
-    expect(todoRepo.getById((mine.data as { id: string }).id)!.createdBy).toBe('agent:penguin')
+    expect(todoRepo.getById((mine.data as { id: string }).id)!.createdBy).toBe('agent:carol')
 
-    const omitted = await executeOne(asDeclared('agent:penguin') as never, [
+    const omitted = await executeOne(asDeclared('agent:carol') as never, [
       'todo',
       'add',
       '--title',
@@ -190,11 +190,11 @@ describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别�
       '测试项目'
     ])
     expect(omitted.ok).toBe(true)
-    expect(todoRepo.getById((omitted.data as { id: string }).id)!.createdBy).toBe('agent:penguin')
+    expect(todoRepo.getById((omitted.data as { id: string }).id)!.createdBy).toBe('agent:carol')
   })
 
   it('③ --created-by human 不受限：agent 代录一条用户提的事仍然可以', async () => {
-    const res = await executeOne(asDeclared('agent:penguin') as never, [
+    const res = await executeOne(asDeclared('agent:carol') as never, [
       'todo',
       'add',
       '--title',
@@ -211,7 +211,7 @@ describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别�
   })
 
   it('④ 未声明身份（启动器按本机凭据自动带上）→ 放行：1.0.37 的兼容路径原样保留', async () => {
-    const res = await executeOne(asAutoLoaded('agent:penguin') as never, [
+    const res = await executeOne(asAutoLoaded('agent:carol') as never, [
       'todo',
       'add',
       '--title',
@@ -248,7 +248,7 @@ describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别�
 
   it('⑥ update 改提出者同样拦，且"改回自己 / 改回 human"这两条补救路留着', async () => {
     const todo = todoRepo.create({ title: '记错人的那条', createdBy: 'human' })
-    const bad = await executeOne(asDeclared('agent:penguin') as never, [
+    const bad = await executeOne(asDeclared('agent:carol') as never, [
       'todo',
       'update',
       todo.id,
@@ -259,17 +259,17 @@ describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别�
     expect(bad.errorCode).toBe('usage_error')
     expect(todoRepo.getById(todo.id)!.createdBy, '拦下之后不许改动').toBe('human')
 
-    const fixMine = await executeOne(asDeclared('agent:penguin') as never, [
+    const fixMine = await executeOne(asDeclared('agent:carol') as never, [
       'todo',
       'update',
       todo.id,
       '--created-by',
-      'agent:penguin'
+      'agent:carol'
     ])
     expect(fixMine.ok).toBe(true)
-    expect(todoRepo.getById(todo.id)!.createdBy).toBe('agent:penguin')
+    expect(todoRepo.getById(todo.id)!.createdBy).toBe('agent:carol')
 
-    const fixHuman = await executeOne(asDeclared('agent:penguin') as never, [
+    const fixHuman = await executeOne(asDeclared('agent:carol') as never, [
       'todo',
       'update',
       todo.id,
@@ -283,7 +283,7 @@ describe('冒名治理第 1 层（b95e6bbb）：声明了身份就不能填别�
   it('⑦ batch 逐行走同一条链路：批量里也拦得住', async () => {
     const res = await executeOne(
       {
-        ...asDeclared('agent:penguin'),
+        ...asDeclared('agent:carol'),
         stdin: JSON.stringify({
           cmd: 'todo add',
           args: { '--title': '批量冒名', '--category': '方向', '--project': '测试项目', '--created-by': 'agent:alice' }

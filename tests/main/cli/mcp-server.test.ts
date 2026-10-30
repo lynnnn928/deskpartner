@@ -300,11 +300,11 @@ describe('MCP actor → 子进程环境 / surface 声明（1.0.63）', () => {
    */
   it('声明的 actor 覆盖环境里已有的 DESKPARTNER_AGENT', async () => {
     const { buildChildEnv } = await import('../../../src/cli/mcp-server')
-    const env = buildChildEnv('agent:penguin', {
+    const env = buildChildEnv('agent:carol', {
       DESKPARTNER_AGENT: 'agent:alice',
       PATH: '/x'
     } as NodeJS.ProcessEnv)
-    expect(env.DESKPARTNER_AGENT, '声明值必须赢，否则 actor 入参等于没接').toBe('agent:penguin')
+    expect(env.DESKPARTNER_AGENT, '声明值必须赢，否则 actor 入参等于没接').toBe('agent:carol')
     expect(env.PATH, '基线环境不能被丢掉').toBe('/x')
   })
 })
@@ -611,9 +611,9 @@ describe('MCP 接线层：客户端参数必须真的走到 toArgv（bf736527 P0
     const { client, calls, actors } = await connect()
     await client.callTool({
       name: 'add_memos',
-      arguments: { text: '留意一下', actor: 'agent:penguin' }
+      arguments: { text: '留意一下', actor: 'agent:carol' }
     })
-    expect(actors[0], '生成的写工具必须能按调用声明身份').toBe('agent:penguin')
+    expect(actors[0], '生成的写工具必须能按调用声明身份').toBe('agent:carol')
     expect(calls[0]).toEqual(['memo', 'add', '--text=留意一下'])
     await client.close()
   })
@@ -627,9 +627,9 @@ describe('MCP 接线层：客户端参数必须真的走到 toArgv（bf736527 P0
     const { client, calls, actors } = await connect()
     await client.callTool({
       name: 'create_project',
-      arguments: { name: 'X', actor: 'agent:penguin' }
+      arguments: { name: 'X', actor: 'agent:carol' }
     })
-    expect(actors[0], 'create_project 必须能按调用声明身份').toBe('agent:penguin')
+    expect(actors[0], 'create_project 必须能按调用声明身份').toBe('agent:carol')
     expect(calls[0]).toEqual(['project', 'add', '--name', 'X'])
     await client.close()
   })

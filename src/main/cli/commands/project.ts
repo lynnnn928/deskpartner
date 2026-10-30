@@ -27,10 +27,21 @@ export const projectHandoffCommands: CommandSpec[] = [
     desc: '向主用户提议修改项目接手说明；提议需在审批页采纳后才会生效',
     args: [
       { flag: '--body', type: 'string', desc: '新的接手说明正文' },
-      { flag: '--body-file', type: 'string', desc: '从文件读取接手说明正文（由启动器展开为 --body）' }
+      { flag: '--body-file', type: 'string', desc: '从文件读取接手说明正文（由启动器展开为 --body）' },
+      { flag: '--withdraw', type: 'string', desc: '撤回本人刚提交且尚处于 pending 的接手说明提议（传提议 id 或前缀；不许撤他人或已处理的提议）' }
     ],
     positional: { name: 'id', required: true, desc: '项目 id、短 id 或完整名称' },
     run: (ctx, flags, positional) => {
+      if (flags['--withdraw'] !== undefined) {
+        const withdrawId = typeof flags['--withdraw'] === 'string' ? flags['--withdraw'].trim() : ''
+        if (!withdrawId) throw new UsageError('--withdraw 需要传入待撤回的接手说明提议 id（支持前缀）')
+        const proposal = ctx.deps.projectRepo.withdrawHandoffProposal(withdrawId, actorOf(ctx))
+        return {
+          project: projectNameOf(ctx, proposal.projectId),
+          proposal,
+          withdrawn: true
+        }
+      }
       const raw = positional[0]
       if (!raw) throw new UsageError('缺少项目 id 或名称')
       assertNoLauncherOnlyFlags(flags)

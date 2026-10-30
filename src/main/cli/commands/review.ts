@@ -134,7 +134,15 @@ export const notificationCommands: CommandSpec[] = [
       const unreadMatched = unreadOnly ? page.matched : repo.countPage(unreadQuery)
       if (ackMine) {
         // 只确认本次实际返回的通知，不能把被 limit 截掉、尚未看到的记录也标为知晓。
-        for (const n of rows) repo.markReadBy(n.id, me)
+        for (const n of rows) {
+          repo.markReadBy(n.id, me)
+          const readers = (n.readBy ?? '')
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean)
+          if (!readers.includes(me)) readers.push(me)
+          n.readBy = readers.join(',')
+        }
       }
       const returned = rows.length
       const truncated = offset + returned < page.matched
@@ -173,6 +181,9 @@ export const notificationCommands: CommandSpec[] = [
           actor: n.actor,
           /** 给谁（1.0.68）—— 与 actor 是两个身份 */
           recipient: n.recipient,
+          /** 谁读过（逗号分隔的主体集合，如 "human,agent:alice"；无人按主体确认时为 null） */
+          readBy: n.readBy ? n.readBy : null,
+          read_by: n.readBy ? n.readBy : null,
           status: n.status,
           createdAt: n.createdAt,
           /** 驳回通知带 rejected:true，agent 据此分辨"交付"与"退回" */

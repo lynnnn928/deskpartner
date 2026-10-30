@@ -22,7 +22,7 @@ function setupMockData(overrides?: {
     switch (channel) {
       case 'agent:list':
         return [
-          { id: 'agent:penguin', displayName: 'PenguinHarness', approved: true },
+          { id: 'agent:carol', displayName: 'Carol', approved: true },
           { id: 'agent:bob', displayName: 'Bob', approved: true }
         ]
       case 'agent:listGrants':
@@ -43,8 +43,8 @@ function setupMockData(overrides?: {
             {
               id: 'hist-1',
               type: 'grant',
-              agentId: 'agent:penguin',
-              agentName: 'PenguinHarness',
+              agentId: 'agent:carol',
+              agentName: 'Carol',
               projectId: 'proj-1',
               createdAt: '2026-10-27T11:43:00.000Z',
               activityAt: '2026-10-27T11:44:00.000Z',
@@ -137,8 +137,8 @@ describe('ApprovalView 视觉与交互收口（6 项用户反馈验证）', () =
           categoryId: null,
           categoryIds: [],
           parentId: null,
-          createdBy: 'agent:penguin',
-          executedBy: 'agent:penguin',
+          createdBy: 'agent:carol',
+          executedBy: 'agent:carol',
           verifier: 'human',
           dueAt: null,
           remindAt: null,
@@ -175,7 +175,7 @@ describe('ApprovalView 视觉与交互收口（6 项用户反馈验证）', () =
       grants: [
         {
           id: 'grant-pending-1',
-          agentId: 'agent:penguin',
+          agentId: 'agent:carol',
           scope: 'destructive',
           status: 'pending',
           command: 'todo rm',

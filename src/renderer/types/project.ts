@@ -225,6 +225,8 @@ export interface HandoffProposal {
   currentFacts?: HandoffFacts | null
   /** 这条提议依据的事项（当前主线 + 前几条未完成）；空数组 = 没有可引用的 */
   sourceTodoIds?: string[]
+  /** 发起人自行撤回的提议标记 */
+  withdrawn?: boolean
 }
 
 /** 列表摘要：不带全文，CLI 与大列表用 */

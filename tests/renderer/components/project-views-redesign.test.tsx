@@ -74,7 +74,7 @@ describe('项目看板与相关页面设计系统统一验证', () => {
     expect(globalSearchContainer.querySelectorAll('select').length).toBe(0)
   })
 
-  it('3. 项目概览与接手说明修订历史抽屉通过 ownerLabel 展示友好名称，不裸露 agent:penguin 或 human', async () => {
+  it('3. 项目概览与接手说明修订历史抽屉通过 ownerLabel 展示友好名称，不裸露 agent:carol 或 human', async () => {
     invokeMock.mockImplementation(async (channel: string) => {
       if (channel === 'project:detail') {
         return {
@@ -106,7 +106,7 @@ describe('项目看板与相关页面设计系统统一验证', () => {
                 status: 'in_progress',
                 priority: 'normal',
                 type: 'task',
-                executedBy: 'agent:penguin',
+                executedBy: 'agent:carol',
                 updatedAt: '2026-10-28T00:00:00.000Z'
               }
             ]
@@ -144,7 +144,7 @@ describe('项目看板与相关页面设计系统统一验证', () => {
       expect(screen.getByText('Alex')).toBeTruthy()
     })
 
-    expect(screen.queryByText('agent:penguin')).toBeNull()
+    expect(screen.queryByText('agent:carol')).toBeNull()
     expect(screen.queryByText('human')).toBeNull()
   })
 

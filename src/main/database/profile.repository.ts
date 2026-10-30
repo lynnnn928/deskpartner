@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { getDatabase } from './index'
 import { nowVersion } from '../lib/version-stamp'
 import { markHandoffDirty } from './handoff-state'
+import { GuardError, NotFoundError, UsageError } from '../lib/domain-errors'
 
 export const PROFILE_BLOCK_KEYS = ['basics', 'habits', 'boundaries', 'completion'] as const
 export type ProfileBlockKey = (typeof PROFILE_BLOCK_KEYS)[number]
@@ -240,6 +241,34 @@ export class ProfileRepository {
     tx()
     return toProposal(this.db.prepare(`SELECT * FROM profile_proposals WHERE id = ?`).get(id))
   }
+
+  withdrawProposal(idOrPrefix: string, actor: string): ProfileProposal {
+    const ref = String(idOrPrefix ?? '').trim()
+    if (!ref) throw new UsageError('缺少用户档案提议 id')
+    const now = nowVersion()
+    let targetId = ''
+    const tx = this.db.transaction(() => {
+      const rows = this.db
+        .prepare(`SELECT * FROM profile_proposals WHERE id = ? OR id LIKE ? ORDER BY created_at DESC, id ASC`)
+        .all(ref, `${ref}%`) as any[]
+      const exact = rows.find((r) => r.id === ref)
+      if (!exact && rows.length === 0) throw new NotFoundError(`用户档案提议不存在：${ref}`)
+      if (!exact && rows.length > 1) throw new UsageError(`用户档案提议 id 前缀不唯一：${ref}`)
+      const row = exact ?? rows[0]
+      if (row.proposer !== actor) {
+        throw new GuardError(`不能撤回别人提交的用户档案提议（提议人：${row.proposer}，当前身份：${actor}）`)
+      }
+      if (row.status !== 'pending') {
+        throw new GuardError(`不能撤回已处理的用户档案提议（当前状态：${row.status}）`)
+      }
+      targetId = row.id
+      this.db
+        .prepare(`UPDATE profile_proposals SET status = 'rejected', decided_by = ?, decided_at = ? WHERE id = ? AND status = 'pending'`)
+        .run(actor, now, targetId)
+    })
+    tx()
+    return toProposal(this.db.prepare(`SELECT * FROM profile_proposals WHERE id = ?`).get(targetId))
+  }
 }
 
 export interface ProfileRevision {
@@ -286,9 +315,11 @@ export interface ProfileProposal {
   decidedBy: string | null
   decidedAt: string | null
   createdAt: string
+  withdrawn?: boolean
 }
 
 function toProposal(row: any): ProfileProposal {
+  const withdrawn = row.status === 'rejected' && Boolean(row.decided_by) && row.decided_by === row.proposer
   return {
     id: row.id,
     scope: row.scope,
@@ -302,7 +333,8 @@ function toProposal(row: any): ProfileProposal {
     status: row.status,
     decidedBy: row.decided_by ?? null,
     decidedAt: row.decided_at ?? null,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    ...(withdrawn ? { withdrawn: true } : {})
   }
 }
 

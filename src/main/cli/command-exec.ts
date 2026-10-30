@@ -208,8 +208,9 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
     return { ok: true, data: commandUsage(cmd), output: cmd.output }
   }
 
+  const isWithdrawCall = flags['--withdraw'] !== undefined && cmd.args.some((s) => s.flag === '--withdraw')
   for (const spec of cmd.args) {
-    if (spec.required && flags[spec.flag] === undefined) {
+    if (!isWithdrawCall && spec.required && flags[spec.flag] === undefined) {
       /**
        * --project 缺失时给更具体的指路（1.0.37）。
        *
@@ -252,7 +253,7 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
       }
     }
   }
-  if (cmd.positional?.required && !positional.length) {
+  if (!isWithdrawCall && cmd.positional?.required && !positional.length) {
     return {
       ok: false,
       code: EXIT_CODES.usage,
