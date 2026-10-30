@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeskPartner — 多 AI 的本地工作控制台，让协作可交接、可验收、可追责</title>
-  <meta name="description" content="DeskPartner：把多个 AI 的工作变成可交接、可验收、可追责的本地工作控制台。内置项目接手说明（Handoff）、7 态验收状态机、15 道仓储层护栏与单次授权代执行，支持 69 个 MCP 工具与 76 条 CLI 命令，100% 本地 SQLite 存储。" />
+  <title>DeskPartner — 让你的 AI 自己记任务、写交接，你只管看和拍板</title>
+  <meta name="description" content="DeskPartner：给多个 AI 共用的本地桌面工作台。它们自己记进度、写交接说明，你只管看看板和点批准。" />
   <link rel="icon" type="image/svg+xml" href="assets/partner-badge.svg" />
   <script>
     (function () {
@@ -17,11 +17,10 @@
     })();
   </script>
   <style>
-    /* ── 与产品 src/renderer/styles/variables.css 严格同源的令牌体系 ── */
+    /* ── 与产品 src/renderer/styles/variables.css 同源令牌 ── */
     :root {
       color-scheme: light;
       --color-bg-primary-rgb: 247 247 245;
-      --color-bg-secondary-rgb: 255 255 255;
       --color-bg-card-rgb: 255 255 255;
       --color-text-primary-rgb: 17 24 39;
       --color-text-secondary-rgb: 107 114 128;
@@ -29,56 +28,40 @@
       --color-border-rgb: 229 231 235;
       --color-accent-rgb: 17 24 39;
       --color-success-rgb: 22 163 74;
-      --color-danger-rgb: 220 38 38;
       --color-column-surface-rgb: 242 242 240;
 
-      /* 看板 6 态识别圆点色 */
       --color-status-proposed-rgb: 192 132 252;
       --color-status-todo-rgb: 83 136 246;
       --color-status-in-progress-rgb: 101 193 156;
-      --color-status-suspended-rgb: 232 163 61;
       --color-status-awaiting-review-rgb: 232 117 109;
-      --color-status-done-rgb: 156 163 175;
 
-      /* 圆角刻度 */
       --radius-xs: 4px;
       --radius-button: 8px;
       --radius-tag: 11px;
       --radius-card: 14px;
-      --radius-quick-add: 18px;
       --radius-panel: 20px;
 
-      /* 阴影刻度 */
-      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
-      --shadow-soft: 0 8px 24px rgba(17, 24, 39, 0.05);
-      --shadow-hero: 0 18px 45px rgba(17, 24, 39, 0.14);
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+      --shadow-hero: 0 18px 45px rgba(17, 24, 39, 0.12);
 
-      /* 尺寸与字体 */
-      --size-page: 1100px;
+      --size-page: 1040px;
       --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
-      /* 颜色派生 */
       --color-bg-primary: rgb(var(--color-bg-primary-rgb));
-      --color-bg-secondary: rgb(var(--color-bg-secondary-rgb));
       --color-bg-card: rgb(var(--color-bg-card-rgb));
       --color-text-primary: rgb(var(--color-text-primary-rgb));
       --color-text-secondary: rgb(var(--color-text-secondary-rgb));
       --color-text-done: rgb(var(--color-text-done-rgb));
       --color-border: rgb(var(--color-border-rgb));
       --color-accent: rgb(var(--color-accent-rgb));
-      --color-success: rgb(var(--color-success-rgb));
-      --color-danger: rgb(var(--color-danger-rgb));
       --color-column-surface: rgb(var(--color-column-surface-rgb));
       --surface-subtle: color-mix(in srgb, var(--color-bg-primary) 72%, var(--color-bg-card));
-      --surface-muted: color-mix(in srgb, var(--color-bg-primary) 88%, var(--color-text-primary));
     }
 
-    /* ── 与产品 src/renderer/styles/themes/dark.css 同源的深色令牌 ── */
     [data-theme="dark"] {
       color-scheme: dark;
       --color-bg-primary-rgb: 44 44 44;
-      --color-bg-secondary-rgb: 58 58 58;
       --color-bg-card-rgb: 58 58 58;
       --color-text-primary-rgb: 229 229 229;
       --color-text-secondary-rgb: 156 163 175;
@@ -91,26 +74,16 @@
       --color-status-proposed-rgb: 201 154 248;
       --color-status-todo-rgb: 123 164 247;
       --color-status-in-progress-rgb: 125 212 173;
-      --color-status-suspended-rgb: 232 182 92;
       --color-status-awaiting-review-rgb: 240 145 136;
-      --color-status-done-rgb: 138 138 138;
 
-      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.28);
-      --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
-      --shadow-hero: 0 18px 45px rgba(0, 0, 0, 0.38);
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.25);
+      --shadow-hero: 0 18px 45px rgba(0, 0, 0, 0.36);
     }
 
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation: none !important;
-        transition: none !important;
-      }
     }
 
     html, body {
@@ -123,15 +96,15 @@
       background-color: var(--color-bg-primary);
       color: var(--color-text-primary);
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.65;
       -webkit-font-smoothing: antialiased;
     }
 
-    code, pre, kbd {
+    code, pre {
       font-family: var(--font-mono);
     }
 
-    p code, li code {
+    p code {
       font-size: 12px;
       padding: 1px 6px;
       border-radius: var(--radius-xs);
@@ -144,31 +117,25 @@
       text-decoration: underline;
       text-underline-offset: 3px;
       text-decoration-color: rgb(var(--color-text-secondary-rgb) / 0.45);
-      transition: color 150ms var(--ease), text-decoration-color 150ms var(--ease);
     }
 
     a:hover {
       text-decoration-color: var(--color-text-primary);
     }
 
-    :focus-visible {
-      outline: 2px solid rgb(var(--color-accent-rgb) / 0.4);
-      outline-offset: 2px;
-    }
-
     .container {
       width: 100%;
       max-width: var(--size-page);
       margin: 0 auto;
-      padding: 0 20px;
+      padding: 0 24px;
     }
 
-    /* ── 顶部磨砂导航栏 ── */
+    /* ── 顶部导航 ── */
     header.site-nav {
       position: sticky;
       top: 0;
       z-index: 40;
-      height: 58px;
+      height: 56px;
       border-bottom: 1px solid var(--color-border);
       background: color-mix(in srgb, var(--color-bg-primary) 88%, transparent);
       backdrop-filter: blur(20px) saturate(180%);
@@ -187,34 +154,28 @@
       align-items: center;
       gap: 10px;
       color: var(--color-text-primary);
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
-      letter-spacing: -0.02em;
       text-decoration: none;
-      flex-shrink: 0;
     }
 
-    .brand:hover {
-      text-decoration: none;
-    }
+    .brand:hover { text-decoration: none; }
 
     .brand img {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
-      display: block;
     }
 
     .nav-links {
       display: none;
       align-items: center;
-      gap: 20px;
+      gap: 24px;
     }
 
     .nav-links a {
       color: var(--color-text-secondary);
       font-size: 13px;
-      font-weight: 500;
       text-decoration: none;
     }
 
@@ -226,29 +187,26 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-shrink: 0;
     }
 
-    /* ── 产品同款按钮 ── */
+    /* ── 按钮 ── */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       min-height: 40px;
-      padding: 0 18px;
+      padding: 0 20px;
       border-radius: var(--radius-button);
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       text-decoration: none;
-      transition: background-color 150ms var(--ease), border-color 150ms var(--ease), opacity 150ms var(--ease);
+      transition: opacity 150ms var(--ease), background-color 150ms var(--ease);
       white-space: nowrap;
     }
 
-    .btn:hover {
-      text-decoration: none;
-    }
+    .btn:hover { text-decoration: none; }
 
     .btn-primary {
       background: var(--color-accent);
@@ -260,9 +218,7 @@
       color: #1f1f1f;
     }
 
-    .btn-primary:hover {
-      opacity: 0.9;
-    }
+    .btn-primary:hover { opacity: 0.9; }
 
     .btn-secondary {
       background: var(--color-bg-card);
@@ -276,7 +232,7 @@
     }
 
     .btn-sm {
-      min-height: 34px;
+      min-height: 32px;
       padding: 0 12px;
       font-size: 12px;
     }
@@ -285,116 +241,47 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       border-radius: var(--radius-button);
       border: 1px solid var(--color-border);
       background: var(--color-bg-card);
       color: var(--color-text-primary);
       cursor: pointer;
-      transition: background-color 150ms var(--ease);
     }
 
     .icon-btn:hover {
       background: var(--color-column-surface);
     }
 
-    /* ── Hero ── */
+    /* ── 首屏：一句话看懂 + 直接看界面 ── */
     .hero {
-      padding: 52px 0 44px;
-      border-bottom: 1px solid var(--color-border);
-    }
-
-    .hero-panel {
-      border-radius: var(--radius-panel);
-      border: 1px solid var(--color-border);
-      background: var(--color-bg-card);
-      box-shadow: var(--shadow-soft);
-      padding: 38px 26px;
+      padding: 52px 0 36px;
       text-align: center;
     }
 
-    .hero-badge-row {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 12px;
-      border-radius: 9999px;
-      background: var(--color-column-surface);
-      border: 1px solid var(--color-border);
-      font-size: 12px;
-      color: var(--color-text-secondary);
-      font-family: var(--font-mono);
-      margin-bottom: 18px;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .dot-proposed { background: rgb(var(--color-status-proposed-rgb)); }
-    .dot-todo { background: rgb(var(--color-status-todo-rgb)); }
-    .dot-in-progress { background: rgb(var(--color-status-in-progress-rgb)); }
-    .dot-suspended { background: rgb(var(--color-status-suspended-rgb)); }
-    .dot-awaiting-review { background: rgb(var(--color-status-awaiting-review-rgb)); }
-    .dot-done { background: rgb(var(--color-status-done-rgb)); }
-    .dot-success { background: rgb(var(--color-success-rgb)); }
-
     .hero-logo {
-      width: 64px;
-      height: 64px;
-      margin: 0 auto 14px;
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 16px;
       display: block;
       border-radius: 50%;
       box-shadow: var(--shadow-card);
     }
 
     .hero h1 {
-      font-size: clamp(24px, 3.4vw, 34px);
+      font-size: clamp(26px, 3.6vw, 36px);
       font-weight: 600;
       letter-spacing: -0.02em;
-      line-height: 1.28;
-      max-width: 46rem;
-      margin: 0 auto 14px;
+      line-height: 1.25;
+      margin: 0 auto 12px;
     }
 
     .hero p.lead {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--color-text-secondary);
-      max-width: 46rem;
-      margin: 0 auto 22px;
-      line-height: 1.7;
-    }
-
-    /* 7 态看板状态条（与产品同物同形） */
-    .status-strip {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin: 0 auto 26px;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: var(--radius-tag);
-      background: var(--color-column-surface);
-      border: 1px solid var(--color-border);
-      font-size: 12px;
-      color: var(--color-text-primary);
-    }
-
-    .status-arrow {
-      color: var(--color-text-done);
-      font-family: var(--font-mono);
-      font-size: 12px;
+      max-width: 44rem;
+      margin: 0 auto 24px;
     }
 
     .cta-group {
@@ -403,272 +290,32 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .hero-meta {
       font-size: 12px;
-      color: var(--color-text-secondary);
-      font-family: var(--font-mono);
+      color: var(--color-text-done);
     }
 
-    /* ── 通用区块 ── */
-    section.section {
-      padding: 52px 0;
+    /* ── 首屏直连大图切换 ── */
+    .showcase {
+      padding-bottom: 56px;
       border-bottom: 1px solid var(--color-border);
     }
 
-    .section-header {
-      margin-bottom: 22px;
-    }
-
-    .eyebrow {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--color-text-secondary);
-      margin-bottom: 6px;
-    }
-
-    .section-title {
-      font-size: 22px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      margin-bottom: 6px;
-      color: var(--color-text-primary);
-    }
-
-    .section-subtitle {
-      font-size: 13px;
-      color: var(--color-text-secondary);
-      max-width: 48rem;
-    }
-
-    /* ── 痛点场景引用卡 ── */
-    .scenario-card {
-      border-radius: var(--radius-card);
-      border: 1px solid var(--color-border);
-      background: var(--color-bg-card);
-      box-shadow: var(--shadow-card);
-      padding: 18px 22px;
-      margin-bottom: 18px;
-    }
-
-    .scenario-card p {
-      font-size: 14px;
-      color: var(--color-text-primary);
-      line-height: 1.7;
-    }
-
-    .scenario-card strong {
-      font-weight: 600;
-    }
-
-    /* ── 响应式网格（严格 minmax(0, 1fr) 防止任何子元素撑破列宽） ── */
-    .grid-3 {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 14px;
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 14px;
-    }
-
-    .card {
-      min-width: 0;
-      border-radius: var(--radius-card);
-      border: 1px solid var(--color-border);
-      background: var(--color-bg-card);
-      box-shadow: var(--shadow-card);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .card-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--color-text-secondary);
-    }
-
-    .card h3 {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--color-text-primary);
-      line-height: 1.4;
-    }
-
-    .card p {
-      font-size: 13px;
-      color: var(--color-text-secondary);
-      line-height: 1.65;
-    }
-
-    .feature-points {
-      list-style: none;
-      margin-top: 4px;
-      padding-top: 10px;
-      border-top: 1px solid var(--color-border);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--color-text-secondary);
-    }
-
-    .feature-points li {
-      display: flex;
-      align-items: flex-start;
-      gap: 7px;
-      line-height: 1.55;
-    }
-
-    .feature-points li .status-dot {
-      margin-top: 6px;
-    }
-
-    .feature-points strong {
-      color: var(--color-text-primary);
-      font-weight: 600;
-    }
-
-    /* ── 人机协同模型三栏框（复刻产品 QuickStartView） ── */
-    .arch-box {
-      margin-top: 16px;
-      border-radius: var(--radius-card);
-      border: 1px solid var(--color-border);
-      background: var(--color-bg-card);
-      box-shadow: var(--shadow-card);
-      padding: 20px;
-    }
-
-    .arch-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .arch-col {
-      min-width: 0;
-      border-radius: var(--radius-card);
-      border: 1px solid var(--color-border);
-      background: var(--surface-subtle);
-      padding: 16px;
-    }
-
-    .arch-col-center {
-      background: var(--color-column-surface);
-      border-color: rgb(var(--color-accent-rgb) / 0.25);
-    }
-
-    .arch-col h4 {
-      font-size: 14px;
-      font-weight: 600;
-      margin: 4px 0 8px;
-    }
-
-    .arch-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--color-text-secondary);
-    }
-
-    .arch-list li {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .arch-mini-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .arch-chip {
-      border-radius: var(--radius-xs);
-      border: 1px solid var(--color-border);
-      background: var(--color-bg-card);
-      padding: 8px 10px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--color-text-primary);
-    }
-
-    /* ── 6 步完整人机闭环网格 ── */
-    .loop-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 12px;
-    }
-
-    .loop-step {
-      min-width: 0;
-      border-radius: var(--radius-card);
-      border: 1px solid var(--color-border);
-      background: var(--color-bg-card);
-      box-shadow: var(--shadow-card);
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .loop-step-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .loop-actor {
-      padding: 2px 8px;
-      border-radius: var(--radius-tag);
-      background: var(--color-column-surface);
-      border: 1px solid var(--color-border);
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--color-text-secondary);
-    }
-
-    .loop-step h3 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--color-text-primary);
-    }
-
-    .loop-step p {
-      font-size: 12.5px;
-      color: var(--color-text-secondary);
-      line-height: 1.6;
-    }
-
-    /* ── 界面截图切换 ── */
     .tabs-bar {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
 
     .tab-btn {
       min-height: 36px;
-      padding: 6px 14px;
-      border-radius: var(--radius-button);
+      padding: 6px 16px;
+      border-radius: 9999px;
       border: 1px solid var(--color-border);
       background: var(--color-bg-card);
       color: var(--color-text-secondary);
@@ -699,7 +346,6 @@
       background: var(--color-bg-card);
       box-shadow: var(--shadow-hero);
       padding: 12px;
-      overflow: hidden;
     }
 
     .shot-frame img {
@@ -711,13 +357,88 @@
     }
 
     .shot-caption {
-      margin-top: 10px;
-      font-size: 12px;
+      margin-top: 12px;
+      font-size: 13px;
       color: var(--color-text-secondary);
       text-align: center;
     }
 
-    /* ── 3 步快速接入（上下宽卡片结构，彻底杜绝代码块横向溢出） ── */
+    /* ── 通用轻区块 ── */
+    section.section {
+      padding: 56px 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .section-head {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .section-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    .section-subtitle {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .dot-proposed { background: rgb(var(--color-status-proposed-rgb)); }
+    .dot-todo { background: rgb(var(--color-status-todo-rgb)); }
+    .dot-in-progress { background: rgb(var(--color-status-in-progress-rgb)); }
+    .dot-awaiting-review { background: rgb(var(--color-status-awaiting-review-rgb)); }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      min-width: 0;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 24px;
+    }
+
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .card h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .card p {
+      font-size: 13.5px;
+      color: var(--color-text-secondary);
+      line-height: 1.65;
+    }
+
+    /* ── 3 步快速开始 ── */
     .steps-stack {
       display: flex;
       flex-direction: column;
@@ -729,42 +450,29 @@
       border: 1px solid var(--color-border);
       background: var(--color-bg-card);
       box-shadow: var(--shadow-card);
-      padding: 20px;
+      padding: 20px 24px;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 16px;
-      align-items: start;
-    }
-
-    .step-info {
-      min-width: 0;
-    }
-
-    .step-badge {
-      display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 2px 8px;
-      border-radius: var(--radius-xs);
-      background: var(--color-column-surface);
-      border: 1px solid var(--color-border);
+    }
+
+    .step-num {
       font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--color-text-primary);
-      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--color-text-done);
+      margin-bottom: 4px;
     }
 
     .step-info h3 {
       font-size: 15px;
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .step-info p {
       font-size: 13px;
       color: var(--color-text-secondary);
-      line-height: 1.65;
     }
 
     .code-card {
@@ -789,7 +497,7 @@
     }
 
     .copy-btn {
-      min-height: 26px;
+      min-height: 24px;
       padding: 2px 10px;
       border-radius: var(--radius-xs);
       border: 1px solid var(--color-border);
@@ -806,30 +514,39 @@
     .code-body {
       padding: 12px 14px;
       font-size: 12px;
-      line-height: 1.65;
+      line-height: 1.6;
       color: var(--color-text-primary);
       white-space: pre-wrap;
       word-break: break-word;
-      overflow-x: auto;
     }
 
-    .smartscreen-box {
+    details.tip-box {
       margin-top: 16px;
       border-radius: var(--radius-card);
       border: 1px solid var(--color-border);
       background: var(--color-bg-card);
-      box-shadow: var(--shadow-card);
-      padding: 20px;
+      padding: 14px 20px;
+      font-size: 13px;
+      color: var(--color-text-secondary);
+    }
+
+    details.tip-box summary {
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    details.tip-box .tip-content {
+      margin-top: 12px;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 16px;
       align-items: center;
     }
 
-    .smartscreen-box img {
-      display: block;
+    details.tip-box img {
       width: 100%;
-      max-width: 520px;
+      max-width: 460px;
       height: auto;
       border-radius: var(--radius-button);
       border: 1px solid var(--color-border);
@@ -856,7 +573,6 @@
       gap: 16px;
     }
 
-    /* ── Toast ── */
     .toast {
       position: fixed;
       bottom: 20px;
@@ -881,34 +597,12 @@
     }
 
     @media (min-width: 720px) {
-      .nav-links {
-        display: flex;
-      }
-      .hero-panel {
-        padding: 44px 38px;
-      }
-      .grid-2 {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .grid-3 {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      .loop-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      .arch-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      .step-row {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-      }
-      .smartscreen-box {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-      }
-      .footer-inner {
-        flex-direction: row;
-        align-items: center;
-      }
+      .nav-links { display: flex; }
+      .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .step-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+      details.tip-box .tip-content { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+      .footer-inner { flex-direction: row; align-items: center; }
     }
   </style>
 </head>
@@ -916,21 +610,19 @@
   <header class="site-nav">
     <div class="container nav-inner">
       <a href="#" class="brand">
-        <img src="assets/partner-badge.svg" alt="DeskPartner 产品图标" />
+        <img src="assets/partner-badge.svg" alt="DeskPartner" />
         <span>DeskPartner</span>
       </a>
       <nav class="nav-links" aria-label="主导航">
-        <a href="#why">三大痛点</a>
-        <a href="#loop">协作闭环</a>
-        <a href="#tour">真实界面</a>
-        <a href="#quickstart">3 步接入 AI</a>
-        <a href="#privacy">数据与隐私</a>
-        <a href="#sponsor">支持项目</a>
+        <a href="#tour">界面预览</a>
+        <a href="#why">解决什么问题</a>
+        <a href="#quickstart">3 步接入</a>
+        <a href="#about">隐私与支持</a>
       </nav>
       <div class="nav-actions">
         <a href="https://github.com/lynnnn928/deskpartner" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">GitHub</a>
         <button type="button" class="icon-btn" id="theme-toggle" aria-label="切换浅色或深色主题" title="切换主题">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
           </svg>
@@ -942,246 +634,99 @@
   <main>
     <section class="hero">
       <div class="container">
-        <div class="hero-panel">
-          <div class="hero-badge-row">
-            <span class="status-dot dot-success" aria-hidden="true"></span>
-            <span>v1.0.134 · Windows 10/11 x64 · MIT License</span>
-          </div>
-          <img src="assets/partner-badge.svg" alt="DeskPartner 伙伴徽章" class="hero-logo" />
-          <h1>把多个 AI 的工作，变成可交接、可验收、可追责的本地工作台</h1>
-          <p class="lead">不只是给 AI 读写的看板。DeskPartner 用<strong>项目接手说明（Handoff）</strong>、<strong>7 态验收状态机</strong>、<strong>15 道仓储层护栏</strong>与<strong>单次授权代执行</strong>，把分散在多个聊天窗口里的 AI 会话，收拢进一个由你握紧最终决定权的本机 SQLite 事实源。</p>
+        <img src="assets/partner-badge.svg" alt="DeskPartner" class="hero-logo" />
+        <h1>让你的 AI 自己记任务、写交接，你只管看和拍板</h1>
+        <p class="lead">给多个 AI 助手共用的本地桌面工作台——不用翻聊天记录，也不用反复交代背景。</p>
 
-          <div class="status-strip" aria-label="事项状态流转">
-            <span class="status-pill"><span class="status-dot dot-proposed"></span>待确认</span>
-            <span class="status-arrow">→</span>
-            <span class="status-pill"><span class="status-dot dot-todo"></span>待办</span>
-            <span class="status-arrow">→</span>
-            <span class="status-pill"><span class="status-dot dot-in-progress"></span>进行中</span>
-            <span class="status-arrow">→</span>
-            <span class="status-pill"><span class="status-dot dot-suspended"></span>挂起</span>
-            <span class="status-arrow">→</span>
-            <span class="status-pill"><span class="status-dot dot-awaiting-review"></span>待验收</span>
-            <span class="status-arrow">→</span>
-            <span class="status-pill"><span class="status-dot dot-done"></span>已完成</span>
-          </div>
+        <div class="cta-group">
+          <a href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.134/DeskPartner-Setup-1.0.134.exe" class="btn btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>下载 Windows 版 (v1.0.134)</span>
+          </a>
+          <a href="#quickstart" class="btn btn-secondary">3 步把 AI 接进来</a>
+        </div>
+        <p class="hero-meta">Windows 10 / 11 · 完全免费开源 (MIT) · 数据 100% 存在本机</p>
+      </div>
+    </section>
 
-          <div class="cta-group">
-            <a href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.134/DeskPartner-Setup-1.0.134.exe" class="btn btn-primary">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>下载 Windows 安装包 (v1.0.134)</span>
-            </a>
-            <a href="https://github.com/lynnnn928/deskpartner/releases/latest" class="btn btn-secondary" target="_blank" rel="noopener">Release 说明与历史版本</a>
-            <a href="#quickstart" class="btn btn-secondary">3 步接入 AI 指南</a>
-          </div>
-          <p class="hero-meta">69 个 MCP 工具 · 76 条 CLI 命令 · 安装包 88.9 MB · 支持应用内自动检查更新</p>
+    <section id="tour" class="showcase">
+      <div class="container">
+        <div class="tabs-bar" role="tablist" aria-label="界面预览切换">
+          <button type="button" class="tab-btn" role="tab" aria-selected="true" data-shot="assets/kanban-board.png" data-caption="几个 AI 分别在干什么、哪张卡等你验收，在一块看板上一眼看清。">共享看板</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/project-handoff.png" data-caption="每个项目自带「接手说明」，换个新 AI 窗口读完就能接着干，不用重头交代背景。">项目接手说明</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/approval-view.png" data-caption="AI 想修改接手说明或删旧卡时，左右对比看清改动再点采纳。">审批对比</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/quickstart-view.png" data-caption="应用内自带快速上手向导，一键复制提示词发给 AI 就能自动办完接入。">60 秒快速上手</button>
+        </div>
+
+        <div class="shot-frame">
+          <img id="tour-img" src="assets/kanban-board.png" alt="DeskPartner 界面截图" />
+          <p id="tour-caption" class="shot-caption">几个 AI 分别在干什么、哪张卡等你验收，在一块看板上一眼看清。</p>
         </div>
       </div>
     </section>
 
     <section id="why" class="section">
       <div class="container">
-        <div class="section-header">
-          <div class="eyebrow">THREE CORE QUESTIONS</div>
-          <h2 class="section-title">当你同时开了三个 AI 会话，DeskPartner 替你守住哪三件事？</h2>
-          <p class="section-subtitle">传统待办软件是给人手点的（AI 看不见），而团队项目软件默认每个协作者都是人类（没有防越权护栏）。</p>
-        </div>
-
-        <div class="scenario-card">
-          <p><strong>真实场景：</strong>你有三个 AI 同时在推项目——Claude Desktop 在梳理架构、Cursor 在改前端组件、终端 Agent 在跑回归测试。半小时后你切回电脑，十几个聊天窗口滚了上千行：<strong>谁做完了？谁自己把没测过的活标成了完成？下一次开新会话怎么接着干？</strong></p>
+        <div class="section-head">
+          <h2 class="section-title">同时用几个 AI 干活，最怕这三件事</h2>
+          <p class="section-subtitle">把散落在十几个聊天窗口里的上下文，收进一个清爽的本地工作台。</p>
         </div>
 
         <div class="grid-3">
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-todo"></span>第一问 · 全局掌控</div>
-            <h3>AI 做过什么，不用再翻聊天记录</h3>
-            <p>所有 AI 会话通过 MCP 或 CLI 读写同一个本机 SQLite 库，你在桌面工作台按项目或按 Agent 视角实时查看全局进展。</p>
-            <ul class="feature-points">
-              <li><span class="status-dot dot-todo"></span><span><strong>「我的工作」跨项目聚焦：</strong>按项目汇总所有等你拍板或验收的事项。</span></li>
-              <li><span class="status-dot dot-in-progress"></span><span><strong>六合一项目工作台：</strong>概览、7 态事项、流转动态、版本归档、本地文档沙箱、全局搜索。</span></li>
-              <li><span class="status-dot dot-done"></span><span><strong>「本次变更」精准核验：</strong>验收时直接看本轮交付改了哪些字段与描述追加。</span></li>
-            </ul>
+            <div class="card-title-row">
+              <span class="status-dot dot-todo"></span>
+              <h3>不用再去翻聊天记录</h3>
+            </div>
+            <p>Claude、Cursor、终端助手连进同一个本地库，自己领任务、记进展。你随时切回桌面，都能看清谁做完了、谁还在跑。</p>
           </article>
 
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-awaiting-review"></span>第二问 · 验收与追责</div>
-            <h3>AI 交付的活，不能自己宣布完成</h3>
-            <p>协作规则下沉到 SQLite 仓储层硬拦截（G1–G10），哪怕 AI 编造参数也无法绕过你把任务直接标为「已完成」。</p>
-            <ul class="feature-points">
-              <li><span class="status-dot dot-proposed"></span><span><strong>提议与立项分离：</strong>AI 新建事项先进「待确认」池，不经你同意不得进入正式待办。</span></li>
-              <li><span class="status-dot dot-awaiting-review"></span><span><strong>强制留证与禁自验：</strong>子任务全部完结、附上四段式收口与验证证据才能报审；执行者不可自验。</span></li>
-              <li><span class="status-dot dot-suspended"></span><span><strong>授权后服务端代执行：</strong>删卡或改设置须经你点「允许」，批准瞬间由主进程直接执行并落审计回执。</span></li>
-            </ul>
+            <div class="card-title-row">
+              <span class="status-dot dot-awaiting-review"></span>
+              <h3>AI 不能自己宣布「完成」</h3>
+            </div>
+            <p>AI 发现的新想法先进「待确认」等你立项；做完的任务只能推到「待验收」，必须由你看过结果点「完成」才算数。</p>
           </article>
 
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-in-progress"></span>第三问 · 跨会话记忆</div>
-            <h3>换个 AI 接手，项目不用从零交代</h3>
-            <p>每个项目内置权威的「项目接手说明（Handoff）」长期记忆层，把背景、当前决定与下一步行动沉淀在数据库里。</p>
-            <ul class="feature-points">
-              <li><span class="status-dot dot-in-progress"></span><span><strong>50 版修订历史与回滚：</strong>每次保存完整留痕，写坏了一键回滚为新修订。</span></li>
-              <li><span class="status-dot dot-proposed"></span><span><strong>事实快照与过期拦截：</strong>AI 提议更新时自动记录版本、schema 与当前主线，审批页并排对比新旧事实。</span></li>
-              <li><span class="status-dot dot-todo"></span><span><strong><code>#短号</code> 实时状态联动：</strong>接手说明中引用的事项编号自动解析并展示最新状态。</span></li>
-            </ul>
+            <div class="card-title-row">
+              <span class="status-dot dot-in-progress"></span>
+              <h3>换个 AI 不用从零交代</h3>
+            </div>
+            <p>每个项目都有一份带历史版本的「接手说明」。上一个 AI 交活时更新现状，下一个 AI 新开窗口读一下就能直接上手。</p>
           </article>
-        </div>
-
-        <div class="arch-box">
-          <div class="eyebrow">COLLABORATION ARCHITECTURE</div>
-          <h3 style="font-size: 16px; font-weight: 600;">主用户 · 本机权威工作台 · 多 AI 助手团队</h3>
-          <div class="arch-grid">
-            <div class="arch-col">
-              <div class="card-tag"><span class="status-dot dot-todo"></span>主用户（你）</div>
-              <h4>定方向与守关口</h4>
-              <ul class="arch-list">
-                <li><span class="status-dot dot-done"></span>随时用快捷键或悬浮球记下想法</li>
-                <li><span class="status-dot dot-proposed"></span>拍板「待确认」事项与接手说明提议</li>
-                <li><span class="status-dot dot-awaiting-review"></span>核对「待验收」证据并点完成或退回</li>
-              </ul>
-            </div>
-            <div class="arch-col arch-col-center">
-              <div class="card-tag"><span class="status-dot dot-in-progress"></span>DeskPartner 共享工作台</div>
-              <h4>本机唯一事实来源（SQLite v48）</h4>
-              <div class="arch-mini-grid">
-                <div class="arch-chip">项目接手说明 (Handoff)</div>
-                <div class="arch-chip">7 态事项与流转时序</div>
-                <div class="arch-chip">事实快照与差异对比</div>
-                <div class="arch-chip">单次授权与代执行回执</div>
-              </div>
-            </div>
-            <div class="arch-col">
-              <div class="card-tag"><span class="status-dot dot-success"></span>AI 助手团队（MCP / CLI）</div>
-              <h4>跨工具接力执行</h4>
-              <ul class="arch-list">
-                <li><span class="status-dot dot-in-progress"></span>读取接手说明与协作规则，零重复交代</li>
-                <li><span class="status-dot dot-in-progress"></span>拆解子任务、写验证证据并推待验收</li>
-                <li><span class="status-dot dot-suspended"></span>删数据或改设置发起申请等你点允许</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="loop" class="section">
-      <div class="container">
-        <div class="section-header">
-          <div class="eyebrow">CLOSED-LOOP WORKFLOW</div>
-          <h2 class="section-title">一件事从 AI 提议到验收，再到下一个 AI 接手</h2>
-          <p class="section-subtitle">每个关键节点都有明确的状态归属与仓储层关口保护，形成完整的本地人机协作闭环。</p>
-        </div>
-
-        <div class="loop-grid">
-          <article class="loop-step">
-            <div class="loop-step-head">
-              <span class="card-tag"><span class="status-dot dot-proposed"></span>STEP 01 · 发现与提议</span>
-              <span class="loop-actor">AI 助手</span>
-            </div>
-            <h3>提交「待确认」事项</h3>
-            <p>AI 在巡检代码或执行任务时发现新问题，建卡只能进入<strong>「待确认」</strong>池（G3 关口拦截），不会擅自污染你的正式待办列表。</p>
-          </article>
-
-          <article class="loop-step">
-            <div class="loop-step-head">
-              <span class="card-tag"><span class="status-dot dot-todo"></span>STEP 02 · 拍板立项</span>
-              <span class="loop-actor">主用户 → AI</span>
-            </div>
-            <h3>批准转入「待办 / 进行中」</h3>
-            <p>你在看板确认方向后将其转入<strong>「待办」</strong>；AI 认领卡片进入<strong>「进行中」</strong>，按需拆解子任务并持续追加进展评论。</p>
-          </article>
-
-          <article class="loop-step">
-            <div class="loop-step-head">
-              <span class="card-tag"><span class="status-dot dot-suspended"></span>STEP 03 · 敏感操作拦截</span>
-              <span class="loop-actor">审批中心</span>
-            </div>
-            <h3>点「允许」后由服务端代执行</h3>
-            <p>若 AI 需要删除旧卡或修改配置，系统自动挂起并生成授权申请；你点<strong>「允许」</strong>后由主进程立即执行并记录回执，无需 AI 重试。</p>
-          </article>
-
-          <article class="loop-step">
-            <div class="loop-step-head">
-              <span class="card-tag"><span class="status-dot dot-awaiting-review"></span>STEP 04 · 留证报审</span>
-              <span class="loop-actor">AI 助手</span>
-            </div>
-            <h3>附验证证据推至「待验收」</h3>
-            <p>所有子任务完结后（G6），AI 必须填写<strong>四段式收口记录与验证证据</strong>（G5）才能推入<strong>「待验收」</strong>，且系统严禁执行者自验（G7/G10）。</p>
-          </article>
-
-          <article class="loop-step">
-            <div class="loop-step-head">
-              <span class="card-tag"><span class="status-dot dot-done"></span>STEP 05 · 人工核验</span>
-              <span class="loop-actor">主用户</span>
-            </div>
-            <h3>核对「本次变更」通过或退回</h3>
-            <p>你打开抽屉查看「本次变更（Review Diff）」与验证结果，满意则点<strong>「完成」</strong>关联版本号，不满意则写明原因退回重做。</p>
-          </article>
-
-          <article class="loop-step">
-            <div class="loop-step-head">
-              <span class="card-tag"><span class="status-dot dot-in-progress"></span>STEP 06 · 记忆交棒</span>
-              <span class="loop-actor">下一个 AI</span>
-            </div>
-            <h3>更新接手说明，无缝接力</h3>
-            <p>AI 基于当前事实快照提议更新<strong>项目接手说明（Handoff）</strong>；经你对比采纳后，下一个 AI 会话一条命令即可读懂全局继续推进。</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="tour" class="section">
-      <div class="container">
-        <div class="section-header">
-          <div class="eyebrow">PRODUCT TOUR</div>
-          <h2 class="section-title">真实运行界面：把隐式聊天变成显式工作台</h2>
-          <p class="section-subtitle">点击下方按钮切换查看项目接手说明、审批中心事实核验、7 态看板与 60 秒快速上手向导。</p>
-        </div>
-
-        <div class="tabs-bar" role="tablist" aria-label="产品界面截图切换">
-          <button type="button" class="tab-btn" role="tab" aria-selected="true" data-shot="assets/project-handoff.png" data-caption="项目工作台「概览」：集齐版本记录、带修订历史与一键回滚的项目接手说明（Handoff），以及文中 #短号 自动联动的实时事项状态。">1. 项目概览与接手说明 (Handoff)</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/approval-view.png" data-caption="审批中心：并排对照「提议依据的事实 vs 当前事实」与「当前生效内容 vs 申请修改为」，下方完整记录操作授权的服务端执行回执。">2. 审批中心：事实核验与变更对比</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/kanban-board.png" data-caption="多智能体 7 态共享看板：待确认 → 待办 → 进行中 → 挂起 → 待验收 → 已完成，执行方归属与关联版本号一目了然。">3. 多智能体 7 态共享看板</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-shot="assets/quickstart-view.png" data-caption="60 秒快速上手向导：自动带出本机真实安装路径的开场提示词，一键复制直接发给 AI 即可完成自助注册。">4. 60 秒快速上手向导</button>
-        </div>
-
-        <div class="shot-frame">
-          <img id="tour-img" src="assets/project-handoff.png" alt="DeskPartner 桌面端界面截图" />
-          <p id="tour-caption" class="shot-caption">项目工作台「概览」：集齐版本记录、带修订历史与一键回滚的项目接手说明（Handoff），以及文中 #短号 自动联动的实时事项状态。</p>
         </div>
       </div>
     </section>
 
     <section id="quickstart" class="section">
       <div class="container">
-        <div class="section-header">
-          <div class="eyebrow">QUICK START</div>
-          <h2 class="section-title">3 步把你的 AI 助手接进来</h2>
-          <p class="section-subtitle">安装打开 DeskPartner 后，可直接在主窗口左下角「? → 快速上手」一键复制已自动填好你本机路径的开场提示词，也可以按以下三步手动接入：</p>
+        <div class="section-head">
+          <h2 class="section-title">3 步把你的 AI 接进来</h2>
+          <p class="section-subtitle">安装打开后，可在左下角「? → 快速上手」直接复制填好本机路径的提示词，也可按下面三步配置：</p>
         </div>
 
         <div class="steps-stack">
           <article class="step-row">
             <div class="step-info">
-              <div class="step-badge"><span class="status-dot dot-todo"></span>STEP 01</div>
-              <h3>将 DeskPartner 加进客户端 MCP 配置</h3>
-              <p>在 Claude Desktop、Cursor、Penguin 等客户端配置文件中加入 <code>deskpartner</code>（可在桌面端「设置 → 系统」直接复制本机路径）。若你的 AI 可直接执行终端命令，也可无需配置 MCP，直接让它运行 <code>node "$DESKPARTNER_CLI" skill</code>。</p>
+              <div class="step-num">STEP 01</div>
+              <h3>加进客户端 MCP 配置</h3>
+              <p>把右侧配置加进 Claude Desktop、Cursor 或 Penguin（本机路径可在「设置 → 系统」一键复制；支持命令行的 AI 也可直接跑 <code>node "$DESKPARTNER_CLI" skill</code>）。</p>
             </div>
             <div class="code-card">
               <div class="code-header">
-                <span>mcpServers 配置片段</span>
-                <button type="button" class="copy-btn" data-copy-target="mcp-snippet">复制配置</button>
+                <span>mcpServers</span>
+                <button type="button" class="copy-btn" data-copy-target="mcp-snippet">复制</button>
               </div>
               <pre class="code-body" id="mcp-snippet"><code>{
   "mcpServers": {
     "deskpartner": {
-      "command": "C:\\Users\\&lt;你的用户名&gt;\\AppData\\Local\\Programs\\desk-partner\\resources\\cli\\mcp.cmd",
-      "args": [],
-      "env": {
-        "DESKPARTNER_AGENT": "agent:claude"
-      }
+      "command": "C:\\Users\\&lt;你的用户名&gt;\\AppData\\Local\\Programs\\desk-partner\\resources\\cli\\mcp.cmd"
     }
   }
 }</code></pre>
@@ -1190,102 +735,61 @@
 
           <article class="step-row">
             <div class="step-info">
-              <div class="step-badge"><span class="status-dot dot-in-progress"></span>STEP 02</div>
-              <h3>发一句话让 AI 自助注册领证</h3>
-              <p>把右侧这段话发给你的 AI 助手。它会自己阅读内置说明书，完成身份注册（<code>agent register</code>）与本地凭据申领（<code>agent credential</code>）。此时它处于待批准状态，还不能往你的数据库写任何内容。</p>
+              <div class="step-num">STEP 02</div>
+              <h3>发一句话让 AI 自己报到</h3>
+              <p>把右侧这句话发给 AI，它会自己读完说明书并注册好名字。</p>
             </div>
             <div class="code-card">
               <div class="code-header">
-                <span>发给 AI 的开场提示词</span>
-                <button type="button" class="copy-btn" data-copy-target="prompt-snippet">复制提示词</button>
+                <span>发给 AI 的第一句话</span>
+                <button type="button" class="copy-btn" data-copy-target="prompt-snippet">复制</button>
               </div>
-              <pre class="code-body" id="prompt-snippet"><code>请先调用 DeskPartner 的 get_guide 工具（或运行 node "$DESKPARTNER_CLI" skill）阅读接入说明书，用你自己的名字注册身份并申领凭据，然后查看我当前的项目和待办。</code></pre>
+              <pre class="code-body" id="prompt-snippet"><code>请调用 DeskPartner 的 get_guide 工具阅读说明，用你自己的名字注册身份，然后看看我当前的项目和待办。</code></pre>
             </div>
           </article>
 
           <article class="step-row">
             <div class="step-info">
-              <div class="step-badge"><span class="status-dot dot-awaiting-review"></span>STEP 03</div>
-              <h3>在桌面界面点一次「批准」</h3>
-              <p>当 AI 完成注册时，DeskPartner 顶部会弹出提醒横幅，侧边栏「审批」也会亮起角标。点击<strong>「批准」</strong>后，这个 AI 就可以正式在看板上帮你创建事项、记录进展并交付成果了。</p>
+              <div class="step-num">STEP 03</div>
+              <h3>在桌面界面点一下「批准」</h3>
+              <p>桌面端顶部会弹出新助手的接入提醒，点一下「批准」，它就能开始替你记任务、写交接了。</p>
             </div>
             <div class="code-card">
               <div class="code-header">
-                <span>审批通过后的闭环体验</span>
+                <span>日常怎么配合</span>
               </div>
-              <div class="code-body">1. AI 提议的新事项进入「待确认」池，由你决定是否转入「待办」；
-2. AI 干完活将卡片推至「待验收」并附上四段式收口记录；
-3. 你验收满意后点击「完成」—— 执行方自己无法越权标完成。</div>
+              <div class="code-body">平时你只管在聊天框里交代任务 → AI 自己建卡、更新进度、推到「待验收」 → 你在桌面看板点「完成」。</div>
             </div>
           </article>
         </div>
 
-        <div class="smartscreen-box">
-          <div>
-            <div class="eyebrow">WINDOWS SMARTSCREEN</div>
-            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">首次运行安装包的放行说明</h3>
-            <p style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.65;">作为个人开源项目，安装包暂未购买商业代码签名证书。首次运行安装程序时若弹出 Windows SmartScreen 蓝色保护提示，请先点击窗口中的 <strong>「更多信息（More info）」</strong>，再点击右下角出现的 <strong>「仍要运行（Run anyway）」</strong> 即可正常安装。</p>
+        <details class="tip-box">
+          <summary>首次安装时如果遇到 Windows 蓝色提示框怎么点？（展开查看）</summary>
+          <div class="tip-content">
+            <p>个人开源项目暂未购买商业代码签名证书。首次打开安装包若出现 Windows SmartScreen 提示，先点 <strong>「更多信息」</strong>，再点右下角的 <strong>「仍要运行」</strong> 即可。</p>
+            <img src="assets/smartscreen-guide.svg" alt="Windows SmartScreen 放行示意" />
           </div>
-          <img src="assets/smartscreen-guide.svg" alt="Windows SmartScreen 更多信息与仍要运行放行示意图" />
-        </div>
+        </details>
       </div>
     </section>
 
-    <section id="privacy" class="section">
+    <section id="about" class="section">
       <div class="container">
-        <div class="section-header">
-          <div class="eyebrow">PRIVACY &amp; DATA</div>
-          <h2 class="section-title">数据存哪与隐私边界</h2>
-          <p class="section-subtitle">无账号体系、无云端后台，所有项目与协作记录完全留在你自己的电脑里。</p>
-        </div>
-
         <div class="grid-2">
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-todo"></span>LOCAL SQLITE STORAGE</div>
-            <h3>本机数据库存储与自动快照备份</h3>
-            <p>核心数据库默认保存在 <code>%APPDATA%\desk-partner\user.db</code>（可在「设置 → 系统」中一键打开文件夹或迁移目录）。每次数据库结构升级或导入备份前，都会自动生成带时间戳的 SQLite 一致性快照；导出 JSON 备份时自动剥离本地凭据哈希。</p>
+            <div class="card-title-row">
+              <span class="status-dot dot-todo"></span>
+              <h3>数据 100% 留在你电脑里</h3>
+            </div>
+            <p>不用注册账号，没有云端服务器。所有项目和待办都存在本机 SQLite 数据库（<code>%APPDATA%\desk-partner</code>），仅在检查新版本时访问 GitHub Releases。</p>
           </article>
-          <article class="card">
-            <div class="card-tag"><span class="status-dot dot-success"></span>ZERO DATA UPLOAD</div>
-            <h3>仅检查更新时访问 GitHub Releases</h3>
-            <p>本地使用统计（Telemetry）仅保存在本机 SQLite 数据库中用于渲染「统计」页图表，可随时关闭或一键清空。应用<strong>仅在检查版本更新时访问 GitHub Releases</strong>（可在「设置 → 系统 → 自动检查更新」中关闭），不上传任何本地数据。</p>
-          </article>
-        </div>
-      </div>
-    </section>
 
-    <section id="sponsor" class="section">
-      <div class="container">
-        <div class="section-header">
-          <div class="eyebrow">OPEN SOURCE &amp; SUPPORT</div>
-          <h2 class="section-title">个人项目，尽力维护</h2>
-          <p class="section-subtitle">DeskPartner 源于日常真实多 AI 协作需求，每一个版本都在管理它自身的迭代中打磨验证。</p>
-        </div>
-
-        <div class="grid-3">
           <article class="card">
-            <div class="card-tag"><span class="status-dot dot-todo"></span>GITHUB</div>
-            <h3>点亮 Star 或提交反馈</h3>
-            <p>如果 DeskPartner 让你的多 AI 协作省了心，欢迎在 GitHub 点一颗 Star，或通过 Issue / PR 分享你的使用体验与改进建议。</p>
-            <div style="margin-top: auto; padding-top: 8px;">
-              <a href="https://github.com/lynnnn928/deskpartner" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">前往 GitHub 仓库 →</a>
+            <div class="card-title-row">
+              <span class="status-dot dot-proposed"></span>
+              <h3>个人开源项目，欢迎支持</h3>
             </div>
-          </article>
-          <article class="card">
-            <div class="card-tag"><span class="status-dot dot-awaiting-review"></span>AFDIAN · 爱发电</div>
-            <h3>请作者喝杯咖啡（国内）</h3>
-            <p>个人项目利用业余时间持续维护。如果你想支持后续迭代或商业代码签名证书筹备，欢迎通过爱发电赞助支持。</p>
-            <div style="margin-top: auto; padding-top: 8px;">
-              <a href="https://afdian.com/a/lynnnn928" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">爱发电赞助支持 →</a>
-            </div>
-          </article>
-          <article class="card">
-            <div class="card-tag"><span class="status-dot dot-proposed"></span>GITHUB SPONSORS</div>
-            <h3>GitHub Sponsors</h3>
-            <p>也欢迎通过 GitHub 官方 Sponsors 渠道支持本项目的长期维护与跨平台（macOS / 英文完整版）演进。</p>
-            <div style="margin-top: auto; padding-top: 8px;">
-              <a href="https://github.com/sponsors/lynnnn928" class="btn btn-secondary btn-sm" target="_blank" rel="noopener">GitHub Sponsors →</a>
-            </div>
+            <p>如果 DeskPartner 让你的多 AI 协作省了心，欢迎去 <a href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub 点颗 Star</a>，或通过 <a href="https://afdian.com/a/lynnnn928" target="_blank" rel="noopener">爱发电</a> / <a href="https://github.com/sponsors/lynnnn928" target="_blank" rel="noopener">GitHub Sponsors</a> 请作者喝杯咖啡。</p>
           </article>
         </div>
       </div>
@@ -1294,13 +798,12 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <div>Copyright &copy; 2026 LiLin (lynnnn928). Released under the MIT License.</div>
+      <div>Copyright &copy; 2026 LiLin (lynnnn928) · MIT License</div>
       <div class="footer-links">
-        <a href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub 仓库</a>
-        <a href="https://github.com/lynnnn928/deskpartner/releases" target="_blank" rel="noopener">版本下载 (Releases)</a>
+        <a href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/lynnnn928/deskpartner/releases" target="_blank" rel="noopener">历史版本</a>
         <a href="https://github.com/lynnnn928/deskpartner/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新日志</a>
-        <a href="https://github.com/lynnnn928/deskpartner/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">贡献指南</a>
-        <a href="https://github.com/lynnnn928/deskpartner/blob/main/README.en.md" target="_blank" rel="noopener">English README</a>
+        <a href="https://github.com/lynnnn928/deskpartner/blob/main/README.en.md" target="_blank" rel="noopener">English</a>
       </div>
     </div>
   </footer>
