@@ -1,6 +1,6 @@
 {
   "name": "desk-partner",
-  "version": "1.0.134",
+  "version": "1.0.135",
   "description": "桌面悬浮待办助手",
   "main": "./out/main/index.js",
   "author": "LiLin (https://github.com/lynnnn928)",

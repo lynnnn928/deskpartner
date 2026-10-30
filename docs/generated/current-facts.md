@@ -4,7 +4,7 @@
 
 | 项目 | 当前值 | 唯一来源 |
 |---|---:|---|
-| 产品版本 | **1.0.134** | `package.json` |
+| 产品版本 | **1.0.135** | `package.json` |
 | schema | **v48** | `src/renderer/lib/constants.ts:DB_VERSION` |
 | CLI 命令 | **76** | `src/main/cli/commands.ts` / `schema` |
 | MCP 工具 | **69** | CLI 命令表 − MCP 排除表（7） |
