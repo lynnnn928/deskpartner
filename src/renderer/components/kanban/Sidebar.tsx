@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, type IconName } from '../ui/Icon'
 import { DropdownMenu, DropdownMenuItem } from '../ui/DropdownMenu'
 import { Dialog } from '../ui/Dialog'
@@ -14,6 +14,7 @@ import { invoke } from '../../lib/ipc-client'
 import { cn } from '../../lib/utils'
 import { GUI_READER } from '../../lib/notification-subject'
 import { PROJECT_HANDOFF_TEMPLATE } from '../../types/project'
+import type { UpdateStatus } from '../../types/ipc'
 import { buildProjectPrompt } from '../../lib/onboarding-prompts'
 import { useCliAccess } from '../../lib/use-cli-access'
 import partnerBadge from '../../assets/partner-badge.svg'
@@ -82,6 +83,50 @@ export const Sidebar: React.FC = () => {
   const [approvedAgents, setApprovedAgents] = useState<string[]>([])
   const [selectedPromptAgent, setSelectedPromptAgent] = useState<string>('')
   const [agentPromptCopied, setAgentPromptCopied] = useState(false)
+  const [updateState, setUpdateState] = useState<UpdateStatus | null>(null)
+  /** 侧栏这边发起的下载：下完就自动重启安装（卡 `99870984`），不必再等用户去设置页点第二次 */
+  const autoInstallAfterDownloadRef = useRef(false)
+
+  /**
+   * 主界面的新版提醒（卡 `99870984`）
+   *
+   * 主进程在启动约 2 秒后就会在后台查一次更新，但结果此前只出现在
+   * 「设置 → 系统」最底部 —— 用户不进设置页就永远不知道有新版本。
+   *
+   * 这里挂载即拉一次，并在**启动后 15 秒内**每 1.5 秒再拉一次：那个"第 2 秒
+   * 查出来的结果"因此能在侧栏上自己冒出来。过了这段窗口只在真有事
+   * （checking / downloading）时继续盯着 —— 下载进度要动，空闲态则不必常驻轮询。
+   */
+  useEffect(() => {
+    let alive = true
+    const mountedAt = Date.now()
+    let lastStatus: UpdateStatus['status'] | null = null
+    const pull = async () => {
+      try {
+        const next = await invoke('app:getUpdateState')
+        if (!alive) return
+        lastStatus = next?.status ?? null
+        setUpdateState(next ?? null)
+      } catch {
+        // 更新状态读不到不影响导航
+      }
+    }
+    void pull()
+    const timer = window.setInterval(() => {
+      const busy = lastStatus === 'checking' || lastStatus === 'downloading'
+      if (busy || Date.now() - mountedAt < 15_000) void pull()
+    }, 1500)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (updateState?.status !== 'downloaded' || !autoInstallAfterDownloadRef.current) return
+    autoInstallAfterDownloadRef.current = false
+    void invoke('app:quitAndInstallUpdate').catch(() => undefined)
+  }, [updateState?.status])
 
   useEffect(() => {
     let alive = true
@@ -307,6 +352,53 @@ export const Sidebar: React.FC = () => {
           </NavSection>
         </div>
       </div>
+
+      {updateState &&
+        (updateState.status === 'available' ||
+          updateState.status === 'downloading' ||
+          updateState.status === 'downloaded') && (
+          <div
+            data-testid="sidebar-update-banner"
+            className="shrink-0 mx-2 mb-1 rounded-card border border-accent/30 bg-accent/10 px-2.5 py-2 flex flex-col gap-1.5"
+          >
+            <div className="flex items-center gap-1.5">
+              <Icon name="refreshCw" size={13} className="text-accent shrink-0" />
+              <span className="flex-1 min-w-0 text-caption font-medium text-text-primary">
+                {updateState.status === 'available' && `发现新版本 v${updateState.availableVersion}`}
+                {updateState.status === 'downloading' &&
+                  `正在下载 v${updateState.availableVersion}（${updateState.progressPercent ?? 0}%）…`}
+                {updateState.status === 'downloaded' && `新版本 v${updateState.availableVersion} 已就绪`}
+              </span>
+            </div>
+            {updateState.status === 'available' && (
+              <Button
+                variant="primary"
+                size="sm"
+                data-testid="sidebar-update-btn"
+                onClick={() => {
+                  autoInstallAfterDownloadRef.current = true
+                  void invoke('app:downloadUpdate')
+                    .then((next) => setUpdateState(next ?? null))
+                    .catch(() => undefined)
+                }}
+              >
+                立即更新
+              </Button>
+            )}
+            {updateState.status === 'downloaded' && (
+              <Button
+                variant="primary"
+                size="sm"
+                data-testid="sidebar-install-btn"
+                onClick={() => {
+                  void invoke('app:quitAndInstallUpdate').catch(() => undefined)
+                }}
+              >
+                重启并安装
+              </Button>
+            )}
+          </div>
+        )}
 
       <div className="shrink-0 border-t border-border px-2 py-2 flex items-center gap-1">
         <button

@@ -77,6 +77,22 @@ export class AutoUpdateService {
 
     const nsisUpdater = new NsisUpdater(null, appAdapter as never)
     const httpExec = new ElectronHttpExecutor()
+    /**
+     * 这个替换只装在**开发/自建更新源**那条路上（见下面的条件）。
+     *
+     * ── 安装包文件名那次 404 为什么不在这里修（卡 `99870984`）──
+     * Releases 资产名与客户端请求名对不上（GitHub 把空格存成点号，
+     * electron-updater 又把 url 里的空格换成连字符，见
+     * `GitHubProvider.resolveFiles` 的 `p.replace(/ /g, "-")`），
+     * 但**发布出去的正式版走不到这个分支**：`app.isPackaged` 为真且没设
+     * `DESKPARTNER_UPDATE_FEED_URL` 时用的是 electron-updater 默认的
+     * ElectronHttpExecutor（走 Electron net，带证书与代理），我们换不进去。
+     * 在这里改写路径只会"本地测试过、正式版照旧 404"。
+     *
+     * 真正的修法在源头：`scripts/lib/latest-yml.mjs` 让清单里的 url 就是
+     * GitHub 上那个**不带空格**的资产名（`DeskPartner.Setup.x.y.z.exe`）——
+     * 两个方向的替换在它身上都是恒等变换，新老客户端的地址都对得上。
+     */
     if (feedOverride || !app?.isPackaged) {
       httpExec.createRequest = (reqOpts: Record<string, unknown>, cb: (res: unknown) => void) => {
         const mod = reqOpts.protocol === 'https:' ? https : http
@@ -236,10 +252,16 @@ export class AutoUpdateService {
       }
       await updater.downloadUpdate()
     } catch (err) {
+      /**
+       * 前缀是给界面看的（卡 `99870984`）：以前失败一律写「检查失败」，
+       * 于是"点了下载却下不下来"被说成"检查更新失败" —— 与刚做完的检查矛盾。
+       * 界面按这个前缀分「下载失败 / 检查失败」（SystemSection）。
+       */
+      const message = err instanceof Error ? err.message : String(err)
       this.state = {
         ...this.state,
         status: 'error',
-        errorMessage: err instanceof Error ? err.message : String(err)
+        errorMessage: `下载更新失败：${message}`
       }
     }
     return this.getState()

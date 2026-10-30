@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Section, Row } from '../Section'
 import { ShortcutInput } from '../ShortcutInput'
 import { Switch } from '../../ui/Switch'
@@ -24,6 +24,15 @@ export const SystemSection: React.FC = () => {
   const [appNameDraft, setAppNameDraft] = useState(settings.appName ?? '')
   const [pickingIcon, setPickingIcon] = useState(false)
   const [iconError, setIconError] = useState<string | null>(null)
+  /**
+   * 用户点过「立即更新」之后，下载一完成就自动重启安装（卡 `99870984`）。
+   *
+   * 为什么用 ref 而不是 state：它记的是"**这一次**下载是用户主动发起的"，
+   * 详情页轮询把 status 从 downloading 翻到 downloaded 时才用得上，
+   * 而它本身不参与渲染 —— 放 state 只会多一轮无意义的渲染。
+   * 手动点「重启并安装」那条路（ref 为 false）保持原样，两者都能走。
+   */
+  const autoInstallPendingRef = useRef(false)
 
   useEffect(() => {
     setAppNameDraft(settings.appName ?? '')
@@ -62,6 +71,18 @@ export const SystemSection: React.FC = () => {
       alive = false
       clearInterval(timer)
     }
+  }, [updateState?.status])
+
+  /**
+   * 点了「立即更新」就走完：下载完成 → 直接重启安装，不用再点第二次（卡 `99870984`）。
+   *
+   * 仍然保留「重启并安装」按钮：一来用户可能自己看着包下载完、想先干完手上的事再重启，
+   * 二来"下载"和"安装"是两件事，把它们焊死成不能分开并不更好。
+   */
+  useEffect(() => {
+    if (updateState?.status !== 'downloaded' || !autoInstallPendingRef.current) return
+    autoInstallPendingRef.current = false
+    void invoke('app:quitAndInstallUpdate').catch(() => undefined)
   }, [updateState?.status])
 
   const saveAppName = async () => {
@@ -268,10 +289,11 @@ export const SystemSection: React.FC = () => {
               size="sm"
               data-testid="download-update-btn"
               onClick={() => {
+                autoInstallPendingRef.current = true
                 void invoke('app:downloadUpdate').then(setUpdateState).catch(() => undefined)
               }}
             >
-              下载 v{updateState.availableVersion}
+              立即更新 v{updateState.availableVersion}
             </Button>
           ) : updateState?.status === 'downloading' ? (
             <span className="text-caption text-text-secondary">
@@ -320,7 +342,8 @@ export const SystemSection: React.FC = () => {
           )}
           {updateState?.status === 'error' && updateState.errorMessage && (
             <span className="text-caption text-danger" title={updateState.errorMessage}>
-              检查失败
+              {/* 检查失败与下载失败是两件事，别都说成"检查失败"（卡 `99870984`）：主进程给下载错误加了「下载更新失败：」前缀 */}
+              {updateState.errorMessage.includes('下载') ? '下载失败' : '检查失败'}
             </span>
           )}
         </div>
