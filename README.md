@@ -121,7 +121,7 @@ AI 会自己办完注册与领证手续（`agent register` + `agent credential`�
 
 | 项 | 实况 |
 |---|---|
-| 代码版本 | **1.0.135**（`package.json`；当前源码基线） |
+| 代码版本 | **1.0.136**（`package.json`；当前源码基线） |
 | schema | **v48**（当前唯一值见 `src/renderer/lib/constants.ts:DB_VERSION`；历史演进见 [`CHANGELOG.md`](CHANGELOG.md)） |
 | CLI | **76 条命令**（命令表与 `schema` 同源；以 `node out/cli/deskpartner.cjs schema` 的 `data.commands` 为准） |
 | MCP | **69 个工具**（由 CLI schema 扣除 MCP 排除表生成；以 MCP `tools/list` 为准） |
