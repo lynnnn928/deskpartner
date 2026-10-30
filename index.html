@@ -4,12 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#F7F7F5" />
-  <title>DeskPartner｜多 AI 协作与项目接续的本地工作空间</title>
-  <meta name="description" content="DeskPartner 是本地优先的人机共享工作空间，让多个 AI 助手共享项目上下文、历史决定和工作结果。AI 执行，人批准与验收。" />
-  <meta name="keywords" content="AI 协作,多 Agent,AI 工作空间,项目接续,AI 上下文,本地 AI,CLI,MCP,人工审批" />
+  <title>DeskPartner｜多 AI 共享的本地项目记忆与接续工作台 · 标准 MCP 服务器</title>
+  <meta name="description" content="DeskPartner 是面向多 AI 协作的本地结构化项目记忆与接续工作台（标准 MCP 服务器 + CLI）。不是 AI 调度平台，不内置大模型、不持有 API 密钥；接入 Claude Desktop / Cursor / Codex，让多个 AI 共享项目背景、历史决定与人机审批关口。" />
+  <meta name="keywords" content="DeskPartner,MCP Server,标准 MCP 服务器,AI 记忆,agent-memory,ai-memory,multi-ai,ai-collaboration,local-first,Claude Desktop,Cursor,Codex,项目接续,AI 上下文,人工审批" />
   <meta name="author" content="LiLin / lynnnn928" />
   <meta name="robots" content="index,follow,max-image-preview:large" />
   <link rel="canonical" href="https://lynnnn928.github.io/deskpartner/" />
+  <link rel="alternate" type="text/plain" href="https://lynnnn928.github.io/deskpartner/llms.txt" title="LLMs.txt — AI 助手机器可读说明" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="DeskPartner" />
   <meta property="og:title" content="DeskPartner — 让 AI 接着工作" />
@@ -199,8 +200,14 @@
     .eyebrow { margin: 0 0 18px; color: var(--muted); font-size: 11px; letter-spacing: .11em; text-transform: uppercase; }
     .hero h1 { max-width: 720px; margin: 0 0 22px; font-size: clamp(32px, 4vw, 50px); font-weight: 700; letter-spacing: -.03em; line-height: 1.24; }
     .hero h1 em { color: var(--status-blue); font-style: normal; }
-    .hero-lead { max-width: 650px; margin: 0 0 28px; color: var(--muted); font-size: clamp(17px, 2vw, 20px); line-height: 1.75; }
-    .audience { display: flex; align-items: flex-start; gap: 10px; max-width: 610px; margin: 0 0 30px; color: var(--ink); font-size: 13px; }
+    .hero-lead { max-width: 650px; margin: 0 0 18px; color: var(--muted); font-size: clamp(17px, 2vw, 20px); line-height: 1.75; }
+    .hero-positioning { display: grid; gap: 6px; max-width: 630px; margin: 0 0 20px; padding: 13px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-small); font-size: 13px; line-height: 1.55; }
+    .hero-pos-line { display: flex; align-items: baseline; gap: 8px; color: var(--ink); }
+    .hero-pos-line.not { color: var(--muted); }
+    .hero-pos-tag { flex: 0 0 auto; font-family: var(--mono); font-size: 11px; font-weight: 700; }
+    .hero-pos-line.not .hero-pos-tag { color: var(--coral); }
+    .hero-pos-line.is .hero-pos-tag { color: var(--status-green); }
+    .audience { display: flex; align-items: flex-start; gap: 10px; max-width: 610px; margin: 0 0 26px; color: var(--ink); font-size: 13px; }
     .audience-mark { flex: 0 0 auto; width: 9px; height: 9px; margin-top: 9px; border-radius: 50%; background: var(--coral); }
     .cta-row { display: flex; flex-wrap: wrap; gap: 11px; margin-bottom: 17px; }
     .hero-meta { color: var(--faint); font-size: 12px; }
@@ -229,7 +236,10 @@
     .card p { margin: 0; color: var(--muted); font-size: 14px; }
     .pull-quote { margin: 34px 0 0; padding: 20px 25px; border-left: 3px solid var(--accent); color: var(--ink); font-size: 21px; font-weight: 650; letter-spacing: -.015em; line-height: 1.5; }
 
-    /* Roles */
+    /* Roles & Relationship Diagram */
+    .arch-diagram { margin-bottom: 20px; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-small); overflow-x: auto; }
+    .arch-diagram svg { display: block; width: 100%; min-width: 640px; height: auto; }
+    .arch-caption { margin: 10px 0 0; text-align: center; color: var(--faint); font-size: 12px; }
     .roles-wrap { padding: 28px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--paper-deep); }
     .role { display: grid; gap: 8px; padding: 20px 0; border-bottom: 1px solid var(--line); }
     .role:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -237,6 +247,16 @@
     .role-name { font-weight: 720; }
     .role-name span { margin-left: 8px; color: var(--faint); font-family: var(--mono); font-size: 11px; font-weight: 400; }
     .role p { margin: 0; color: var(--muted); }
+    .gate-narrative { margin-top: 26px; padding: 24px 28px; border: 1px solid var(--line); border-left: 4px solid var(--status-blue); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-small); }
+    .gate-narrative h3 { margin: 0 0 10px; font-size: 18px; font-weight: 700; }
+    .gate-narrative p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+    .gate-narrative p + p { margin-top: 10px; }
+    .ai-guide-card { margin-top: 22px; padding: 22px 26px; border: 1px solid color-mix(in srgb, var(--status-blue) 38%, var(--line)); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--status-blue) 6%, var(--surface)); }
+    .ai-guide-card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .ai-guide-card p { margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .trust-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .trust-link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--radius-small); background: var(--paper-deep); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none; }
+    .trust-link:hover { background: var(--accent-soft); border-color: var(--faint); }
 
     /* First win */
     .first-win { display: grid; gap: 30px; align-items: stretch; }
@@ -375,6 +395,7 @@
         <a href="#faq">常见问题</a>
       </nav>
       <div class="nav-actions">
+        <a class="btn btn-secondary btn-small" href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub</a>
         <a class="btn btn-primary btn-small" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.138/DeskPartner.Setup.1.0.138.exe">下载 Windows 版</a>
         <button class="theme-btn" id="theme-toggle" type="button" aria-label="切换主题" title="切换主题">☼</button>
       </div>
@@ -385,15 +406,19 @@
     <section class="hero">
       <div class="container hero-grid">
         <div>
-          <p class="eyebrow">A local workspace for human + AI</p>
+          <p class="eyebrow">LOCAL PROJECT MEMORY · STANDARD MCP SERVER · HUMAN-IN-THE-LOOP</p>
           <h1><span class="headline-line">让 AI <em>接着工作</em>，</span><span class="headline-line">从当前进展继续。</span></h1>
           <p class="hero-lead">DeskPartner 把多个 AI 助手共享的项目背景、历史决定和工作结果放在同一个本地工作空间里。AI 负责执行，你负责批准、验收和决定。</p>
+          <div class="hero-positioning" role="note" aria-label="产品定位与边界">
+            <div class="hero-pos-line not"><span class="hero-pos-tag">❌ 不是</span><span>AI 调度平台 · 不内置大模型 · 不持有 API 密钥 · 不主动发起推理</span></div>
+            <div class="hero-pos-line is"><span class="hero-pos-tag">✅ 它是</span><span><strong>标准 MCP 服务器</strong> · 接入 Claude Desktop / Cursor / Codex 等所有客户端的本地共享项目记忆空间</span></div>
+          </div>
           <div class="audience"><span class="audience-mark"></span><span><strong>适合谁：</strong>同时使用多个 AI 工具、正在推进长期项目的开发者、研究者和独立工作者。</span></div>
           <div class="cta-row">
             <a class="btn btn-primary" href="https://github.com/lynnnn928/deskpartner/releases/download/v1.0.138/DeskPartner.Setup.1.0.138.exe">下载并完成第一次协作 <span aria-hidden="true">↗</span></a>
             <a class="btn btn-secondary" href="#first-win">先看它如何工作</a>
           </div>
-          <div class="hero-meta">Windows 10 / 11 · MIT 开源 · 数据保存在本机 · 首次接入需要配置一个 AI 助手</div>
+          <div class="hero-meta">标准 MCP 服务器 &amp; CLI · Windows 10 / 11 · MIT 开源 · 100% 本地 SQLite 存储 · <a href="llms.txt">llms.txt（AI 读取入口）</a></div>
         </div>
         <div class="hero-card" aria-label="DeskPartner 界面预览">
           <div class="window-bar"><span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span><span class="window-title">DeskPartner / workspace</span></div>
@@ -421,7 +446,55 @@
 
     <section class="section">
       <div class="container">
-        <div class="section-head center"><p class="section-kicker">Three roles, one workspace</p><h2>让人与 AI 各自负责擅长的部分。</h2><p class="section-intro">你可以继续使用熟悉的 AI；DeskPartner 把执行、记录和决定放回各自应该在的位置。</p></div>
+        <div class="section-head center"><p class="section-kicker">Three roles, one workspace</p><h2>让人与 AI 各自负责擅长的部分。</h2><p class="section-intro">你可以继续使用熟悉的 AI；DeskPartner 作为标准 MCP 服务器与本地记忆容器，把执行、记录和决定放回各自应该在的位置。</p></div>
+        <div class="arch-diagram" role="img" aria-label="人、多个 AI 助手与 DeskPartner 的协作关系图">
+          <svg viewBox="0 0 880 210" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Left: Multiple AI Assistants -->
+            <rect x="12" y="20" width="230" height="170" rx="14" fill="var(--paper-deep)" stroke="var(--line)" stroke-width="1.5"/>
+            <text x="32" y="48" fill="var(--status-blue)" font-family="var(--mono)" font-size="11" font-weight="700">AI CLIENTS · 执行者</text>
+            <text x="32" y="74" fill="var(--ink)" font-family="var(--font-sans)" font-size="16" font-weight="700">你的多个 AI 助手</text>
+            <rect x="32" y="90" width="190" height="24" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+            <text x="44" y="106" fill="var(--ink)" font-family="var(--font-sans)" font-size="12">Claude Desktop / Claude Code</text>
+            <rect x="32" y="120" width="190" height="24" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+            <text x="44" y="136" fill="var(--ink)" font-family="var(--font-sans)" font-size="12">Cursor / Windsurf / IDE AI</text>
+            <rect x="32" y="150" width="190" height="24" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+            <text x="44" y="166" fill="var(--ink)" font-family="var(--font-sans)" font-size="12">Codex / 终端 CLI Agents</text>
+
+            <!-- Arrow Left <-> Center -->
+            <line x1="248" y1="86" x2="314" y2="86" stroke="var(--status-blue)" stroke-width="2"/>
+            <polygon points="318,86 310,81 310,91" fill="var(--status-blue)"/>
+            <text x="283" y="76" text-anchor="middle" fill="var(--muted)" font-family="var(--mono)" font-size="10">MCP / CLI</text>
+            <line x1="318" y1="124" x2="252" y2="124" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <polygon points="248,124 256,119 256,129" fill="var(--muted)"/>
+            <text x="283" y="142" text-anchor="middle" fill="var(--faint)" font-family="var(--font-sans)" font-size="10">读接手说明 / 交证据</text>
+
+            <!-- Center: DeskPartner -->
+            <rect x="324" y="14" width="242" height="182" rx="16" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+            <text x="346" y="44" fill="var(--status-green)" font-family="var(--mono)" font-size="11" font-weight="700">DESKPARTNER · 本地共享空间</text>
+            <text x="346" y="70" fill="var(--ink)" font-family="var(--font-sans)" font-size="17" font-weight="700">结构化记忆与状态看板</text>
+            <text x="346" y="98" fill="var(--muted)" font-family="var(--font-sans)" font-size="12">• 项目接手说明（Handoff 50版历史）</text>
+            <text x="346" y="120" fill="var(--muted)" font-family="var(--font-sans)" font-size="12">• 7 态事项流转与历史决定全文检索</text>
+            <text x="346" y="142" fill="var(--muted)" font-family="var(--font-sans)" font-size="12">• 四档权限分级与单次差异审批门禁</text>
+            <text x="346" y="168" fill="var(--faint)" font-family="var(--mono)" font-size="11">100% 本地 SQLite (user.db)</text>
+
+            <!-- Arrow Center <-> Right -->
+            <line x1="572" y1="86" x2="638" y2="86" stroke="var(--coral)" stroke-width="2"/>
+            <polygon points="642,86 634,81 634,91" fill="var(--coral)"/>
+            <text x="607" y="76" text-anchor="middle" fill="var(--muted)" font-family="var(--font-sans)" font-size="10">待确认 / 待验收</text>
+            <line x1="642" y1="124" x2="576" y2="124" stroke="var(--status-green)" stroke-width="2"/>
+            <polygon points="572,124 580,119 580,129" fill="var(--status-green)"/>
+            <text x="607" y="142" text-anchor="middle" fill="var(--status-green)" font-family="var(--font-sans)" font-size="10">批准 / 拍板收口</text>
+
+            <!-- Right: Human -->
+            <rect x="648" y="20" width="220" height="170" rx="14" fill="var(--paper-deep)" stroke="var(--line)" stroke-width="1.5"/>
+            <text x="668" y="48" fill="var(--coral)" font-family="var(--mono)" font-size="11" font-weight="700">HUMAN · 决定者与验收者</text>
+            <text x="668" y="74" fill="var(--ink)" font-family="var(--font-sans)" font-size="16" font-weight="700">你（掌握首尾双关口）</text>
+            <text x="668" y="104" fill="var(--muted)" font-family="var(--font-sans)" font-size="12">✓ 入口关口：决定提议做不做</text>
+            <text x="668" y="128" fill="var(--muted)" font-family="var(--font-sans)" font-size="12">✓ 权限把关：看清 Diff 再点批准</text>
+            <text x="668" y="152" fill="var(--muted)" font-family="var(--font-sans)" font-size="12">✓ 交付关口：核对证据后点完成</text>
+          </svg>
+          <p class="arch-caption">多个 AI 通过标准 MCP / CLI 读写同一份本地项目记忆；你只管在关键节点拍板、审批与验收。</p>
+        </div>
         <div class="roles-wrap">
           <div class="role"><div class="role-name">AI 助手 <span>执行者</span></div><p>理解你的意图，读取允许的上下文，执行工作，提交结果和提议。</p></div>
           <div class="role"><div class="role-name">DeskPartner <span>共享工作空间</span></div><p>保存项目背景、历史决定、工作状态和交接记录，让不同助手看到同一份事实。</p></div>
@@ -435,12 +508,17 @@
         <div class="section-head"><p class="section-kicker">Your first win</p><h2>第一次协作，留下可接续的进展。</h2><p class="section-intro">第一次价值来自一个清晰结果：AI 在 DeskPartner 里留下可理解、可验收、以后还能继续的工作记录。</p></div>
         <div class="first-win">
           <div class="win-steps">
-            <div class="win-step"><span class="step-num">01</span><div><h3>接入一个你已经在用的 AI</h3><p>通过 MCP 或 CLI 把它连接到本地工作空间。</p></div></div>
-            <div class="win-step"><span class="step-num">02</span><div><h3>你批准它进入项目</h3><p>它先申请权限；重要操作先征得你的同意。</p></div></div>
-            <div class="win-step"><span class="step-num">03</span><div><h3>它读取背景并提交一项工作</h3><p>项目说明、历史决定和当前工作都可以按需读取。</p></div></div>
+            <div class="win-step"><span class="step-num">01</span><div><h3>接入一个你已经在用的 AI</h3><p>通过标准 MCP 服务器或 CLI 把它连接到本地工作空间。</p></div></div>
+            <div class="win-step"><span class="step-num">02</span><div><h3>你批准它进入项目</h3><p>它先自助注册身份并领凭据；你在桌面端点击一次「批准」授予日常协作写权限。</p></div></div>
+            <div class="win-step"><span class="step-num">03</span><div><h3>它读取背景并提交一项工作</h3><p>项目说明、历史决定和当前工作都可以按需读取，完成后附四段式证据推入「待验收」。</p></div></div>
             <div class="win-step"><span class="step-num">04</span><div><h3>你看见证据，再批准或验收</h3><p>你知道它完成了什么、留下了哪些待处理内容，以及下一步在哪里。</p></div></div>
           </div>
-          <aside class="win-proof"><p class="eyebrow">The moment it clicks</p><h3>下次换一个 Agent，项目仍然在这里。</h3><p>DeskPartner 让聊天、项目背景和工作结果保持连续。</p><ul class="proof-list"><li>共享项目上下文</li><li>可找回的历史决定</li><li>清楚的等待、提议和验收状态</li><li>本地保存，重要操作由你批准</li></ul></aside>
+          <aside class="win-proof"><p class="eyebrow">The moment it clicks</p><h3>下次换一个 Agent，项目仍然在这里。</h3><p>DeskPartner 让聊天、项目背景和工作结果保持连续。</p><ul class="proof-list"><li>共享项目上下文与 50 版接手历史</li><li>可全文找回的历史决定与评论</li><li>清楚的待确认、待验收与禁止自验自过关口</li><li>四档权限分级，高危操作看清差异再批准</li></ul></aside>
+        </div>
+        <div class="gate-narrative">
+          <h3>为什么值得为 AI 的每一次关键写入点头？（区别于随便挂一个裸 MCP）</h3>
+          <p>给 AI 直接挂一个普通的文件或数据库 MCP，它从第一秒起就能自行改写规则、覆盖上下文，甚至把自己的任务直接改成「已完成」——你既看不见改动前后的差异，也没法拦住越权操作。</p>
+          <p>DeskPartner 把所有操作按风险拆成<strong>四档权限</strong>：<code>01 只读查询</code>完全免批；<code>02 日常协作写入</code>在首次批准身份后持本地凭据通行（随时可暂停或吊销）；<code>03 界面外观设置</code>支持「允许一次」；而<code>04 改写项目接手说明、变更协作协议或删除数据</code>，AI 只能提交一份<strong>一次性且绑定具体目标与前后差异对比（Diff）的申请单</strong>——在你点下「批准」之前数据库分毫不动，你点头的那一刻才由系统验证并原子执行。</p>
         </div>
       </div>
     </section>
@@ -558,6 +636,15 @@
               <div class="mini-card"><strong>自动快照保护</strong><p>每次版本升级迁移数据库结构或执行全量导入前，自动在数据目录生成带时间戳的备份快照。</p></div>
               <div class="mini-card"><strong>JSON 备份导出与导入</strong><p>在「设置 → 数据管理」中可随时将全部项目、事项、分类、版本与备忘导出为标准 JSON 文件，或在新电脑上一键恢复。</p></div>
             </div>
+            <div class="manual-group">
+              <h4>开源透明与安全报告入口</h4>
+              <div class="trust-links">
+                <a class="trust-link" href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub 源码仓库 ↗</a>
+                <a class="trust-link" href="https://github.com/lynnnn928/deskpartner/issues" target="_blank" rel="noopener">提交 Issue / 反馈问题 ↗</a>
+                <a class="trust-link" href="https://github.com/lynnnn928/deskpartner/blob/main/SECURITY.md" target="_blank" rel="noopener">安全策略与漏洞报告 (SECURITY.md) ↗</a>
+                <a class="trust-link" href="llms.txt" target="_blank" rel="noopener">llms.txt（AI 机器可读说明）↗</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -608,27 +695,44 @@
           <div class="setup-step"><span class="setup-index">04</span><div><strong>在桌面端批准，再开始第一项工作</strong><p>批准后，让它读取一个项目并提交一项你能判断是否完成的工作。</p></div></div>
           <div class="migration-note"><strong>升级时的一个提醒：</strong>如果安装目录发生变化，请重启已经打开的终端或 Agent；MCP 宿主请使用快速上手页的新配置并重连。保持同一安装目录升级时，原有接入配置可以继续使用。</div>
         </div>
-        <details class="dev-details"><summary>开发者：查看 CLI / MCP 入口</summary><div class="detail-body"><p class="section-intro">面向需要自动化接入的用户，DeskPartner 同时提供 CLI 和 MCP。请以安装后的 <code>skill</code> / <code>get_guide</code> 输出作为当前接入说明。</p><pre class="code-block"><code>node "$DESKPARTNER_CLI" skill
+        <div class="ai-guide-card" id="ai-guide">
+          <h3>🤖 【AI 助手接入指引 / For AI Agents】</h3>
+          <p>若你是 AI 助手（或用户把本页发给你让你自助接入），请先调用 MCP 的 <code>get_guide</code> 工具，或运行 <code>node "$DESKPARTNER_CLI" skill</code> 读取本机接入说明书，完成身份注册（<code>agent register</code> + <code>agent credential</code>）后再执行后续操作。若本机尚未安装客户端，请直接读取机器可读文档：<a href="llms.txt"><strong>https://lynnnn928.github.io/deskpartner/llms.txt</strong></a>。</p>
+          <pre class="code-block"><code># 发给你的 AI 助手的标准开场指令（可直接复制）：
+请先调用 DeskPartner 的 get_guide 工具（或运行 node "$DESKPARTNER_CLI" skill）阅读接入说明书，用你自己的名字注册身份并申领凭据，然后查看我当前的项目接手说明与待办事项。</code></pre>
+        </div>
+        <details class="dev-details"><summary>开发者：查看 CLI / 标准 MCP 配置示例</summary><div class="detail-body"><p class="section-intro">面向需要自动化接入的用户，DeskPartner 同时提供标准 MCP 服务器（stdio）与本地 CLI。请以安装后的 <code>skill</code> / <code>get_guide</code> 输出作为当前接入说明。</p><pre class="code-block"><code>node "$DESKPARTNER_CLI" skill
 
-# MCP 配置示例（路径请以应用内复制结果为准）
+# MCP 配置示例（路径请以应用内「快速上手」复制结果为准）
 {
   "mcpServers": {
     "deskpartner": {
-      "command": "node",
-      "args": ["C:/Users/&lt;你的用户名&gt;/AppData/Local/Programs/desk-partner/DeskPartner/resources/cli/mcp.cjs"]
+      "command": "C:\\Users\\&lt;你的用户名&gt;\\AppData\\Local\\Programs\\desk-partner\\resources\\cli\\mcp.cmd",
+      "args": [],
+      "env": {
+        "DESKPARTNER_AGENT": "agent:claude"
+      }
     }
   }
 }</code></pre><p class="section-intro">遇到路径问题时运行 <code>doctor</code>，它会说明当前路径是否有效以及可用的后备路径。</p></div></details>
       </div>
     </section>
 
-    <section class="section">
+    <section class="section" id="trust">
       <div class="container">
-        <div class="section-head center"><p class="section-kicker">Local by default</p><h2>工作在你的电脑里，决定权在你手里。</h2><p class="section-intro">DeskPartner 是人和 Agent 共享的本地控制面，数据默认留在你的电脑里。</p></div>
+        <div class="section-head center"><p class="section-kicker">Local by default · Open source</p><h2>工作在你的电脑里，决定权在你手里。</h2><p class="section-intro">DeskPartner 是人和 Agent 共享的本地控制面，数据默认留在你的电脑里，代码与安全策略完全公开。</p></div>
         <div class="roles-grid">
           <article class="card"><div class="card-label">local</div><h3>本地保存</h3><p>项目、事项、接手说明和审批记录默认保存在本机数据库。打开后即可建立本地工作空间，更新检查仅访问 GitHub Releases。</p></article>
-          <article class="card"><div class="card-label">approval</div><h3>重要动作先问你</h3><p>Agent 可以执行被允许的工作；修改关键资料、删除或需要确认的动作，可以先进入审批。</p></article>
-          <article class="card"><div class="card-label">open</div><h3>开源且可检查</h3><p>代码、版本和数据结构公开。你可以从 GitHub 查看实现、更新记录和接入文档。</p></article>
+          <article class="card"><div class="card-label">approval</div><h3>重要动作先问你</h3><p>Agent 可以执行被允许的工作；修改关键资料、删除或需要确认的动作，必须经你看清前后差异并点击批准后才由系统执行。</p></article>
+          <article class="card"><div class="card-label">open &amp; sponsor</div><h3>开源透明与支持</h3><p>MIT 开源项目，欢迎检视代码、反馈问题或赞助支持后续迭代与代码签名证书筹备。</p>
+            <div class="trust-links">
+              <a class="trust-link" href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub 仓库</a>
+              <a class="trust-link" href="https://github.com/lynnnn928/deskpartner/issues" target="_blank" rel="noopener">提 Issue</a>
+              <a class="trust-link" href="https://github.com/lynnnn928/deskpartner/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>
+              <a class="trust-link" href="https://afdian.com/a/lynnnn928" target="_blank" rel="noopener">爱发电赞助</a>
+              <a class="trust-link" href="https://github.com/sponsors/lynnnn928" target="_blank" rel="noopener">GitHub Sponsors</a>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -636,8 +740,8 @@
 
   <footer>
     <div class="container footer-inner">
-      <div>DeskPartner · 让工作跨 Agent 继续 · MIT License</div>
-      <div class="footer-links"><a href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/lynnnn928/deskpartner/releases" target="_blank" rel="noopener">历史版本</a><a href="https://github.com/lynnnn928/deskpartner/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新日志</a><a href="https://github.com/lynnnn928/deskpartner/blob/main/README.en.md" target="_blank" rel="noopener">English</a></div>
+      <div>DeskPartner · 多 AI 共享的本地项目记忆与接续工作台 · MIT License</div>
+      <div class="footer-links"><a href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub 仓库</a><a href="https://github.com/lynnnn928/deskpartner/issues" target="_blank" rel="noopener">问题反馈 (Issues)</a><a href="https://github.com/lynnnn928/deskpartner/blob/main/SECURITY.md" target="_blank" rel="noopener">安全报告 (SECURITY.md)</a><a href="https://github.com/lynnnn928/deskpartner/releases" target="_blank" rel="noopener">历史版本</a><a href="https://github.com/lynnnn928/deskpartner/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新日志</a><a href="llms.txt" target="_blank" rel="noopener">llms.txt</a><a href="https://afdian.com/a/lynnnn928" target="_blank" rel="noopener">爱发电</a><a href="https://github.com/sponsors/lynnnn928" target="_blank" rel="noopener">GitHub Sponsors</a><a href="https://github.com/lynnnn928/deskpartner/blob/main/README.en.md" target="_blank" rel="noopener">English</a></div>
     </div>
   </footer>
   <div class="toast" id="toast" role="status" aria-live="polite">已复制</div>
