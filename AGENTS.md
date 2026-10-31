@@ -44,7 +44,7 @@ Electron 33 / Vite 5 / React 18 / TS 5.6 / better-sqlite3 / Zustand 5 / Radix / 
 
 ## 当前状态（2026-10-20，运行时事实以校验脚本为准）
 
-版本 **1.0.138**（本地 main），schema **v48**，CLI **76 条命令**，MCP 工具 **69 个**，
+版本 **1.0.139**（本地 main），schema **v48**，CLI **76 条命令**，MCP 工具 **69 个**，
 关口 **15 条**。CLI 数量以 `node out/cli/deskpartner.cjs schema` 的 `data.commands` 为准，
 MCP 数量由同一 schema 扣除 `src/cli/mcp-tools-from-schema.ts` 的唯一排除表得到；
 入口文档这些数字由 `scripts/lib/current-facts.mjs` 一份判据管着：`npm test` 按**源码事实**自动核（不依赖构建产物），`npm run verify:facts` 另按跑着的应用的**运行时事实**核（含 `doctor` 来源自证），发版升号那一步用 `--fix-source` 同步版本号。
