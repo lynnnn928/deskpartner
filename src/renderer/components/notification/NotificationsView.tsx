@@ -11,6 +11,12 @@ import type { Agent } from '../../types/todo'
 import { cn } from '../../lib/utils'
 import { stripMarkdown } from '../../lib/markdown'
 import { GUI_READER, isUnreadFor, withReader } from '../../lib/notification-subject'
+import {
+  DEFAULT_HANDLED_FILTER,
+  HANDLED_FILTER_OPTIONS,
+  handledSummary,
+  type HandledFilter
+} from './handled'
 
 /**
  * 通知中心（1.0.48，v3 设计拍板：五类全收；1.0.55 起四类 + 待拍板）
@@ -176,6 +182,15 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
   const [filter, setFilter] = useState<NotificationType | 'all'>('all')
 
   /**
+   * 接手状态（卡 `5fd2b595`）
+   *
+   * 默认「待接手」：agent 已经 ack 掉的备忘不再占注意力。
+   * ⚠️ 这一档是**查询条件**（`unhandled` → 主进程 WHERE），不是渲染侧过滤 ——
+   * 列表、`matched`、`unread`、`byType` 因此仍然同源（`cba46119`）。
+   */
+  const [handledFilter, setHandledFilter] = useState<HandledFilter>(DEFAULT_HANDLED_FILTER)
+
+  /**
    * 读一页收件箱（卡 `cba46119`）
    * - `offset = 0` 重读第一页；`offset = nextOffset` 接着往下读。
    * - 分类筛选**下推给主进程**（`type` 参数）。
@@ -191,7 +206,12 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
           /**
            * 主体（卡 `c13dbb16`）：GUI 窗口的"我"就是**主用户**。
            */
-          reader: GUI_READER
+          reader: GUI_READER,
+          /**
+           * 待接手（卡 `5fd2b595`）：判据在主进程的 WHERE 里。
+           * 只在「待接手」档传 —— 另两档要看全部/只看已接手的。
+           */
+          ...(handledFilter === 'open' ? { unhandled: true } : {})
         })
         setItems((cur) => (offset > 0 ? [...cur, ...page.rows] : page.rows))
         setPageInfo({
@@ -207,7 +227,7 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
         setLoading(false)
       }
     },
-    [projectId]
+    [projectId, handledFilter]
   )
 
   useEffect(() => {
@@ -367,6 +387,11 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
 
   /**
    * 列表行 = 主进程给的那一页（卡 `cba46119`）
+   *
+   * ⚠️ **不许在这里再筛一遍**：筛一页 = 筛选落在窗口之内，
+   * `matched` / `unread` / `byType` 仍是整范围的数、列表却只剩子集。
+   * 「待接手」那一档（卡 `5fd2b595`）走的是主进程的 WHERE（`unhandled`），
+   * 三个数与列表因此仍然同源。
    */
   const visible = items
 
@@ -465,6 +490,22 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
               </div>
             )}
 
+            {/* 接手状态（卡 `5fd2b595`）：默认只看没人接手的，另两档是回到全量的出口 */}
+            <div
+              role="group"
+              aria-label="按接手状态筛选"
+              className="flex items-center gap-1 rounded-button bg-surface-subtle p-1 border border-border/60"
+            >
+              {HANDLED_FILTER_OPTIONS.map((opt) => (
+                <FilterChip
+                  key={opt.value}
+                  label={opt.label}
+                  active={handledFilter === opt.value}
+                  onClick={() => setHandledFilter(opt.value)}
+                />
+              ))}
+            </div>
+
             {unread > 0 && (
               <Button variant="ghost" size="sm" onClick={() => void markAllRead()}>
                 {filter === 'all' ? '全部已读' : '本类已读'}
@@ -541,12 +582,25 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
 
           {!loading && !loadError && visible.length === 0 && (
             <div className="p-6">
+              {/**
+               * 「一条都不剩」有两种原因，不能都说成"暂无通知"（卡 `5fd2b595`）：
+               * 一是真的没有，二是**都被接手了** —— 后者要说清"切到「全部」还在"，
+               * 否则用户会以为记录被删了。
+               */}
               <EmptyState
-                title={filter === 'all' ? '暂无通知' : `没有「${TYPE_META[filter].label}」这一类`}
+                title={
+                  handledFilter === 'open'
+                    ? '没有待接手的'
+                    : filter === 'all'
+                      ? '暂无通知'
+                      : `没有「${TYPE_META[filter].label}」这一类`
+                }
                 description={
-                  filter === 'all'
-                    ? '当有事项提醒、执行回执、备忘或待验收事项时会在此汇总。'
-                    : '可点击表头或顶部标签切换查看全部通知。'
+                  handledFilter === 'open'
+                    ? '「全部」里能看到已经接手过的记录，包括是谁处理的。'
+                    : filter === 'all'
+                      ? '当有事项提醒、执行回执、备忘或待验收事项时会在此汇总。'
+                      : '可点击表头或顶部标签切换查看全部通知。'
                 }
               />
             </div>
@@ -575,6 +629,12 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
             const displayTitle = humanizeNotificationTitle(n)
             const subtitle = resolveNotificationSubtitle(n, execOk)
             const actorDisplay = resolveActorDisplay(n.actor)
+            /**
+             * 谁处理了这条（卡 `5fd2b595`）：`read_by` 里非 human 的那些 + ack 时间。
+             * 名字走 `resolveActorDisplay`（displayName 优先、查不到退回去掉前缀的 id），
+             * 不把 `agent:xxx` 原文摆到界面上。
+             */
+            const handled = handledSummary(n, resolveActorDisplay)
             const isExpandable = n.type === 'memo' || n.type === 'exec_result'
 
             return (
@@ -625,6 +685,16 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
                         )}
                       >
                         {stripMarkdown(subtitle)}
+                      </span>
+                    )}
+                    {/**
+                     * 「谁处理了、什么时候」（卡 `5fd2b595`）：备忘只要有接手状态就写出来，
+                     * 别的类型只在真被 agent 处理过时才写 —— 提醒/交付类没有 ack 这回事，
+                     * 每条都挂一句"无人接手"只是噪点。
+                     */}
+                    {(handled.handled || n.type === 'memo') && !isMemoExpanded && (
+                      <span data-testid="memo-handled" className="block truncate text-caption text-text-secondary">
+                        {handled.text}
                       </span>
                     )}
                   </span>
@@ -686,6 +756,10 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
                             </span>
                           )}
                           <span className="hidden">
+                          </span>
+                          {/* 谁处理了（卡 `5fd2b595`）：详情里也写上，展开时不用回去看行尾 */}
+                          <span>
+                            处理：<strong className="text-text-primary font-medium">{handled.text}</strong>
                           </span>
                           <span>
                             时间：<span className="font-mono text-text-primary">{fmtFullTime(n.createdAt)}</span>
@@ -824,10 +898,13 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
 
 /**
  * 分类筛选 chip（1.0.49）
+ *
+ * `count` 可省（卡 `5fd2b595`）：接手状态那一组只是档位选择器 ——
+ * 「另外两档各有多少条」要再问一次主进程才算得出来，界面上不硬编一个数。
  */
 const FilterChip: React.FC<{
   label: string
-  count: number
+  count?: number
   active: boolean
   onClick: () => void
 }> = ({ label, count, active, onClick }) => (
@@ -843,7 +920,7 @@ const FilterChip: React.FC<{
     )}
   >
     {label}
-    <span className="opacity-60 font-mono">{count}</span>
+    {count !== undefined && <span className="opacity-60 font-mono">{count}</span>}
   </button>
 )
 

@@ -8,7 +8,7 @@ import { invoke, on } from '../lib/ipc-client'
  * ## 为什么要有这个 store（1.0.65 修 `4050942e`）
  *
  * 此前 `ownerLabel` 靠一张硬编码表 `AGENT_LABELS` 翻译显示名，而那张表
- * **key 写错了**（`qwen` 而实际是 `bob`）→ 查不到就回退成去掉前缀的
+ * **key 写错了**（`erin` 而实际是 `bob`）→ 查不到就回退成去掉前缀的
  * 原始 id，于是同一个 agent 在同一屏出现两个名字：
  * 详情抽屉「提出者」写 `bob`、「交给 AI」写「Bob」。
  * 真实库有 121 条事项的提出者是 `agent:bob`。

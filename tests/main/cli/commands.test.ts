@@ -569,7 +569,7 @@ describe('候选池（proposed / awaiting_review）', () => {
     // 本 describe 的 beforeEach 会清库，身份可能被清掉 —— 用例内补一次注册
     agentRepo.register({ id: 'agent:alice', displayName: 'Alice' })
     // 这条用例要验证的是 --owner 别名映射，用到的身份必须先注册，否则会被身份校验拦下
-    agentRepo.register({ id: 'agent:qwen', displayName: 'Bob' })
+    agentRepo.register({ id: 'agent:erin', displayName: 'Bob' })
     categoryRepo.create({ name: '方向', color: '#1', sortOrder: 0 })
     const res = await run([
       'todo', 'add', '--title', '导出按钮无响应', '--type', 'bug',
@@ -584,17 +584,17 @@ describe('候选池（proposed / awaiting_review）', () => {
     expect(todo.executedBy).toBe('human')
 
     // 旧参数名仍可用：--owner 等价于 --created-by
-    const res2 = await run(['todo', 'add', '--title', '旧参数', '--owner', 'agent:qwen', '--category', '方向', '--project', '测试项目'])
+    const res2 = await run(['todo', 'add', '--title', '旧参数', '--owner', 'agent:erin', '--category', '方向', '--project', '测试项目'])
     expect(res2.ok).toBe(true)
     const todo2 = todoRepo.getById((res2.data as { id: string }).id)!
-    expect(todo2.createdBy).toBe('agent:qwen')
+    expect(todo2.createdBy).toBe('agent:erin')
   })
 
   /**
    * 「未注册身份不能写」上线后，凡是用了 agent: 身份的用例，那个身份必须是注册过的。
    *
    * 这条用例曾因此在身份校验上线后变红：它验证的是「--owner 等价于 --created-by」
-   * 这个别名映射，跟身份毫无关系，却因为顺手用了个未注册的 agent:qwen 被拦下。
+   * 这个别名映射，跟身份毫无关系，却因为顺手用了个未注册的 agent:erin 被拦下。
    * 修的是测试装置（把用到的身份补注册），不是被测逻辑 ——
    * 拦人对着，错的是这条用例没跟着新规则更新自己的前提。
    */
@@ -1596,22 +1596,22 @@ describe('memo 命令', () => {
     /* ── 1.0.68：递的人 vs 给谁（`3c436592`）── */
 
     it('`--to` 记收件人，author 仍是递的人（这是修好的核心）', async () => {
-      await run(['memo', 'add', '--text', '这条给你', '--to', 'agent:qwen'])
+      await run(['memo', 'add', '--text', '这条给你', '--to', 'agent:erin'])
       const m = memoRepo.list()[0]
-      expect(m.recipient, '收件人没记上').toBe('agent:qwen')
+      expect(m.recipient, '收件人没记上').toBe('agent:erin')
       expect(
         m.author,
         'author 被收件人冒充了 —— 这就是该卡要修的那个错'
-      ).not.toBe('agent:qwen')
+      ).not.toBe('agent:erin')
     })
 
     it('`--owner` 保留为 `--to` 的别名（不打断既有用法）', async () => {
-      await run(['memo', 'add', '--text', '别名也认', '--owner', 'agent:qwen'])
-      expect(memoRepo.list()[0].recipient, '--owner 应等价于 --to').toBe('agent:qwen')
+      await run(['memo', 'add', '--text', '别名也认', '--owner', 'agent:erin'])
+      expect(memoRepo.list()[0].recipient, '--owner 应等价于 --to').toBe('agent:erin')
     })
 
     it('memo list --to-me 只看待在我这儿（分派可见）', async () => {
-      await run(['memo', 'add', '--text', '给你的', '--to', 'agent:qwen'])
+      await run(['memo', 'add', '--text', '给你的', '--to', 'agent:erin'])
       await run(['memo', 'add', '--text', '我自己记的'])
       // ⚠️ run() 返回的是 { ok, data } **信封**，data 才是数组。
       // 我前两版分别按"裸数组"和"信封"读，拿到 undefined 与非数组，assert 全炸。
@@ -1619,13 +1619,13 @@ describe('memo 命令', () => {
         recipient: string | null
       }>
       expect(
-        mine.filter((m) => m.recipient === 'agent:qwen'),
-        '给 agent:qwen 的不该出现在我这儿'
+        mine.filter((m) => m.recipient === 'agent:erin'),
+        '给 agent:erin 的不该出现在我这儿'
       ).toHaveLength(0)
     })
 
     it('memo list --from 按递的人筛（"谁递来的"查得出来了）', async () => {
-      await run(['memo', 'add', '--text', 'x', '--to', 'agent:qwen'])
+      await run(['memo', 'add', '--text', 'x', '--to', 'agent:erin'])
       const all = (await run(['memo', 'list'])).data as Array<{ author: string }>
       const selfAuthor = all[0].author
       const r = (await run(['memo', 'list', '--from', selfAuthor])).data as unknown[]
@@ -1633,13 +1633,13 @@ describe('memo 命令', () => {
     })
 
     it('memo list --directed 只看指定了收件人的', async () => {
-      await run(['memo', 'add', '--text', '给你的', '--to', 'agent:qwen'])
+      await run(['memo', 'add', '--text', '给你的', '--to', 'agent:erin'])
       await run(['memo', 'add', '--text', '我自己记的'])
       const r = (await run(['memo', 'list', '--directed'])).data as Array<{
         recipient: string | null
       }>
       expect(r).toHaveLength(1)
-      expect(r[0].recipient).toBe('agent:qwen')
+      expect(r[0].recipient).toBe('agent:erin')
     })
 
   it('空内容直接报错 —— 备忘的价值就在内容本身', async () => {
@@ -4169,7 +4169,7 @@ describe('todo delete-comment（1.0.54：错了就删，别用新评论掩盖）
 /**
  * 删评论的授权分级（1.0.63，收 dbfbc553 选③）
  *
- * qwen 实测报的缺陷：删评论落在写档 —— 不要 `--yes`、不生成授权申请，
+ * erin 实测报的缺陷：删评论落在写档 —— 不要 `--yes`、不生成授权申请，
  * 调一次就物理删掉别人的驳回理由。多 agent 共用一块看板已是本机现实，
  * "任何一方能悄悄抹掉另一方的结论"就是这条缝的后果。
  *
@@ -4344,7 +4344,7 @@ describe('删评论授权分级（1.0.63，dbfbc553 选③）', () => {
  * G9 软提醒（1.0.63，收 4bdfe62a 方案1）
  *
  * 1.0.54 立了规矩「验收必须落到状态上」，但只写在说明书里、机制一句不拦 ——
- * qwen 当场踩实：复验不通过只发了条评论，事项仍留在「待验收」，
+ * erin 当场踩实：复验不通过只发了条评论，事项仍留在「待验收」，
  * 被主用户当场抓到。这道闸门把那条文字规矩变成一次回执里的提醒。
  */
 describe('G9 软提醒：待验收上只写评论不落状态（1.0.63）', () => {
@@ -4366,7 +4366,7 @@ describe('G9 软提醒：待验收上只写评论不落状态（1.0.63）', () =
     categoryRepo.create({ name: '方向', color: '#1', sortOrder: 0 })
   })
 
-  /** 建一条"提出者=qwen、执行者=alice"的卡，并推到「待验收」 */
+  /** 建一条"提出者=erin、执行者=alice"的卡，并推到「待验收」 */
   const seedAwaitingReview = async () => {
     const add = await executeOne(
       { ...ctx, actor: 'agent:bob' } as never,
@@ -5090,7 +5090,7 @@ describe('写命令回执里的未读摘要（1.0.63）', () => {
   })
 
   it('纸条的归属如实显示 author，不掩盖"作者被写成收件人"这件事', async () => {
-    // memo add --owner 会把 author 覆盖成传入的值（qwen 已登记为独立缺陷）。
+    // memo add --owner 会把 author 覆盖成传入的值（erin 已登记为独立缺陷）。
     // 这里只钉"摘要如实呈现 author"，不假装它是对的。
     await run(['memo', 'add', '--text', '给人看的纸条', '--owner', 'agent:alice'])
     const memo = memoRepo.list()[0]

@@ -109,16 +109,16 @@ describe('GUI 通知未读/已知晓按主体算（卡 c13dbb16）', () => {
     expect(isUnreadFor(谁都没读, GUI_READER)).toBe(true)
     expect(isUnreadFor(谁都没读, 'agent:bob')).toBe(true)
 
-    const qwen读过 = n('agent:bob')
-    expect(isUnreadFor(qwen读过, 'agent:bob'), 'qwen 自己读过了').toBe(false)
+    const erin读过 = n('agent:bob')
+    expect(isUnreadFor(erin读过, 'agent:bob'), 'erin 自己读过了').toBe(false)
     expect(
-      isUnreadFor(qwen读过, GUI_READER),
-      '⚠️ qwen 读过不该算主用户读过 —— 这一条不过等于没做'
+      isUnreadFor(erin读过, GUI_READER),
+      '⚠️ erin 读过不该算主用户读过 —— 这一条不过等于没做'
     ).toBe(true)
 
     const 我读过 = n('human')
     expect(isUnreadFor(我读过, GUI_READER)).toBe(false)
-    expect(isUnreadFor(我读过, 'agent:bob'), '我读过也不该让 qwen 的未读少一个').toBe(true)
+    expect(isUnreadFor(我读过, 'agent:bob'), '我读过也不该让 erin 的未读少一个').toBe(true)
   })
 
   it('①存量：`read_by` 为 null（1.0.68 前的历史行）算"没人读过"，不是"人人读过"', () => {

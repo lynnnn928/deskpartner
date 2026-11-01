@@ -48,7 +48,7 @@ describe('G4 批准后当场执行：带人批准凭证的动作回放必须放�
     todos.create({ title: '一条提议', projectId: null, status: 'proposed', ...over } as never)
 
   it('人批准的删除放行：回放带 preApprovedGrantId 的 delete 不被拦，卡真删掉', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     // actor 用非提议人，确保只走批准分支（不被提议人撤回分支救）
     expect(() =>
       todos.delete(t.id, 'cli', 'agent:alice', 'grant-abc')
@@ -57,13 +57,13 @@ describe('G4 批准后当场执行：带人批准凭证的动作回放必须放�
   })
 
   it('无批准凭证的删除仍拦（G4 不退化：没拍板就删 proposed 依旧禁止）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     expect(() => todos.delete(t.id, 'cli', 'agent:alice')).toThrow(/G4/)
     expect(todos.getById(t.id)).not.toBeNull()
   })
 
   it('人批准的改状态放行：同族假承诺一并修透（update 带凭证）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     // ⚠️ actor 必须是**非提议人**：否则会被「提议人撤回」分支救了，
     // 这条就证明不了批准分支（反向验证时假绿，实测踩过一次）。
     expect(() =>
@@ -73,19 +73,19 @@ describe('G4 批准后当场执行：带人批准凭证的动作回放必须放�
   })
 
   it('无凭证、非提议人改状态仍拦（既有语义不退化）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     expect(() => todos.update({ id: t.id, status: 'todo', actor: 'agent:alice' })).toThrow(/G4/)
   })
 
   it('提议人撤回/降级仍放行（e0ec5f32 语义不因新分支退化）', () => {
-    const t1 = seed({ createdBy: 'agent:qwen', title: '撤回1' })
-    const t2 = seed({ createdBy: 'agent:qwen', title: '撤回2' })
-    expect(() => todos.update({ id: t1.id, status: 'todo', actor: 'agent:qwen' })).not.toThrow()
-    expect(() => todos.update({ id: t2.id, status: 'suspended', actor: 'agent:qwen' })).not.toThrow()
+    const t1 = seed({ createdBy: 'agent:erin', title: '撤回1' })
+    const t2 = seed({ createdBy: 'agent:erin', title: '撤回2' })
+    expect(() => todos.update({ id: t1.id, status: 'todo', actor: 'agent:erin' })).not.toThrow()
+    expect(() => todos.update({ id: t2.id, status: 'suspended', actor: 'agent:erin' })).not.toThrow()
   })
 
   it('界面路径仍放行（gui 是合法拍板通道，不因新分支退化）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     expect(() => todos.update({ id: t.id, status: 'todo', source: 'gui' })).not.toThrow()
   })
 })

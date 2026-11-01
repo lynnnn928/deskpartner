@@ -9,7 +9,7 @@ const db = new Database(':memory:')
 vi.mock('../../../src/main/database/index', () => ({ getDatabase: () => db }))
 
 /**
- * 提议人能自撤自己的「待确认」卡（`e0ec5f32`，qwen 提，主用户 10-06 拍板）
+ * 提议人能自撤自己的「待确认」卡（`e0ec5f32`，erin 提，主用户 10-06 拍板）
  *
  * ## 它治的病（主用户 10-05 原话）
  *
@@ -54,23 +54,23 @@ describe('提议人能自撤自己的待确认卡（e0ec5f32）', () => {
     todos.create({ title: '一条提议', projectId: null, status: 'proposed', ...over } as never)
 
   it('提议人可把自己的 proposed 降级为「待办」', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     expect(() =>
-      todos.update({ id: t.id, status: 'todo', actor: 'agent:qwen' })
+      todos.update({ id: t.id, status: 'todo', actor: 'agent:erin' })
     ).not.toThrow()
     expect(todos.getById(t.id)!.status).toBe('todo')
   })
 
   it('提议人可撤回（挂起）自己的 proposed', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     expect(() =>
-      todos.update({ id: t.id, status: 'suspended', actor: 'agent:qwen' })
+      todos.update({ id: t.id, status: 'suspended', actor: 'agent:erin' })
     ).not.toThrow()
     expect(todos.getById(t.id)!.status).toBe('suspended')
   })
 
   it('【边界1】放行别人的 proposed 仍被拦（这不是撤回，是替人拍板）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     expect(() =>
       todos.update({ id: t.id, status: 'todo', actor: 'agent:alice' })
     ).toThrow(/G4/)
@@ -78,10 +78,10 @@ describe('提议人能自撤自己的待确认卡（e0ec5f32）', () => {
   })
 
   it('【边界2】提议人也不能把自己的 proposed 往右推（降级≠批准）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     for (const to of ['in_progress', 'awaiting_review', 'done'] as const) {
       expect(
-        () => todos.update({ id: t.id, status: to, actor: 'agent:qwen' }),
+        () => todos.update({ id: t.id, status: to, actor: 'agent:erin' }),
         `提议人不该能直接把待确认推到 ${to} —— 那是批准`
       ).toThrow(/G4/)
     }
@@ -89,14 +89,14 @@ describe('提议人能自撤自己的待确认卡（e0ec5f32）', () => {
   })
 
   it('GUI 侧不受影响（人在界面点一律放行，那是"人"不是"角色"）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     expect(() =>
       todos.update({ id: t.id, status: 'in_progress', source: 'gui' } as never)
     ).not.toThrow()
   })
 
   it('报错要说清"只有提议人自己能降级"（不是只说拒绝）', () => {
-    const t = seed({ createdBy: 'agent:qwen' })
+    const t = seed({ createdBy: 'agent:erin' })
     try {
       todos.update({ id: t.id, status: 'in_progress', actor: 'agent:alice' })
       throw new Error('本该被拒')
@@ -109,9 +109,9 @@ describe('提议人能自撤自己的待确认卡（e0ec5f32）', () => {
   })
 
   it('非 proposed 事项不受本守卫管（守卫只管候选池那道闸）', () => {
-    const t = seed({ createdBy: 'agent:qwen', status: 'in_progress' })
+    const t = seed({ createdBy: 'agent:erin', status: 'in_progress' })
     expect(() =>
-      todos.update({ id: t.id, status: 'done', actor: 'agent:qwen' })
+      todos.update({ id: t.id, status: 'done', actor: 'agent:erin' })
     ).not.toThrow()
   })
 })

@@ -73,7 +73,7 @@ let file: string
 /**
  * 造一份"有一份孤儿"的凭据文件
  *
- * 三份：zed（在册、默认）、qwen（**孤儿**）、carol（在册）。
+ * 三份：zed（在册、默认）、erin（**孤儿**）、carol（在册）。
  * 默认身份故意设成 zed —— 删孤儿时不该动它。
  */
 function seed() {
@@ -85,7 +85,7 @@ function seed() {
         default: 'agent:zed',
         profiles: {
           'agent:zed': { token: 'token-zed-PLAINTEXT', issuedAt: '2026-09-01T00:00:00.000Z' },
-          'agent:qwen': { token: 'token-qwen-PLAINTEXT', issuedAt: '2026-10-06T00:00:00.000Z' },
+          'agent:erin': { token: 'token-erin-PLAINTEXT', issuedAt: '2026-10-06T00:00:00.000Z' },
           'agent:carol': { token: 'token-carol-PLAINTEXT', issuedAt: '2026-10-10T00:00:00.000Z' }
         }
       },
@@ -120,8 +120,8 @@ describe('agent credentials：看得见（1.0.116）', () => {
     const rows = (res.data ?? []) as Record<string, unknown>[]
 
     expect(res.ok, JSON.stringify(res).slice(0, 200)).toBe(true)
-    expect(rows.map((r) => r.agentId)).toEqual(['agent:carol', 'agent:qwen', 'agent:zed'])
-    expect(rows.find((r) => r.agentId === 'agent:qwen')?.registered).toBe(false)
+    expect(rows.map((r) => r.agentId)).toEqual(['agent:carol', 'agent:erin', 'agent:zed'])
+    expect(rows.find((r) => r.agentId === 'agent:erin')?.registered).toBe(false)
     expect(rows.find((r) => r.agentId === 'agent:zed')?.registered).toBe(true)
     expect(rows.find((r) => r.agentId === 'agent:zed')?.isDefault).toBe(true)
   })
@@ -129,7 +129,7 @@ describe('agent credentials：看得见（1.0.116）', () => {
   it('meta 里点名孤儿，并给出清理命令', async () => {
     const res = await run(['agent', 'credentials'])
     expect(res.meta?.orphanCount).toBe(1)
-    expect(res.meta?.orphans).toEqual(['agent:qwen'])
+    expect(res.meta?.orphans).toEqual(['agent:erin'])
     expect(String(res.meta?.hint)).toContain('agent purge-credentials')
   })
 
@@ -137,7 +137,7 @@ describe('agent credentials：看得见（1.0.116）', () => {
     const res = await run(['agent', 'credentials'])
     const dumped = JSON.stringify(res)
     expect(dumped).not.toContain('PLAINTEXT')
-    expect(dumped).not.toContain('token-qwen')
+    expect(dumped).not.toContain('token-erin')
   })
 
   it('凭据文件不存在时也不炸，回空数组并把路径带上', async () => {
@@ -151,7 +151,7 @@ describe('agent credentials：看得见（1.0.116）', () => {
 
 describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）', () => {
   it('孤儿 + --yes → 文件里消失、份数减一', async () => {
-    const res = await run(['agent', 'purge-credentials', '--id', 'agent:qwen', '--yes'])
+    const res = await run(['agent', 'purge-credentials', '--id', 'agent:erin', '--yes'])
 
     expect(res.ok, JSON.stringify(res).slice(0, 300)).toBe(true)
     const data = res.data as Record<string, unknown>
@@ -166,7 +166,7 @@ describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）'
 
   it('没带 --yes：报 usage_error，**文件一个字节都不动**', async () => {
     const before = rawText()
-    const res = await run(['agent', 'purge-credentials', '--id', 'agent:qwen'])
+    const res = await run(['agent', 'purge-credentials', '--id', 'agent:erin'])
 
     expect(res.ok).toBe(false)
     expect(res.errorCode).toBe('usage_error')
@@ -188,16 +188,16 @@ describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）'
     const res = await run(['agent', 'purge-credentials', '--id', 'agent:nobody', '--yes'])
     expect(res.ok).toBe(false)
     expect(res.errorCode).toBe('not_found')
-    expect(res.message).toContain('agent:qwen')
+    expect(res.message).toContain('agent:erin')
   })
 
   it('删的是默认身份时，默认自动换人', async () => {
     // 把孤儿设成默认再删它
     const cur = JSON.parse(rawText()) as { default: string }
-    cur.default = 'agent:qwen'
+    cur.default = 'agent:erin'
     fs.writeFileSync(file, JSON.stringify(cur, null, 2))
 
-    const res = await run(['agent', 'purge-credentials', '--id', 'agent:qwen', '--yes'])
+    const res = await run(['agent', 'purge-credentials', '--id', 'agent:erin', '--yes'])
     expect(res.ok).toBe(true)
     const data = res.data as Record<string, unknown>
     expect(data.wasDefault).toBe(true)
@@ -214,15 +214,15 @@ describe('removeCredential：把文件改对（含最后一份的收尾）', () 
       JSON.stringify(
         {
           version: 1,
-          default: 'agent:qwen',
-          profiles: { 'agent:qwen': { token: 'token-qwen-PLAINTEXT', issuedAt: '2026-10-06T00:00:00.000Z' } }
+          default: 'agent:erin',
+          profiles: { 'agent:erin': { token: 'token-erin-PLAINTEXT', issuedAt: '2026-10-06T00:00:00.000Z' } }
         },
         null,
         2
       )
     )
 
-    const result = removeCredential('agent:qwen')
+    const result = removeCredential('agent:erin')
     expect(result).toEqual({ removed: true, wasDefault: true, defaultAfter: null, remaining: 0 })
 
     const written = JSON.parse(rawText()) as Record<string, unknown>

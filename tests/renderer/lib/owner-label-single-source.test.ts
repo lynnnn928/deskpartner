@@ -5,7 +5,7 @@ import { useAgentStore } from '../../../src/renderer/stores/agent.store'
 /**
  * 同一 agent 在同一屏出现两个名字（1.0.65 修 `4050942e`）
  *
- * 症状：`AGENT_LABELS` 的 key 写成 `qwen`，实际身份是 `agent:bob`
+ * 症状：`AGENT_LABELS` 的 key 写成 `erin`，实际身份是 `agent:bob`
  * → 查不到就回退成裸 id，于是详情抽屉「提出者」写 `bob`、
  * 同一屏「交给 AI」写「Bob」。真实库 121 条事项的提出者是它。
  *
@@ -62,7 +62,7 @@ describe('agent 显示名只有一个权威来源（4050942e）', () => {
     expect(ownerLabel('agent:alice')).toBe('Alice')
   })
 
-  it('兜底表的 key 必须是真实身份 bob（不是猜的 qwen）', () => {
+  it('兜底表的 key 必须是真实身份 bob（不是猜的 erin）', () => {
     useAgentStore.setState({ agents: [], loading: false })
     // 这条就是缺陷现场：兜底表 key 写错导致回退成裸 id
     expect(ownerLabel('agent:bob')).toBe('Bob')

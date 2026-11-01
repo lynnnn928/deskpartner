@@ -80,14 +80,14 @@ describe('撤销删除恢复评论与父子关系（卡 df06e4d7）', () => {
       todoId: t.id,
       body: '顶层：先说结论',
       authorType: 'agent',
-      authorId: 'agent:qwen'
+      authorId: 'agent:erin'
     })
     comments.create({
       todoId: t.id,
       body: '回复：补一条证据',
       parentId: top.id,
       authorType: 'human',
-      recipient: 'agent:qwen',
+      recipient: 'agent:erin',
       kind: 'reject'
     })
     const before = comments.listByTodo(t.id)

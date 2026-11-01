@@ -2,7 +2,7 @@
   "_note": "命令面契约基线（卡 829ad776）。由 tests/main/cli/cli-contract-baseline-829ad776.test.ts 逐条比对。契约要改就是显式改：跑 `node scripts/update-cli-contract-baseline.mjs`，把这个文件的 diff 带进评审。普通测试运行不会改写它。",
   "schema": {
     "_what": "`dp schema` 的非 TTY 输出：envelope=整份字节；rest=除 commands 之外的部分；entries=逐条命令",
-    "envelope": "ead8341b4f06c2183c91770e1f81be779511e61546160a3d85d9557dcdacb7f9",
+    "envelope": "090919799f027fb8dd0c6226e80684046181436b820454e2b521a98d5c7c8c7e",
     "rest": "93ced633bb8676afa6262fac5d84dbee16e39d340a9e08a8b71751b54a1decd4",
     "order": [
       "schema",
@@ -136,7 +136,7 @@
       "release update": "5d2346162f73d1047ad4600f48030d819f9a74563bc90e4904f9b49f8b6c52ce",
       "release rm": "a25ff8824afabf11a35f9d3814abcd20f281395d987986d92f010187f4425e69",
       "memo add": "b23c9fff87d628e60e1f288b21d618278764a3ea7fecdf3950c609ef1442a225",
-      "memo list": "8c761b949e2b7253bb22e27ca75249b2f9b24a33141b38f15a563f974a4e8a9a",
+      "memo list": "81d1bb9dd0d2a82f65a5fc8ea262889a88edb54190163b5786ccf9fbadc338fd",
       "memo ack": "8f04dc0ceb912dc415200be8965ce46efd2e4129858e4f67dad17c8f70222f09",
       "memo rm": "aa529031ff2d1dfe71de0fee4de862c8cb80a369c83563c15c429da55dcfa237",
       "category list": "99b4b778c84ad2cfcf14f2046845ef5e2fc83b9fd407869f297fecc82d2494b9",
@@ -155,7 +155,7 @@
       "agent grants": "73ae7c23e1d32d50a7470d8c745a48e33ef643a662caaf420f42211d01615a9c",
       "agent revoke": "c76e57ae4c9b79d856827e8a4b7366a0bc199533d5f46f4ac00a3a5c3b24b085",
       "agent credentials": "b11df842967fec9e6bc1b394ced7ad465528dcd893fad5d3be6b49f1d4f31298",
-      "agent purge-credentials": "2ef89b975fc9fe089ceaef6ca3bb95e9c6a1cfbe64283d925fe9ee47c42f5454",
+      "agent purge-credentials": "7c90061fb52b3bf3510dce7d9582261bc13ffa695d269df26100f2da3be0b1d9",
       "doc list": "1aa03b20c8b452c63207fcfd2665ed3e2ab60fdd989bf8d9d17a322b6b6edd0e",
       "doc show": "bde77fd81bc516e1ea4f1f20cc163d81368e2cfc11957b8df8534737a6592999",
       "work next": "85c27e7c58aa720c7e3e2d7e6958f7e64eaaedb4914ded9b354719013c13a8ef"
@@ -296,7 +296,7 @@
       "release update": "8ed7e9cb1c3e240a8206bd6b30c0d2536d34fdaa2f68b4090149121b1ee48014",
       "release rm": "4642ababe8b104cfbbdfec04d65135bc430dffb2265d7c921d27a5c02a92f513",
       "memo add": "4e674e81e8fcce86dbfb49c0cabf10f85c39b1789126c7f773e6fb2e0b52eb38",
-      "memo list": "249b0c9b91c027fd0b5a8c690591313a51e3648d48927d0aa5fbd16ab16d1f68",
+      "memo list": "6df7b2c1eaa7f1d2b4a65657a1afd37a9d4e730b1b7a36e03f3a8cd348807ece",
       "memo ack": "d58ae0484854904e89527d1cfe10748683017e365ca97f3077831f764c7603c3",
       "memo rm": "b12c7a5361a31d3f24055d595907fc5cf8fccf53e5d259af447909c06cee85ed",
       "category list": "aad3630d31aaca4f8fc490094d8e5faeb69e701839bacbb79f226fe43c33305a",
@@ -315,7 +315,7 @@
       "agent grants": "d35af6e8eee7cfd47ae08fa29780ed8509f0cfb0a18bac4436e8f97870899b46",
       "agent revoke": "94c4e10149c15dfbe167bbc5ac54d78ca6e8ee5aad59fd1f2218ff3ea4b7232f",
       "agent credentials": "2ea0be83037eea92f368826dcabd76ba313fb58ddf1bf6861cc2f7cf10eac33d",
-      "agent purge-credentials": "945bcdd606740fb8e719307bb4e61034b0a11eb0a8eb60ff568fabb804351a1b",
+      "agent purge-credentials": "0506eeafbd63fc05c5aba57c5363290837b0cb8181f72a718c192df01944f4e0",
       "doc list": "7a6cf8f760ab8571a5545054fe850ab271c706e766d769ce56b890d7fd33a9c6",
       "doc show": "3aff856e03c59c84c0bf578df544d4e4cb274d8b2ac4671fb52fb9c3e1fe7d3f",
       "work next": "a4470111fc29960649a60c860af6604c1b91c6f77f9e21a1cd04d3b92158c4c9"
@@ -323,7 +323,7 @@
   },
   "mcp": {
     "_what": "MCP `tools/list` 的结果：list=整份字节；entries=逐个工具（含 inputSchema / annotations）",
-    "list": "f7379f4d677c011d40053bc11e8455d9e5025aae328c75dd55383baa3cc352e3",
+    "list": "eaff2cf6d4a4a4c43f42d40eeb17e3afc63d7e5e6383557c5223ce5d1256ac9b",
     "order": [
       "list_notifications",
       "inbox_todos",
@@ -446,7 +446,7 @@
       "update_release": "6f2399d3ca52bc58d01fd82272ad6d69208e1cbf2014c38615b1f0cde26c7db7",
       "rm_release": "bd2ffc944721a9a4e5ebb4169d0ea1868f0664658a1fe6d537bbac00cb8e2d57",
       "add_memos": "fb86843f055596863ad9b586b6defbb633d007287ff194260a1397ac0cc0a961",
-      "list_memos": "7902a731e594b4ac9b5be0eb49c3a9b584f4222be5e9e84188adceaf1be93b95",
+      "list_memos": "4b610ad6a2718977355e000231aae4e6801ac281d7465d44a58909e95cd7d176",
       "ack_memos": "ba608c6f4b2809f32e63ecaeb442af137145e93576c74936cfbff5a14c68d5e2",
       "rm_memos": "2c84a9d7d48bd85e26a5afc937028b3c9b34815246b037da59fb899551394f06",
       "list_categories": "54d11fa8211b6729d8b930ec0dfb2798bd7f15c8de7b5ef08cddb97bc707ab16",
@@ -461,7 +461,7 @@
       "grants_agents": "80a13421eca031f6a85ce0d32965754b47d38270d07686d2bb977975f4779274",
       "revoke_agents": "3bac669166e98d95e2a9e980e51cc53ffa028585bfbb216e9a81f6135596cdfa",
       "credentials_agents": "47ebd6aca6d92ee936268bf70c422c495870cbe8a651ce8541d1b5ec3e64e07d",
-      "purge_credentials_agents": "a2b2ff4972f06c6c9b2f483452d696c57e34be1be43ec19fd03e304add4370ac",
+      "purge_credentials_agents": "58a7f45cd4c95011b296c1289cedaf388377829d994e95547c0eee884e099df6",
       "list_doc": "c704dff55701eeaadd855e921471e42ede52bcc6deb41d8774d880921412f604",
       "show_doc": "9d87deff8b9983ac3da143e191971045ddff781efa373f074279d457f5ed4bb2",
       "next_work": "d1a2b1f1dc2c01fb859194c6cbceb78b651b589028e3f2cd9fe790486be4aa5f"

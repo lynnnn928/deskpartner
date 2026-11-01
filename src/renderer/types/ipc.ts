@@ -226,7 +226,7 @@ export interface IPCChannels {
    * `reader`（卡 `c13dbb16`）只影响**未读那几个数**：列表照旧把已读的也列出来。
    */
   'notification:listWithProject': {
-    input: { limit?: number; offset?: number; projectId?: string | null; type?: NotificationType | null; reader?: string } | void
+    input: { limit?: number; offset?: number; projectId?: string | null; type?: NotificationType | null; reader?: string; unhandled?: boolean } | void
     result: InboxPage
   }
   /** 只将指定项目的通知标为已读；`type` 给"本类已读"用，`reader` 给"清谁的那一份"用。 */

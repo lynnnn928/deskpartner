@@ -58,18 +58,18 @@ describe('通知定向与按人已读（3c436592 第 2 环）', () => {
   })
 
   it('通知能记收件人（与 actor 是两个身份）', () => {
-    const n = mk({ recipient: 'agent:qwen' })
-    expect(n.recipient).toBe('agent:qwen')
+    const n = mk({ recipient: 'agent:erin' })
+    expect(n.recipient).toBe('agent:erin')
     expect(n.actor, 'actor 是谁触发的，不该被收件人顶替').toBe('agent:alice')
   })
 
   it('`listFor` 只看待给某人的（+ 没指定收件人的广播）', () => {
-    mk({ recipient: 'agent:qwen', refId: 'a' })
+    mk({ recipient: 'agent:erin', refId: 'a' })
     mk({ recipient: 'agent:alice', refId: 'b' })
     mk({ recipient: null, refId: 'c' })
-    const mine = notif.listFor('agent:qwen').map((n) => n.refId)
-    expect(mine, '给 alice 的不该出现在 qwen 这儿').not.toContain('b')
-    expect(mine, '给 qwen 的该在').toContain('a')
+    const mine = notif.listFor('agent:erin').map((n) => n.refId)
+    expect(mine, '给 alice 的不该出现在 erin 这儿').not.toContain('b')
+    expect(mine, '给 erin 的该在').toContain('a')
     expect(mine, '没指定收件人的广播该在（否则 agent 会漏掉"我不知道给谁"的事）').toContain('c')
   })
 
@@ -80,25 +80,25 @@ describe('通知定向与按人已读（3c436592 第 2 环）', () => {
    * 做不到这点就等于没做——而这正是原来全局 `read_at` 的毛病。
    */
   it('A 读过不影响 B 的未读数（这是全卡的核心判据）', () => {
-    const n = mk({ recipient: 'agent:qwen' })
-    expect(notif.unreadCountFor('agent:qwen', 'agent:qwen')).toBe(1)
-    expect(notif.unreadCountFor('agent:qwen', 'agent:alice')).toBe(1)
+    const n = mk({ recipient: 'agent:erin' })
+    expect(notif.unreadCountFor('agent:erin', 'agent:erin')).toBe(1)
+    expect(notif.unreadCountFor('agent:erin', 'agent:alice')).toBe(1)
 
-    notif.markReadBy(n.id, 'agent:qwen')
+    notif.markReadBy(n.id, 'agent:erin')
 
     expect(
-      notif.unreadCountFor('agent:qwen', 'agent:qwen'),
-      'qwen 自己读过了，他这儿该变成 0'
+      notif.unreadCountFor('agent:erin', 'agent:erin'),
+      'erin 自己读过了，他这儿该变成 0'
     ).toBe(0)
     expect(
-      notif.unreadCountFor('agent:qwen', 'agent:alice'),
-      '⚠️ qwen 读过不该让 alice 的未读数少 —— 这条不过等于没做'
+      notif.unreadCountFor('agent:erin', 'agent:alice'),
+      '⚠️ erin 读过不该让 alice 的未读数少 —— 这条不过等于没做'
     ).toBe(1)
   })
 
   it('`markReadBy` 不动全局 status（界面铃铛那个口径不能被 agent 改掉）', () => {
-    const n = mk({ recipient: 'agent:qwen' })
-    notif.markReadBy(n.id, 'agent:qwen')
+    const n = mk({ recipient: 'agent:erin' })
+    notif.markReadBy(n.id, 'agent:erin')
     const after = db.prepare('SELECT status, read_at FROM notifications WHERE id = ?').get(n.id) as {
       status: string
       read_at: string | null
@@ -109,31 +109,31 @@ describe('通知定向与按人已读（3c436592 第 2 环）', () => {
   })
 
   it('`markReadBy` 幂等（同一人重复读不重复记）', () => {
-    const n = mk({ recipient: 'agent:qwen' })
-    expect(notif.markReadBy(n.id, 'agent:qwen')).toBe(true)
-    expect(notif.markReadBy(n.id, 'agent:qwen'), '重复读不该再改一次').toBe(false)
+    const n = mk({ recipient: 'agent:erin' })
+    expect(notif.markReadBy(n.id, 'agent:erin')).toBe(true)
+    expect(notif.markReadBy(n.id, 'agent:erin'), '重复读不该再改一次').toBe(false)
     const row = db.prepare('SELECT read_by FROM notifications WHERE id = ?').get(n.id) as {
       read_by: string
     }
-    expect(row.read_by.split(',').filter(Boolean)).toEqual(['agent:qwen'])
+    expect(row.read_by.split(',').filter(Boolean)).toEqual(['agent:erin'])
   })
 
   it('多个人读过要都记下来（集合，不是"最后一个"）', () => {
-    const n = mk({ recipient: 'agent:qwen' })
-    notif.markReadBy(n.id, 'agent:qwen')
+    const n = mk({ recipient: 'agent:erin' })
+    notif.markReadBy(n.id, 'agent:erin')
     notif.markReadBy(n.id, 'agent:alice')
     const row = db.prepare('SELECT read_by FROM notifications WHERE id = ?').get(n.id) as {
       read_by: string
     }
-    expect(row.read_by.split(',').filter(Boolean).sort()).toEqual(['agent:alice', 'agent:qwen'])
+    expect(row.read_by.split(',').filter(Boolean).sort()).toEqual(['agent:alice', 'agent:erin'])
   })
 
   it('`listFor` + `unreadBy` 组合：只给我且我没读过的', () => {
-    const a = mk({ recipient: 'agent:qwen', refId: 'a' })
-    mk({ recipient: 'agent:qwen', refId: 'b' })
+    const a = mk({ recipient: 'agent:erin', refId: 'a' })
+    mk({ recipient: 'agent:erin', refId: 'b' })
     mk({ recipient: 'agent:alice', refId: 'c' })
-    notif.markReadBy(a.id, 'agent:qwen')
-    const rows = notif.listFor('agent:qwen', { unreadBy: 'agent:qwen' })
+    notif.markReadBy(a.id, 'agent:erin')
+    const rows = notif.listFor('agent:erin', { unreadBy: 'agent:erin' })
     expect(rows.map((r) => r.refId)).toEqual(['b'])
   })
 
@@ -141,9 +141,9 @@ describe('通知定向与按人已读（3c436592 第 2 环）', () => {
     // 模拟存量：read_at 非空、read_by 为 NULL（迁移 28 就是这么处理的）
     db.prepare(
       `INSERT INTO notifications (id,type,title,summary,ref_id,actor,status,meta,created_at,read_at,recipient,read_by)
-       VALUES ('old','memo','旧的','s','x','human','read',NULL,'2026-01-01T00:00:00Z','2026-01-02T00:00:00Z','agent:qwen',NULL)`
+       VALUES ('old','memo','旧的','s','x','human','read',NULL,'2026-01-01T00:00:00Z','2026-01-02T00:00:00Z','agent:erin',NULL)`
     ).run()
-    const rows = notif.listFor('agent:qwen', { unreadBy: 'agent:qwen' })
+    const rows = notif.listFor('agent:erin', { unreadBy: 'agent:erin' })
     expect(
       rows.filter((r) => r.id === 'old').length,
       '存量已读行不该报成"我还没看过" —— 但也不能编造是谁读的'

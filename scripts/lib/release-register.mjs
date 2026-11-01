@@ -42,7 +42,7 @@ export function requireSummary(summary) {
  * 登记身份：收尾 `release add` 是写命令，必须声明 `DESKPARTNER_AGENT`。
  *
  * 为什么在前置检查就要（1.0.74 发版实测踩过）：本机有 4 个 agent 凭据
- * （carol / qwen / bob / alice），缺身份时 CLI 会报
+ * （carol / erin / bob / alice），缺身份时 CLI 会报
  * `ambiguous_identity` 拒绝猜 —— 于是发版链跑完 4 分半构建 + 打包 + 验收，
  * 卡在最后一步"版本登记"才炸，整条链白跑。
  * 登记是强制步骤，身份就是它的前置条件，必须在动手打包前确认。

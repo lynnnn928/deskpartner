@@ -168,8 +168,80 @@ function assertStatus(status: TodoStatus | undefined): void {
   }
 }
 
+/**
+ * 派活判据（卡 `8a671976`，**唯一出处**）
+ *
+ * 答一个问题：这次落库之后，"该不该给某个人送一条派活"。
+ * 返回应收件人（`agent:<id>` / `human`），`null` = 这不是一次派活。
+ *
+ * ## 为什么要抽成函数并放在仓储层
+ *
+ * 送达的**写入点**在 `TodoRepository.create/update`（界面快速添加直接走它，
+ * 不经命令层），而**回执**在命令层 —— 两处必须用同一个答案，
+ * 否则会出现"回执说送到了、库里没有"或反过来。
+ *
+ * ## 判据
+ *
+ * - 卡已收口（`done` / `discarded`）不算：`todo add --status done` 是记工作流水，
+ *   那种卡上的执行者意思是"这活是他干的"，不是"这活给他干"。
+ * - 执行者就是提出者、或是这次动手的人 → 自己派给自己，不送（只是登记）。
+ * - 只认对**某个主体**的指派：`human` 或 `agent:<id>`。
+ *   `human` 由调用方归进 `work next` 的汇总，不落单条通知。
+ */
+export function assignmentTargetOf(
+  todo: { status: string; executedBy: string | null; createdBy: string },
+  actor: string | null | undefined
+): string | null {
+  if (todo.status === 'done' || todo.status === 'discarded') return null
+  const target = (todo.executedBy ?? '').trim()
+  if (!target) return null
+  const dispatcher = (actor ?? '').trim()
+  // 自己派给自己：提出者本人，或这次动手的人 —— 都不是"送活给别人"
+  if (target === todo.createdBy || (dispatcher && target === dispatcher)) return null
+  if (target !== 'human' && !/^agent:[a-z0-9][a-z0-9_-]*$/i.test(target)) return null
+  return target
+}
+
 /** 待办事项数据仓库 */
 export class TodoRepository {
+  /**
+   * 派活送达（卡 `8a671976`）
+   *
+   * ## 为什么写在仓储层而不是命令层
+   *
+   * 第一版只接在 `todo add` / `todo update` 上，于是**界面那条路没送达**：
+   * GUI 快速添加直接 `todoRepo.create`，主用户派活走的正是它。
+   * `create` / `update` 是两条写路径的公共出口（CLI、MCP、界面），
+   * 接在这里一处覆盖全部，且不必让每个入口各记一次。
+   *
+   * ## 为什么用 try/catch 且不进事务
+   *
+   * 与 `memo.repository` 的 `ack()` 同一条先例：通知是**索引**，
+   * 索引写不进去不该拖垮建卡/改派本身。放在事务外同理 ——
+   * 事务里抛错会回滚整次写入，等于把附属品的失败升级成"人改不动数据"。
+   *
+   * 去重仍由 `NotificationRepository.createAssignmentOnce` 判（该卡该人还有未读就不写），
+   * 所以命令层即便再调一次也只会拿回同一行，不会多出一条。
+   */
+  private deliverAssignment(todo: Todo, actor?: string | null): void {
+    const target = assignmentTargetOf(todo, actor)
+    if (!target || target === 'human') return
+    const dispatcher = (actor ?? '').trim() || todo.createdBy
+    const short = todo.id.slice(0, 8)
+    try {
+      new NotificationRepository().createAssignmentOnce({
+        refId: todo.id,
+        actor: dispatcher,
+        recipient: target,
+        title: `派活给你：${todo.title}`,
+        summary: `${dispatcher} 把 #${short}《${todo.title}》指派给你执行 —— 跑 work next 看它排在哪，或 todo get ${short} 看规格`
+      })
+    } catch (e) {
+      // 通知是索引，写不进去不该让建卡/改派本身失败（也不静默）
+      console.warn('[Notification] 派活索引写入失败:', e instanceof Error ? e.message : e)
+    }
+  }
+
   /** 延迟创建：模块顶层 new 会在测试 mock getDatabase() 之前就触发 db 访问 */
   private _guardResolver: GuardResolver | null = null
   private get guardResolver(): GuardResolver {
@@ -590,6 +662,14 @@ export class TodoRepository {
     // 提出者默认 human，agent 不带 --created-by 登记时若没有 actor 就会记错人。
     this.recordTransition(todo.id, null, status, input.actor ?? createdBy)
 
+    /**
+     * 派活送达（卡 `8a671976`）：**建卡时**就把执行者通知到。
+     *
+     * ⚠️ 导入（`skipGuards`）不送：恢复的是历史，逐卡推送只会刷屏
+     * —— 与 `memo.repository` 对导入的处理同一条判据（"导入不该进收件箱"）。
+     */
+    if (!input.skipGuards) this.deliverAssignment(todo, input.actor)
+
     return todo
   }
 
@@ -825,6 +905,15 @@ export class TodoRepository {
         }
       })()
     )
+
+    /**
+     * 改派送达（卡 `8a671976`）：执行者**真的换了人**才算一次派活
+     * （改标题、改优先级不该给执行方推通知）。
+     *
+     * 判据用回填后的 `updated.executedBy` 与读快照 `existing.executedBy` 比，
+     * 不信任入参 —— `clear` 那一路（撤回指派）进来时这里是 null，`assignmentTargetOf` 自会放掉。
+     */
+    if (updated.executedBy !== existing.executedBy) this.deliverAssignment(updated, input.actor)
 
     /**
      * 字段变更留痕（1.0.73，`482e4b03`）
@@ -1711,7 +1800,7 @@ export class TodoRepository {
    *
    * ## 为什么要有
    *
-   * 提单给的证据是**三方正经都犯过**：qwen 的 `c3a798c8`/`180928cf` 同义重复、
+   * 提单给的证据是**三方正经都犯过**：erin 的 `c3a798c8`/`180928cf` 同义重复、
    * 我自己 09-30 同秒造过两条逐字相同（`ee24bd55`/`20430c0c`）、
    * 还有一条标题本身就写着"（重复登记，已挂起）"。
    * **三方都在犯，说明这不是"谁不小心"，是产品缺这道闸。**
@@ -1773,7 +1862,7 @@ export class TodoRepository {
       /**
        * 档二：标题里显式带了"重复"字样 —— 人自己已说明意图
        *
-       * ⚠️ **1.0.70 修（qwen 实测驳回）**：原来这里**无条件返回最近 3 条**，
+       * ⚠️ **1.0.70 修（erin 实测驳回）**：原来这里**无条件返回最近 3 条**，
        * 不管相似度 —— 于是探针卡「v70探针…自撤与去重闸」建一张标题带
        * 「重复标题测试」的卡，命中 3 条**毫不相干**的卡
        * （69b9b651 MCP 工具表、e5c23a1e 材料缺口，**标题里根本没有"重复"二字**），
@@ -1806,7 +1895,7 @@ export class TodoRepository {
         .map(({ todo, score, raw, boosted }) => ({
           todo,
           /**
-           * 理由要能回答"**凭什么是它**"（qwen 实测驳回的核心诉求）。
+           * 理由要能回答"**凭什么是它**"（erin 实测驳回的核心诉求）。
            *
            * 三个信息缺一不可：
            * ① 相似度数值 ② 命中的是**哪个片段**（不是"看起来像"）

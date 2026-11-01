@@ -14,9 +14,9 @@ vi.mock('../../../src/main/database/index', () => ({
 }))
 
 /**
- * 关口清单进 schema（1.0.72 修 `917390e0` 的 #5 / #6，qwen 驳回）
+ * 关口清单进 schema（1.0.72 修 `917390e0` 的 #5 / #6，erin 驳回）
  *
- * qwen 实测的驳回理由成立且本版复现：关口只存在于说明书那张 Markdown 表里，
+ * erin 实测的驳回理由成立且本版复现：关口只存在于说明书那张 Markdown 表里，
  * `schema` 全文搜 G10 得 0 次。而 agent 唯一会主动读的是 schema。
  *
  * 修法不是"把表抄进 schema"—— 那会多一份真相，而手写那份已经与实装相反过一次
@@ -72,7 +72,7 @@ describe('关口清单是唯一真相（917390e0 #5/#6）', () => {
     db.exec('DELETE FROM todos')
   })
 
-  it('schema 输出里带 gates，且条数与定义一致（qwen 搜 G10 得 0 次的那个缺口）', async () => {
+  it('schema 输出里带 gates，且条数与定义一致（erin 搜 G10 得 0 次的那个缺口）', async () => {
     const r = (await executeOne(makeCtx(), ['schema'])) as {
       ok: boolean
       data: { gates?: { id: string }[] }

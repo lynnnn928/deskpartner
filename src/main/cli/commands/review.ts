@@ -389,7 +389,7 @@ export const memoCommands: CommandSpec[] = [
       {
         flag: '--from',
         type: 'string',
-        desc: '只看某人递来的（按 author 筛），如 agent:qwen'
+        desc: '只看某人递来的（按 author 筛），如 agent:erin'
       },
       {
         flag: '--directed',

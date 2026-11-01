@@ -643,7 +643,7 @@ describe('MCP 接线层：客户端参数必须真的走到 toArgv（bf736527 P0
   })
 
   /**
-   * 未知入参不能被静默吞掉（1.0.63，qwen 实测报的失败模式）。
+   * 未知入参不能被静默吞掉（1.0.63，erin 实测报的失败模式）。
    *
    * 此前传一个不存在的键（如 actor）"不报错也不生效"——agent 以为设上了，
    * 实际什么都没发生。这是这一层最坏的失败形态：比报错更难查。
@@ -722,7 +722,7 @@ describe('MCP 接线层：客户端参数必须真的走到 toArgv（bf736527 P0
     expect(rm?.annotations?.destructiveHint, 'todo rm 是 destructive 档').toBe(true)
   })
 
-  it('既有 8 个工具名一字未改（已有接入方在用，qwen 就是）', async () => {
+  it('既有 8 个工具名一字未改（已有接入方在用，erin 就是）', async () => {
     const { client } = await connect()
     const names = (await client.listTools()).tools.map((t) => t.name)
     for (const legacy of ['add_todo', 'get_todo', 'list_todos', 'update_todo', 'comment_todo',

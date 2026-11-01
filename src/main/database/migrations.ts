@@ -801,7 +801,7 @@ const migrations: MigrationFn[] = [
       `UPDATE todos SET verifier = created_by WHERE verifier IS NULL`
     ).run()
   },
-  // ── 27：纸条分「递的人」与「给谁」（`3c436592`，qwen 提，主用户 10-06 拍板）──
+  // ── 27：纸条分「递的人」与「给谁」（`3c436592`，erin 提，主用户 10-06 拍板）──
   //
   // ⚠️ 修的是一个**不报错**的错：`memo add --owner agent:x` 把 **author 写成收件人**
   // （`commands.ts` 里 `create({ author: owner })`）——

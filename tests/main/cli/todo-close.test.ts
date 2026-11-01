@@ -42,7 +42,7 @@ describe('todo close（47d6ad52）', () => {
    *
    * ⚠️ 1.0.116 起 `todo close` 多了个身份前提（卡 `a7ad343f`）：
    * **执行者不能自己收口**，从哪一列出发都一样。所以这份用例里的收口动作
-   * 由 `agent:reviewer` 来做，卡本身仍由 `agent:qwen` 提出 —— 这样被测的
+   * 由 `agent:reviewer` 来做，卡本身仍由 `agent:erin` 提出 —— 这样被测的
    * 还是"四段正文 / 必填 / 状态推进"，不被身份规则挡住。
    */
   const CREDS = new Map<string, string>()
@@ -102,13 +102,13 @@ describe('todo close（47d6ad52）', () => {
      * 判据：**测试红且报错指向一个与被测行为无关的方向时，先查前置条件**，
      * 别急着改被测代码。（与 10-04 那次「拿过时数据下判断」同源。）
      */
-    agents.register({ id: 'agent:qwen', displayName: 'Bob', color: '#111' } as never)
-    agents.setApproved('agent:qwen', true)
+    agents.register({ id: 'agent:erin', displayName: 'Bob', color: '#111' } as never)
+    agents.setApproved('agent:erin', true)
     // 第四道：还要领凭据（未出示凭据 → `未出示凭据`）。
     // ⚠️ 四道前置条件（匿名/注册/批准/凭据）各让 5 条用例红过一次，报错都指向别处。
     // **把它们一次配齐**，比逐个撞过去快得多 —— 这就是我 10-05 犯过的错
     // （「没读完整提单就开始写」的同款：没把前置条件一次列全）。
-    CREDS.set('agent:qwen', agents.issueCredential('agent:qwen')?.token ?? '')
+    CREDS.set('agent:erin', agents.issueCredential('agent:erin')?.token ?? '')
     // 收口方：与提出者不同一个人，才过得了 G10（1.0.116 起按身份判）
     agents.register({ id: 'agent:reviewer', displayName: '验收', color: '#111' } as never)
     agents.setApproved('agent:reviewer', true)
@@ -116,7 +116,7 @@ describe('todo close（47d6ad52）', () => {
   })
 
   const seed = (over: Record<string, unknown> = {}) =>
-    todos.create({ title: '一条待办', projectId: null, createdBy: 'agent:qwen', ...over } as never)
+    todos.create({ title: '一条待办', projectId: null, createdBy: 'agent:erin', ...over } as never)
 
   const close = (id: string, extra: string[] = []) =>
     executeOne(mk(), [
@@ -240,7 +240,7 @@ describe('todo close（47d6ad52）', () => {
     '%s 状态收口被拒后，不留下伪成功评论和审计',
     async (status) => {
       const t = seed({ status })
-      comments.create({ todoId: t.id, body: '原有讨论', authorType: 'agent', authorId: 'agent:qwen', kind: 'comment' })
+      comments.create({ todoId: t.id, body: '原有讨论', authorType: 'agent', authorId: 'agent:erin', kind: 'comment' })
       const beforeComments = comments.listByTodo(t.id)
       const beforeEvents = db.prepare('SELECT COUNT(*) AS n FROM events').get()
       const beforeTransitions = db.prepare('SELECT COUNT(*) AS n FROM todo_transitions').get()

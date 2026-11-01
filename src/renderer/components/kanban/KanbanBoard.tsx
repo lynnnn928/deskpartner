@@ -47,13 +47,16 @@ export const KanbanBoard: React.FC<{ onOpenProjectSearch?: (query?: string) => v
   const { settings } = useSettingsStore()
 
   /**
-   * 删父任务的二次确认：挂了子任务时先问一句再删。
+   * 单条删除的二次确认（卡 `7085ea9d`）：点「删除」不动数据，先弹这一框。
+   *
    * 只在这一次删除期间存在，不落库、不进 store —— 它是一次性的询问，不是状态。
+   * `childCount` 不为 0 时正文还要说清子任务的去向（解绑成独立事项）：
+   * 父任务一删，子任务就再也看不出原本属于谁了。
    */
-  const [unlinkPrompt, setUnlinkPrompt] = useState<{
+  const [deletePrompt, setDeletePrompt] = useState<{
     id: string
     title: string
-    count: number
+    childCount: number
   } | null>(null)
 
   const handleEdit = (id: string) => {
@@ -83,31 +86,32 @@ export const KanbanBoard: React.FC<{ onOpenProjectSearch?: (query?: string) => v
 
   const handleDelete = async (id: string) => {
     /**
-     * 删父任务会让它的子任务**解绑**（parent_id 外键是 ON DELETE SET NULL）：
-     * 子任务不会消失，但会变成孤儿散在看板上，再也看不出原本属于谁。
-     * 这个后果对人来说是意外 —— 所以删之前先说清楚，而不是删完才解释。
-     * （主用户 2026-09-19 提的：提示一句"关联的 N 个子任务会解绑"的二次确认）
+     * 删除是不可逆的（库里没有回收站，撤销条只活在当次会话里），
+     * 所以**每一次**单条删除都先问一句 —— 不再分"有没有子任务"两种路径。
+     * 卡 `7085ea9d`：这里的旧写法在没有子任务时直接 doDelete，
+     * 点一下删除按钮东西就没了，连"要不要删"都没问过。
      */
-    let children = 0
+    let childCount = 0
     try {
-      children = await invoke('todo:childCount', { id })
+      childCount = await invoke('todo:childCount', { id })
     } catch {
       // 查不到就当没有子任务 —— 计数失败不该挡住删除
     }
 
-    if (children > 0) {
-      const todo = useTodoStore.getState().todos.find((t) => t.id === id)
-      setUnlinkPrompt({ id, title: todo?.title ?? '这条事项', count: children })
-      return
-    }
-
-    await doDelete(id)
+    /**
+     * 子任务数要提前查：删父任务会让它**解绑**（parent_id 外键是 ON DELETE SET NULL），
+     * 子任务不会消失，但会变成孤儿散在看板上，再也看不出原本属于谁。
+     * 这个后果对人来说是意外 —— 所以删之前先说清楚，而不是删完才解释。
+     * （主用户 2026-09-19 提的：提示一句"关联的 N 个子任务会解绑"的二次确认）
+     */
+    const todo = useTodoStore.getState().todos.find((t) => t.id === id)
+    setDeletePrompt({ id, title: todo?.title ?? '这条事项', childCount })
   }
 
-  const confirmUnlinkDelete = () => {
-    if (!unlinkPrompt) return
-    void doDelete(unlinkPrompt.id)
-    setUnlinkPrompt(null)
+  const confirmDelete = () => {
+    if (!deletePrompt) return
+    void doDelete(deletePrompt.id)
+    setDeletePrompt(null)
   }
 
   /**
@@ -250,28 +254,16 @@ export const KanbanBoard: React.FC<{ onOpenProjectSearch?: (query?: string) => v
       <UndoSnackbar />
 
       {/*
-        删父任务的二次确认：子任务不会跟着消失，只会解绑成孤儿。
-        这个后果必须在删之前说，而不是删完再解释。
+        单条删除的二次确认（卡 7085ea9d）：点「删除」不动数据，先弹这一框。
+        取消、点遮罩都只是关掉它 —— 没点确认就等于没删。
       */}
-      {unlinkPrompt && (
-        <Dialog open onClose={() => setUnlinkPrompt(null)}>
-          <div className="w-88 flex flex-col gap-3">
-            <h3 className="text-body font-semibold text-text-primary">
-              删除「{unlinkPrompt.title}」？
-            </h3>
-            <p className="text-label text-text-secondary leading-relaxed">
-              其下 <span className="text-accent font-medium">{unlinkPrompt.count}</span> 个子任务将保留为独立事项。
-            </p>
-            <div className="flex justify-end gap-2 mt-1">
-              <Button variant="ghost" size="sm" onClick={() => setUnlinkPrompt(null)}>
-                取消
-              </Button>
-              <Button variant="dangerSolid" size="sm" onClick={confirmUnlinkDelete}>
-                删除
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+      {deletePrompt && (
+        <DeleteTodoDialog
+          title={deletePrompt.title}
+          childCount={deletePrompt.childCount}
+          onCancel={() => setDeletePrompt(null)}
+          onConfirm={confirmDelete}
+        />
       )}
 
       {/*
@@ -315,6 +307,80 @@ export const KanbanBoard: React.FC<{ onOpenProjectSearch?: (query?: string) => v
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * 单条删除确认框的正文（纯函数，单测直接断口径，不用渲染）
+ *
+ * 子任务那句与通知中心、审批页逐字一致（`NotificationsView` 的
+ * 「该事项下包含 N 个子任务，需二次确认后删除（删除后子任务将保留为独立事项）」）：
+ * 同一件事在两处用两种说法，人只会以为规则变了。所以这里**照抄**，不另写。
+ *
+ * `irreversibleLine` 任何情况下都要说：库里没有回收站，
+ * 撤销条只活在当次会话，关掉窗口就真回不来了。
+ */
+export interface DeleteConfirmCopy {
+  /** 有子任务时说明子任务的去向；没有子任务为 null */
+  childrenLine: string | null
+  /** 删除之后收不回来的那句 */
+  irreversibleLine: string
+}
+
+export function deleteConfirmCopy(childCount: number): DeleteConfirmCopy {
+  return {
+    childrenLine:
+      childCount > 0
+        ? `该事项下包含 ${childCount} 个子任务，需二次确认后删除（删除后子任务将保留为独立事项）。`
+        : null,
+    irreversibleLine: '删除后不可恢复。'
+  }
+}
+
+/**
+ * 单条删除的确认框（卡 `7085ea9d`）
+ *
+ * 点一下删除按钮就把东西删掉，代价是"手滑一次就没了一条事项"——
+ * 而这个仓里没有回收站。所以：讲清后果、默认什么都不做、要删必须明点。
+ *
+ * 焦点落在「取消」上：浏览器按 DOM 顺序给焦点，确认按钮在最后，
+ * 默认答案就会变成"删"；回车一下删掉和点一下就删掉一样糟。
+ * 确认按钮用 `dangerSolid`（实心红）= 破坏性动作，与批量删除那条同款。
+ */
+export const DeleteTodoDialog: React.FC<{
+  title: string
+  /** 子任务数（>0 时正文要说清它们的去向） */
+  childCount: number
+  onCancel: () => void
+  onConfirm: () => void
+}> = ({ title, childCount, onCancel, onConfirm }) => {
+  const cancelRef = React.useRef<HTMLButtonElement>(null)
+  const copy = deleteConfirmCopy(childCount)
+
+  React.useEffect(() => {
+    cancelRef.current?.focus()
+  }, [])
+
+  return (
+    <Dialog open onClose={onCancel}>
+      <div className="w-88 flex flex-col gap-3">
+        <h3 className="text-body font-semibold text-text-primary">删除「{title}」？</h3>
+        {copy.childrenLine && (
+          <p className="text-label text-text-secondary leading-relaxed">{copy.childrenLine}</p>
+        )}
+        <p className="text-label text-text-secondary leading-relaxed">
+          <span className="text-danger font-medium">{copy.irreversibleLine}</span>
+        </p>
+        <div className="flex justify-end gap-2 mt-1">
+          <Button ref={cancelRef} variant="ghost" size="sm" onClick={onCancel}>
+            取消
+          </Button>
+          <Button variant="dangerSolid" size="sm" onClick={onConfirm}>
+            删除
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   )
 }
 

@@ -57,11 +57,11 @@ describe('通知未读按主体分别记（c13dbb16）', () => {
 
     expect(
       repo.countWithProject({ projectId: null, unreadOnly: true, unreadFor: 'human' }),
-      '人视角：qwen 读过不等于我读过 ⇒ 2 条未读'
+      '人视角：erin 读过不等于我读过 ⇒ 2 条未读'
     ).toBe(2)
     expect(
       repo.countWithProject({ projectId: null, unreadOnly: true, unreadFor: 'agent:bob' }),
-      'qwen 视角：他自己读过一条 ⇒ 1 条未读'
+      'erin 视角：他自己读过一条 ⇒ 1 条未读'
     ).toBe(1)
     expect(repo.unreadSystemCount('human'), '角标那个数也按主体').toBe(2)
     expect(repo.unreadSystemCount('agent:bob')).toBe(1)
@@ -126,7 +126,7 @@ describe('通知未读按主体分别记（c13dbb16）', () => {
     expect(repo.countWithProject({ projectId: null, unreadOnly: true, unreadFor: 'human' })).toBe(0)
     expect(
       repo.countWithProject({ projectId: null, unreadOnly: true, unreadFor: 'agent:bob' }),
-      'qwen 还差 a 那条没读'
+      'erin 还差 a 那条没读'
     ).toBe(1)
   })
 

@@ -144,14 +144,14 @@ describe('备忘回复线程闭环与定位收口（卡 14ae42e5 & a5d947cf）',
     const afterReplyForCarol = await runAs('agent:carol', ['memo', 'list', '--to-me', '--unread'])
     expect(afterReplyForCarol.data).toEqual([])
 
-    const afterReplyForQwen = await runAs('agent:bob', ['memo', 'list', '--to-me', '--unread'])
-    const qwenMemos = afterReplyForQwen.data as Array<{
+    const afterReplyForerin = await runAs('agent:bob', ['memo', 'list', '--to-me', '--unread'])
+    const erinMemos = afterReplyForerin.data as Array<{
       id: string
       replies?: Array<{ author: string; text: string }>
     }>
-    expect(qwenMemos).toHaveLength(1)
-    expect(qwenMemos[0].id).toBe(memoId)
-    expect(qwenMemos[0].replies?.[0]?.text).toBe('已更新完契约基线并验绿')
+    expect(erinMemos).toHaveLength(1)
+    expect(erinMemos[0].id).toBe(memoId)
+    expect(erinMemos[0].replies?.[0]?.text).toBe('已更新完契约基线并验绿')
 
     // Bob ack 后，整条线程已读
     const acked = await runAs('agent:bob', ['memo', 'ack', memoId.slice(0, 8)])

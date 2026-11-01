@@ -20,12 +20,74 @@ import type { TodoPriority, TodoStatus, TodoType } from '../../../renderer/types
 import { getDatabase } from '../../database/index'
 import { NotFoundError, UsageError } from '../../lib/domain-errors'
 import { buildDescChangeEvent } from '../../lib/desc-audit'
+/** 派活判据与仓储层共用一份（那边导出），别两处各判一遍 */
+import { assignmentTargetOf } from '../../database/todo.repository'
 import { CLOSURE_SECTION } from '../../database/closure-structure'
 import { buildTodoAudit } from '../../lib/audit-text'
 import { FILTER_STATUSES, LIMIT_ZERO_DOC, LIST_DESC_PREVIEW_CHARS, OPEN_STATUSES, PRIORITIES, STATUSES, TODO_LIST_DEFAULT_LIMIT, TYPES, isDescriptionTruncated, parseLimit, parseOffset, summarizeDescription, takeLimit, todosForExecutor } from '../command-text'
 import { AWAITING_REVIEW_COMMENT_HINT, AWAITING_REVIEW_HINT, DESC_SHRINK_HINT, DONE_HINT, actorOf, assertCreatedByNotImpersonating, assertNoLauncherOnlyFlags, assertRegisteredActor, assertValidTitle, commentDeleteRisk, missingClosure, parseTime, proposedDescNotice, resolveActor, resolveCreatedBy, resolveProjectForWrite, riskOf, strValue } from '../command-core'
-import type { CommandSpec } from '../command-core'
+import type { CliContext, CommandSpec } from '../command-core'
 import { normalizeGrantArgv } from '../command-table'
+
+/**
+ * 派活送达（卡 `8a671976`）
+ *
+ * ## 它治的病
+ *
+ * `52cd076c` 只补了「收口时通知执行方」。而**派活那一刻**没有任何动作：
+ * 一张卡被新建并指派给某个 agent（或中途改派给另一个人）之后，被指派的那位
+ * 只有自己跑 `work next`、或翻看板才会发现"这活是我的"。实测就有一次：
+ * 验收方新建并指派给 `agent:bob` 的卡，对方零通知。
+ *
+ * ## 判据
+ *
+ * - **要显式指派**：只认 `executedBy` 有值、且不是提出者/动作者的那一类。
+ *   "提出即执行"（`executedBy` 为空）不算派活 —— 那件事本来就在提出者手上。
+ * - **自己派给自己不通知**：那只是一次登记，送出去只会变成自己的未读噪音。
+ * - **目标分两种，别用一种做法**：
+ *   · `agent:<id>` → 落一条未读（去重在仓储层，同一张卡同一人只留一条）；
+ *   · `human` → **不落单条**。人一次能看整块看板，逐张卡推送等于轰炸 ——
+ *     它本来就进 `work next` 的 `waitingForHuman` 汇总（`assignedToHumanTodos`）。
+ *
+ * ## 谁写、谁回话
+ *
+ * 写入在**仓储层**（`TodoRepository.create/update`）—— 界面快速添加直接走它，
+ * 只接在命令层的话，主用户自己派活永远没有送达。命令层只负责回话：
+ * 把那条已经写好的行找回来，回执里带上 `{ to, via, notificationId }`。
+ */
+interface AssignmentDelivery {
+  /** 派给了谁（`agent:<id>` 或 `human`） */
+  to: string
+  /**
+   * 走哪条通道送达：`notification` = 落了一条未读；
+   * `aggregate` = 目标是人，归进 work next 的汇总，不落单条
+   */
+  via: 'notification' | 'aggregate'
+  /** 那条派活通知的 id（`via: 'aggregate'` 时为 null）—— 拿它就能查对方读了没有 */
+  notificationId: string | null
+}
+
+function deliverAssignment(
+  ctx: CliContext,
+  todo: { id: string; title: string; status: string; executedBy: string | null; createdBy: string },
+  actor: string
+): AssignmentDelivery | null {
+  // 判据只有一份，在仓储层（`assignmentTargetOf`）—— 这里不另写一套
+  const target = assignmentTargetOf(todo, actor)
+  if (!target) return null
+  // 派给 human 不落单条：它归进 `work next` 的 waitingForHuman 汇总
+  if (target === 'human') return { to: target, via: 'aggregate', notificationId: null }
+  /**
+   * 只读：仓储层刚写下的那条就在"我派出去的"里（`listAssignmentsBy` 是只读查询）。
+   * 找不到就给 null，**不在这里补写** —— 写入点只该有一个。
+   */
+  // 与 `todo close` 同一道兜底：依赖里没有这个读法时，不让整条命令挂在派活这一步
+  if (typeof ctx.deps.notificationRepo?.listAssignmentsBy !== 'function') return null
+  const row = ctx.deps.notificationRepo
+    .listAssignmentsBy(actor)
+    .find((n) => n.refId === todo.id && n.recipient === target)
+  return { to: target, via: 'notification', notificationId: row?.id ?? null }
+}
 
 export const todoInboxCommands: CommandSpec[] = [
   {
@@ -851,6 +913,12 @@ export const todoCommands: CommandSpec[] = [
        */
       const effectiveCreatedBy = resolveCreatedBy(ctx, createdBy)
 
+      /**
+       * 动作人 = 谁在建这张卡（也就是派活的人）。提到 create 之前算一次，
+       * 因为后面的派活送达要用**同一个判断** —— 两处各算一遍迟早不一致。
+       */
+      const actor = resolveActor(ctx, createdBy)
+
       const created = ctx.deps.todoRepo.create({
         title,
         description: flags['--desc'] ? String(flags['--desc']) : null,
@@ -873,7 +941,7 @@ export const todoCommands: CommandSpec[] = [
         // 支持直接建成"已完成"：agent 登记本轮做过的事时要用
         ...(status ? { status: status as TodoStatus } : {}),
         // 「新建了」的动作人：调用身份优先，别让 agent 的登记记成 human 干的
-        actor: resolveActor(ctx, createdBy)
+        actor
       })
 
       /**
@@ -906,14 +974,28 @@ export const todoCommands: CommandSpec[] = [
         : null
 
       // 两条提醒都在时拼起来，别互相盖掉
+      /**
+       * 派活送达（卡 `8a671976`）：带 `--executed-by` 建卡（或提出的本身就是别人）
+       * 要让执行方**现在**就知道，别等他哪天跑 work next 才发现这活是他的。
+       */
+      const delivery = deliverAssignment(ctx, created, actor)
+
       const notices = [descNotice, dupNotice].filter(Boolean) as string[]
       if (notices.length) {
         return {
           __notice: notices.join('\n\n'),
-          data: { id: created.id, title: created.title }
+          data: {
+            id: created.id,
+            title: created.title,
+            ...(delivery ? { assignmentDelivered: delivery } : {})
+          }
         }
       }
-      return { id: created.id, title: created.title }
+      return {
+        id: created.id,
+        title: created.title,
+        ...(delivery ? { assignmentDelivered: delivery } : {})
+      }
     }
   },
   {
@@ -1934,6 +2016,13 @@ export const todoCommands: CommandSpec[] = [
         patch.createdBy = v as TodoOwner
       }
 
+      /**
+       * 改派要看得出"这次真的换了人"（卡 `8a671976`）：取一次改前的执行者存下来。
+       * 判据用仓库回填后的 `executedBy` 与它比（**不信任入参**）——
+       * "顺手改个标题"不该给执行方推一条通知。
+       */
+      let executedBefore: string | null = null
+      let reassigning = false
       if (flags['--executed-by'] !== undefined) {
         const raw = strValue(flags['--executed-by']).trim()
         // clear = 清掉指派，回到提出者执行（executedBy 落 NULL）
@@ -1942,6 +2031,9 @@ export const todoCommands: CommandSpec[] = [
         } else {
           if (!raw) throw new UsageError('--executed-by 不能为空；要清掉指派请传 clear')
           patch.executedBy = raw as TodoOwner
+          // `clear` 是**撤回**指派（回到提出者执行），不是派活 —— 只有真指向某个人时才送达
+          reassigning = true
+          executedBefore = ctx.deps.todoRepo.getById(id)?.executedBy ?? null
         }
       }
 
@@ -2078,6 +2170,22 @@ export const todoCommands: CommandSpec[] = [
         })
 
         /**
+         * 改派送达（卡 `8a671976`）：`--executed-by` 换人就是一次派活，与新建派活同一件事。
+         * "真的换了人 / 不是自己派给自己 / human 走汇总"这三条判据都在 `deliverAssignment` 里，
+         * 这里只判"这次是不是一次真改派"。
+         */
+        const delivery =
+          reassigning && updated.executedBy !== executedBefore
+            ? deliverAssignment(ctx, updated, patch.actor)
+            : null
+        /** 回执 = 改动后的那条 + 这次改了哪些 + 派出去了送到没有 */
+        const receipt = {
+          ...updated,
+          changed,
+          ...(delivery ? { assignmentDelivered: delivery } : {})
+        }
+
+        /**
          * 理由**在状态成功之后**才写（1.0.68）
          *
          * ⚠️ **我第一版把顺序写反了，闸门当场抓住**：
@@ -2144,7 +2252,7 @@ export const todoCommands: CommandSpec[] = [
         !updated.description?.trim() &&
         ctx.deps.commentRepo.countByTodo(updated.id) === 0
       ) {
-        return { __notice: AWAITING_REVIEW_HINT, data: { ...updated, changed } }
+        return { __notice: AWAITING_REVIEW_HINT, data: receipt }
       }
 
       /**
@@ -2155,7 +2263,7 @@ export const todoCommands: CommandSpec[] = [
        * 这是有意的：一次调用里同时给理由和状态，理由就是这次的收口结论。
        */
       if (patch.status === 'done' && missingClosure(ctx, updated.description, updated.id)) {
-        return { __notice: DONE_HINT, data: { ...updated, changed } }
+        return { __notice: DONE_HINT, data: receipt }
       }
 
       /**
@@ -2184,7 +2292,7 @@ export const todoCommands: CommandSpec[] = [
           __notice: DESC_SHRINK_HINT.replace('%OLD%', String(oldLen))
             .replace('%NEW%', String(newLen))
             .replace('%PCT%', String(Math.round((newLen / oldLen) * 100))),
-          data: { ...updated, changed }
+          data: receipt
         }
       }
 
@@ -2196,10 +2304,10 @@ export const todoCommands: CommandSpec[] = [
        */
       if (updated.status === 'proposed') {
         const g7 = proposedDescNotice(updated.description)
-        if (g7) return { __notice: g7, data: { ...updated, changed } }
+        if (g7) return { __notice: g7, data: receipt }
       }
 
-      return { ...updated, changed }
+      return receipt
     }
   },
   {

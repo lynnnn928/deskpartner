@@ -110,7 +110,7 @@ async function main() {
       title: '样例·排查登录超时问题',
       status: 'in_progress',
       priority: 'urgent',
-      owner: 'agent:qwen'
+      owner: 'agent:erin'
     },
     {
       title: '样例·等设计稿确认后再动',

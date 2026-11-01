@@ -103,6 +103,17 @@ export interface InboxQuery {
   unreadFor?: string
   /** 全局未读（`status`，CLI 不带 `--to-me` 的口径）；与 `unreadFor` 二选一 */
   unreadOnly?: boolean
+  /**
+   * 只看**没人接手**的（卡 `5fd2b595`）：`read_by` 里除了主用户没有别人。
+   *
+   * 「已处理」与「已看过」共用一个集合，写方本身把语义分开了
+   * （`human` 只由界面打开写、`agent:*` 只由 `memo ack` 写），所以判据就是
+   * 「集合里没有 agent」——`read_by IS NULL`（1.0.68 前的历史行）/ 空串 / 只有 `human`。
+   *
+   * ⚠️ 这一档必须在这里、进 SQL：在渲染层对取回的一页 `.filter` 一遍就是
+   * `cba46119` 那个坑（`matched` / `unread` / `byType` 仍是整范围的数、列表只剩子集）。
+   */
+  unhandled?: boolean
 }
 
 /** 收件箱查询 + 窗口（`limit` 缺省 = 不收窄，与 `NotificationPageQuery` 同款） */
@@ -232,6 +243,80 @@ export class NotificationRepository {
         )
       return row
     }
+
+  /* ── 指派送达（卡 `8a671976`）── */
+
+  /**
+   * 派活送达：给被指派的执行者落一条未读 —— 同一张卡、同一个人只留一条。
+   *
+   * ## 为什么复用 `reminder`，既不用 `review` 也不新加一类
+   *
+   * - `review` 用不了：`STALE_REVIEW` 把「卡已不在待验收/进行中」的 review 行判成失效。
+   *   而派活发生在 `todo` 列 —— 那条通知一写出来就当场隐身，等于没送。
+   * - 新加 `assignment` 类型要连带改渲染侧的类型联合与分类 chip
+   *   （`renderer/types/notification.ts`、`NotificationsView`），牵动面远大于这件事本身。
+   *   而这里要的只是**一条能点开回链到那张卡的未读**：`reminder` 的点击行为正是
+   *   `refId` → 打开事项，语义也对得上（"有件事到你手上了"）。
+   * - 与到点提醒区分得开：那条 `recipient` 为 null（广播），指派这条**必有收件人**。
+   *
+   * ## 「只记一次」的判据为什么必须落在这里
+   *
+   * 调用方是 `todo add` / `todo update`，以后还会有界面入口 —— 靠它们各自记得去重，
+   * 一定会漏一个。判据放在数据层：**该卡该人还有未读的派活 → 不再写第二条**。
+   *
+   * 口径是"该人**还没看过**"（`read_by` 里没有他），不是"永远只记一次"：
+   * 防的是重复改派把未读堆成山，不是永久静音 —— 他读过之后这张卡再派给他一次，
+   * 那是一次新的派活，该送达。
+   */
+  createAssignmentOnce(input: {
+    refId: string
+    title: string
+    summary: string
+    actor: string
+    recipient: string
+  }): { notification: AppNotification; created: boolean } {
+    const existing = this.db
+      .prepare(
+        `SELECT * FROM notifications
+          WHERE type = 'reminder' AND ref_id = ? AND recipient = ?
+            AND (read_by IS NULL OR instr(',' || read_by || ',', ',' || ? || ',') = 0)
+          ORDER BY created_at DESC, rowid DESC
+          LIMIT 1`
+      )
+      .get(input.refId, input.recipient, input.recipient) as Record<string, unknown> | undefined
+    if (existing) {
+      return { notification: NotificationRepository.mapRow(existing), created: false }
+    }
+    return {
+      notification: this.create({
+        type: 'reminder',
+        title: input.title,
+        summary: input.summary,
+        refId: input.refId,
+        actor: input.actor,
+        recipient: input.recipient
+      }),
+      created: true
+    }
+  }
+
+  /**
+   * 某人**派出去**的活（`actor` = 派活的人，`recipient` = 收到的那位）。
+   *
+   * `work next` 的 `dispatched` 靠它答「我派出去的活，对方收到没有」——
+   * 送达凭据就是那条通知行的 `read_by`，这里只负责把"我派的"捞出来。
+   * 到点提醒没有收件人（`recipient IS NULL`），所以不会被当成派活。
+   */
+  listAssignmentsBy(assigner: string): AppNotification[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM notifications
+          WHERE type = 'reminder' AND recipient IS NOT NULL AND ref_id IS NOT NULL AND actor = ?
+          ORDER BY created_at DESC, rowid DESC`
+      )
+      .all(assigner) as Record<string, unknown>[]
+    return rows.map(NotificationRepository.mapRow)
+  }
 
   /**
    * 已退役的通知类型：不再进收件箱、不再计未读（1.0.55，主用户驳回 2ccc6fc6）
@@ -479,6 +564,29 @@ export class NotificationRepository {
     } else if (query.unreadOnly) {
       where.push(`n.status = 'unread'`)
     }
+    /**
+     * 「没人接手」（卡 `5fd2b595`）：没有 agent **处理过**这条。
+     *
+     * 与 `unreadFor` 是**两个维度**，而且会同时出现（默认视图 = 待接手 ∩ 我未读）：
+     * 一个问"有没有 agent 接手了"，一个问"我看过没有" —— 所以是并列的 AND 子句。
+     *
+     * ## 为什么是"非人类读者 ∧ 全局位已读"，而不是只看 `read_by` 的前缀
+     *
+     * `read_by` 里的 `agent:*` 有**两个**写方，语义不同：
+     * - `markReadByRef`（`memo ack` 走这条）：把读者追加进 `read_by`，**同时**把
+     *   `status`/`read_at` 翻成已读 —— 这是「有人接手了」；
+     * - `markReadBy`（CLI `notification list --ack-mine`）：只追加 `read_by`，
+     *   不碰全局位 —— 这是「这个 agent 看过了」，并不等于有人处理。
+     * 只看前缀就会把后者也算成"已处理"：卡 `c13dbb16` 正是拿这条路径钉住
+     * 「agent 读过 ≠ 我已读过、未读也要留着」的。所以判据要两条一起看 ——
+     * 谁读过（`read_by`）与这件事有没有被了结（`status`）。
+     *
+     * 注意：历史行 `read_by` 为 NULL 的算"没人接手"（迁移 28 的原话：不知道是谁读的），
+     * 不编造读者、也不算已处理。
+     */
+    if (query.unhandled) {
+      where.push(`(n.status <> 'read' OR n.read_by IS NULL OR n.read_by = '' OR n.read_by = 'human')`)
+    }
     return { sql: where.length > 0 ? `WHERE ${where.join(' AND ')}` : '', params }
   }
 
@@ -571,12 +679,18 @@ export class NotificationRepository {
        * ⚠️ 这里**刻意不传 `type`**：chip 要答的是"每一类各有多少条"，
        * 跟着当前分类走的话，切到某一类之后其它类的数字就全没了。
        */
-      byType: this.countsByTypeWithProject({ projectId: query.projectId }),
+      byType: this.countsByTypeWithProject({
+        projectId: query.projectId,
+        ...(query.unhandled ? { unhandled: true } : {})
+      }),
       unread: this.countWithProject({
         projectId: query.projectId,
         ...(query.type ? { type: query.type } : {}),
         // 主体口径跟着走：不给 `unreadFor` 才是旧的全局 `status`（卡 `c13dbb16`）
-        ...(unreadFor !== undefined ? { unreadFor } : { unreadOnly: true })
+        ...(unreadFor !== undefined ? { unreadFor } : { unreadOnly: true }),
+        // 「待接手」这一档也进计数（卡 `5fd2b595`）：否则页头会把 agent 已处理、
+        // 我却没点开过的那几条算进"未读"，而列表里根本没有它们
+        ...(query.unhandled ? { unhandled: true } : {})
       })
     }
   }
@@ -709,13 +823,19 @@ export class NotificationRepository {
    * （实测：角标 633 而页头 484）。
    *
    * ⚠️ `reader`（卡 `c13dbb16`）：角标是**给主用户看的**，所以界面必须带 `'human'` ——
-   * 数"**他**还没看过的"。不带才是旧的全局口径（`status`），留着只为不破坏旧调用点。
+   * 数"**他**还没看过的、且没人接手的"。不带才是旧的全局口径（`status`），留着只为不破坏旧调用点。
    */
   unreadSystemCount(reader?: string): number {
     return this.countWithProject({
       projectId: null,
       unreadOnly: true,
-      ...(reader !== undefined ? { unreadFor: reader } : {})
+      ...(reader !== undefined ? { unreadFor: reader } : {}),
+      /**
+       * 「待接手 ∩ 我未读」（卡 `5fd2b595`）：agent 已经 ack 掉的备忘不该继续
+       * 算成主用户的未读 —— 那意味着红点在为一个已经被处理掉的东西报警。
+       * 与通知页默认视图同一份 WHERE（`unhandled`），角标与列表才对得上。
+       */
+      unhandled: true
     })
   }
 

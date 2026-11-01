@@ -486,7 +486,7 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
     if (notice) notice = dedupeNoticeLines(notice)
 
     /**
-     * G8（1.0.51，qwen 52b6b726）：**说明书漂移的主动提醒**。
+     * G8（1.0.51，erin 52b6b726）：**说明书漂移的主动提醒**。
      *
      * 此前 `doctor.skillVersion` 与说明书里的自检指引都在，但那要 agent
      * 主动去比 —— Bob实测就是拿着 1.0.39 的副本跑了四轮（跨了 46-50 五版），

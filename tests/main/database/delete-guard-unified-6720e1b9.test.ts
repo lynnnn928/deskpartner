@@ -88,7 +88,7 @@ describe('删除守卫共用层：有未确认态实体统一拦截、无未确�
       title: '待确认的',
       projectId: null,
       status: 'proposed',
-      createdBy: 'agent:qwen'
+      createdBy: 'agent:erin'
     } as never)
     expect(() => todos.delete(t.id, 'cli', 'agent:alice')).toThrow(/G4/)
 

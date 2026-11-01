@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildAgentGuide } from '../../../src/main/cli/agent-guide'
 
 /**
- * 「可直接粘贴」这句话必须是真的（1.0.71，qwen 实测驳回 `4fb94740`）
+ * 「可直接粘贴」这句话必须是真的（1.0.71，erin 实测驳回 `4fb94740`）
  *
  * ## 他实测出的两处硬伤
  *

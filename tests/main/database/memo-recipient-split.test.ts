@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Database from 'better-sqlite3'
 
 /**
- * 纸条分「递的人」与「给谁」（`3c436592`，qwen 提，主用户 10-06 拍板）
+ * 纸条分「递的人」与「给谁」（`3c436592`，erin 提，主用户 10-06 拍板）
  *
  * ## 它治的病
  *
@@ -117,14 +117,14 @@ describe('纸条分递的人与给谁（3c436592）', () => {
   it('迁移后可正常写入两个身份（这是修好的落点）', async () => {
     await migrate()
     db.prepare(
-      "INSERT INTO memos (id, author, recipient, text, status, created_at) VALUES ('m1','agent:alice','agent:qwen','t','unread','2026-10-07T00:00:00Z')"
+      "INSERT INTO memos (id, author, recipient, text, status, created_at) VALUES ('m1','agent:alice','agent:erin','t','unread','2026-10-07T00:00:00Z')"
     ).run()
     const r = db.prepare("SELECT author, recipient FROM memos WHERE id='m1'").get() as {
       author: string
       recipient: string
     }
     expect(r.author, '递的人要记对').toBe('agent:alice')
-    expect(r.recipient, '给谁要记对').toBe('agent:qwen')
+    expect(r.recipient, '给谁要记对').toBe('agent:erin')
   })
 
   it('判据：`agent:cli` 这个默认值必须排除在回填外（它是"没指定"，不是"指定了 cli"）', async () => {

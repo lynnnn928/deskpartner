@@ -825,7 +825,7 @@ export async function buildToolsFromSchema(
     /**
      * 关键：**既有 10 个手工工具的定义优先**。
      *
-     * ⚠️ 名字与参数一字不能改 —— 已有接入方在用（qwen 就是）。
+     * ⚠️ 名字与参数一字不能改 —— 已有接入方在用（erin 就是）。
      * 而且它们手写的 `description` 比 schema 的 `desc` 更详细
      *（写了默认值、多值语法、`unset` 这些坑），**丢掉是能力回退**。
      * 所以是"**生成 + 既有覆盖**"，不是"替换"。
@@ -887,7 +887,7 @@ export function registerTools(
          *
          * 裸 shape 会被 SDK 规整成**严格对象**：校验时把没声明的键直接丢掉，
          * 于是 handler 永远看不到多余入参 —— 客户端传 `actor` 时"不报错也不生效"，
-         * agent 以为设上了，实际按未声明身份执行（qwen 实测报的就是这个）。
+         * agent 以为设上了，实际按未声明身份执行（erin 实测报的就是这个）。
          * looseObject 保留未知键，交给下面的 handler 显式拒绝并列出合法入参。
          */
         inputSchema: z.looseObject(tool.input),
@@ -1043,7 +1043,7 @@ function str(v: unknown): string | undefined {
  * 找出客户端传了、而工具没声明的入参（1.0.63）。
  *
  * ⚠️ SDK **不会**为未知入参报错 —— 它按 inputSchema 取需要的键，
- * 多余的键直接丢掉。qwen 实测传 `actor:"agent:bob"` 就是"不报错也不生效"：
+ * 多余的键直接丢掉。erin 实测传 `actor:"agent:bob"` 就是"不报错也不生效"：
  * agent 以为身份设上了，实际按未声明身份执行。这类"传了却不生效"的静默失败
  * 比报错难查得多（与 tsc 抓不到的参数丢包同源），必须在接线层自己拦。
  */

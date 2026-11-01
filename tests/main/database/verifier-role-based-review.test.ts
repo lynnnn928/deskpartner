@@ -79,9 +79,9 @@ describe('验收按角色定权（a6032512）', () => {
   })
 
   it('显式指定 verifier 存得进、读得出、update 改得动', () => {
-    const t = mk({ executedBy: 'human', verifier: 'agent:qwen' })
-    expect(todos.getById(t.id)!.verifier).toBe('agent:qwen')
-    expect(todos.list()[0].verifier).toBe('agent:qwen')
+    const t = mk({ executedBy: 'human', verifier: 'agent:erin' })
+    expect(todos.getById(t.id)!.verifier).toBe('agent:erin')
+    expect(todos.list()[0].verifier).toBe('agent:erin')
     todos.update({ id: t.id, verifier: 'agent:other' } as never)
     expect(todos.getById(t.id)!.verifier).toBe('agent:other')
   })

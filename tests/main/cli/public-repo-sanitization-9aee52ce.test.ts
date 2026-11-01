@@ -16,6 +16,15 @@
  * 代价是名单要维护：新代号第一次出现会在用例 2 里红（这次就是这么补齐的）。
  *
  * 注：为使 `git grep` 字面量扫描在全仓保持 0 命中，敏感词模式由分段字符串拼装。
+ *
+ * ── b38ba1af：白名单不是"清白证明" ──
+ *
+ * 90dbea16 之后仍留了 116 处真人代号：它们被写进了白名单，于是"登记过"就被当成了
+ * "可以公开"。两个名字必须同时过两道关才允许出现：
+ * ① 在 `FORBIDDEN_NAMES` 里查不到（真名/个人代号黑名单，**不限 `agent:` 前缀**，
+ *    因为真人名字最常见的落点是注释里的"某某实测驳回"这种裸写法）；
+ * ② 若以 `agent:<handle>` 形式出现，还要在 `ALLOWED_AGENT_HANDLES` 里登记。
+ * 只做 ② 会把闸门变成"登记即可公开"，这正是这轮漏网 70 行裸名字的原因。
  */
 import { describe, it, expect } from 'vitest'
 import { execSync } from 'node:child_process'
@@ -32,7 +41,15 @@ const FORBIDDEN_NAMES = [
   'hua' + 'juan',
   // 卡 90dbea16：内部协作者代号也进黑名单（同类代号换拼法由下面的白名单兜底）
   'pen' + 'guin',
-  'new' + 'max'
+  'new' + 'max',
+  // 卡 b38ba1af：上一轮把一个**真人代号**当"中性占位名"登记进了白名单，
+  // 于是 116 处 `agent:` + 该代号的写法一路放行、注释里还有 70 行裸名字。
+  // 判据的漏洞是"只判有没有登记，没判这个名字是不是真人"；这里把它改成黑名单，
+  // 且不限于 `agent:` 前缀 —— 裸名字（注释里的"某某实测驳回"）同样拦。
+  // 公开品牌名（Claude / Cursor / Codex / Kimi）不在这里，所以 README 不受影响：
+  // 只有**个人代号**进这份名单，品牌名本来就不该被禁。
+  'qwe' + 'n',
+  'qw' + 'enwork'
 ]
 
 const FORBIDDEN_PATHS = [
@@ -64,7 +81,7 @@ const ALLOWED_AGENT_HANDLES = new Set([
   'kimi',
   'zcode',
   'zed',
-  'qwen',
+  'erin',
   'a',
   'a1',
   'a2',
@@ -224,6 +241,9 @@ describe('公开仓库内容清理与脱敏闸门（9aee52ce）', () => {
       { file: 'tests/sample.ts', content: `const actor = 'agent:${'work' + 'buddy'}'`, kind: '含内部代号' },
       { file: 'tests/code-name-a.ts', content: `const who = '${'pen' + 'guin'}'`, kind: '含内部代号' },
       { file: 'tests/code-name-b.ts', content: `const who = '${'new' + 'max'}'`, kind: '含内部代号' },
+      // 卡 b38ba1af：真人代号即使换了拼法、即使不带 `agent:` 前缀（注释里的裸名字），也必须红
+      { file: 'tests/code-name-c.ts', content: `const who = '${'qw' + 'en'}'`, kind: '含内部代号' },
+      { file: 'tests/code-name-d.ts', content: `// ${'qw' + 'enwork'} 实测驳回`, kind: '含内部代号' },
       { file: 'scripts/sample.mjs', content: `const dir = '${'C:/' + 'Users/L/AppData'}'`, kind: '含本机路径或凭据' },
       {
         file: 'tests/sample-secret.ts',

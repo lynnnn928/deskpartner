@@ -97,7 +97,7 @@ for (const topic of topics) {
 if (!commands.includes("name: 'skill'")) errors.push('命令表缺少 skill')
 if (!commands.includes("name: 'topic'")) errors.push('skill 未声明 topic positional 参数')
 const l0 = guide.slice(guide.indexOf('export function buildAgentGuideIndex'))
-for (const forbidden of ['qwen', '驳回']) {
+for (const forbidden of ['erin', '驳回']) {
   if (l0.includes(forbidden)) errors.push(`L0 Guide 不应包含开发历史词：${forbidden}`)
 }
 const sourceCommands = [...commands.matchAll(/name:\s*'([^']+)'/g)].map((m) => m[1])

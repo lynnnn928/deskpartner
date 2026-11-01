@@ -92,7 +92,7 @@ describe('评论 @ 定向 + 我的 inbox（b097ca99 第 3 环）', () => {
   it('`--to` 真的落库了（不是只在对象里）', async () => {
     const t = seedTodo()
     const r = await executeOne(mkCtx('agent:alice'), [
-      'todo', 'comment', t.id, '--body', '这版你看下', '--to', 'agent:qwen'
+      'todo', 'comment', t.id, '--body', '这版你看下', '--to', 'agent:erin'
     ])
     expect(r.ok).toBe(true)
     const row = db
@@ -101,7 +101,7 @@ describe('评论 @ 定向 + 我的 inbox（b097ca99 第 3 环）', () => {
     expect(
       row.recipient,
       '库里 recipient 是 null —— INSERT 漏了参数（tsc 查不出来，SQL 列名不参与类型检查）'
-    ).toBe('agent:qwen')
+    ).toBe('agent:erin')
   })
 
   it('不传 `--to` 时 recipient 落 null（不编造收件人）', async () => {
@@ -116,15 +116,15 @@ describe('评论 @ 定向 + 我的 inbox（b097ca99 第 3 环）', () => {
   it('`--reply-to` 与 `--to` 是两件事（前者要我知道有那条，后者是我叫醒他）', async () => {
     const t = seedTodo()
     const first = await executeOne(mkCtx('agent:alice'), [
-      'todo', 'comment', t.id, '--body', '先说这句', '--to', 'agent:qwen'
+      'todo', 'comment', t.id, '--body', '先说这句', '--to', 'agent:erin'
     ])
     const parentId = (first.data as { commentId: string }).commentId
     // 回复它：parentId 指回原评论
-    await executeOne(mkCtx('agent:qwen'), [
+    await executeOne(mkCtx('agent:erin'), [
       'todo', 'comment', t.id, '--body', '收到', '--reply-to', parentId
     ])
     const all = comments.listByTodo(t.id)
-    expect(all.find((c) => c.body === '先说这句')?.recipient, '原评论的收件人').toBe('agent:qwen')
+    expect(all.find((c) => c.body === '先说这句')?.recipient, '原评论的收件人').toBe('agent:erin')
     expect(
       all.find((c) => c.body === '收到')?.parentId,
       '回复要接上 parentId（那是 pull 那一侧）'
@@ -138,16 +138,16 @@ describe('评论 @ 定向 + 我的 inbox（b097ca99 第 3 环）', () => {
       body: '给你的',
       authorType: 'agent',
       authorId: 'agent:alice',
-      recipient: 'agent:qwen'
+      recipient: 'agent:erin'
     } as never)
     comments.create({
       todoId: t.id,
       body: '给他的',
       authorType: 'agent',
-      authorId: 'agent:qwen',
+      authorId: 'agent:erin',
       recipient: 'agent:alice'
     } as never)
-    expect(comments.listWaitingFor('agent:qwen').map((c) => c.body)).toEqual(['给你的'])
+    expect(comments.listWaitingFor('agent:erin').map((c) => c.body)).toEqual(['给你的'])
   })
 
   /**
@@ -161,18 +161,18 @@ describe('评论 @ 定向 + 我的 inbox（b097ca99 第 3 环）', () => {
       body: '你怎么看',
       authorType: 'agent',
       authorId: 'agent:alice',
-      recipient: 'agent:qwen'
+      recipient: 'agent:erin'
     } as never)
     comments.create({
       todoId: t.id,
       parentId: asked.id,
       body: '我看完了',
       authorType: 'agent',
-      authorId: 'agent:qwen'
+      authorId: 'agent:erin'
     } as never)
-    expect(comments.listWaitingFor('agent:qwen').length, '默认给全部 @ 过的').toBe(1)
+    expect(comments.listWaitingFor('agent:erin').length, '默认给全部 @ 过的').toBe(1)
     expect(
-      comments.listWaitingFor('agent:qwen', { repliedOnly: true }).length,
+      comments.listWaitingFor('agent:erin', { repliedOnly: true }).length,
       '我回过了 ⇒ 不该再出现在"等我回应"里'
     ).toBe(0)
   })
@@ -180,12 +180,12 @@ describe('评论 @ 定向 + 我的 inbox（b097ca99 第 3 环）', () => {
   it('`todo inbox` 命令能按人列出（push 的查询面）', async () => {
     const t = seedTodo('等你决定的事')
     await executeOne(mkCtx('agent:alice'), [
-      'todo', 'comment', t.id, '--body', '卡在这里了', '--to', 'agent:qwen'
+      'todo', 'comment', t.id, '--body', '卡在这里了', '--to', 'agent:erin'
     ])
-    const r = (await executeOne(mkCtx('agent:qwen'), ['todo', 'inbox'])) as {
+    const r = (await executeOne(mkCtx('agent:erin'), ['todo', 'inbox'])) as {
       data: { total: number; items: Array<{ todoTitle: string; from: string; repliedByMe: boolean }> }
     }
-    expect(r.data.total, 'qwen 那边该看到一条被 @ 的').toBe(1)
+    expect(r.data.total, 'erin 那边该看到一条被 @ 的').toBe(1)
     expect(r.data.items[0].from, '要能看到是谁 @ 的').toBe('agent:alice')
     expect(r.data.items[0].repliedByMe, '还没回过').toBe(false)
     expect(r.data.items[0].todoTitle, '要能看到是哪件事').toBe('等你决定的事')
@@ -194,17 +194,17 @@ describe('评论 @ 定向 + 我的 inbox（b097ca99 第 3 环）', () => {
   it('`todo inbox --replied-only` 只给还没回的', async () => {
     const t = seedTodo()
     const a = await executeOne(mkCtx('agent:alice'), [
-      'todo', 'comment', t.id, '--body', 'A 要你看', '--to', 'agent:qwen'
+      'todo', 'comment', t.id, '--body', 'A 要你看', '--to', 'agent:erin'
     ])
     const parentId = (a.data as { commentId: string }).commentId
-    await executeOne(mkCtx('agent:qwen'), [
+    await executeOne(mkCtx('agent:erin'), [
       'todo', 'comment', t.id, '--body', 'A 我回了', '--reply-to', parentId
     ])
     // 再 @ 一次但没回
     await executeOne(mkCtx('agent:alice'), [
-      'todo', 'comment', t.id, '--body', 'B 还没回', '--to', 'agent:qwen'
+      'todo', 'comment', t.id, '--body', 'B 还没回', '--to', 'agent:erin'
     ])
-    const r = (await executeOne(mkCtx('agent:qwen'), [
+    const r = (await executeOne(mkCtx('agent:erin'), [
       'todo', 'inbox', '--replied-only'
     ])) as { data: { total: number } }
     expect(r.data.total, '只剩 B 那条').toBe(1)

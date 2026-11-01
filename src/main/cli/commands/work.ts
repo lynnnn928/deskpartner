@@ -97,8 +97,25 @@ function toItem(
   }
 }
 
-function take(list: WorkItem[], count: number): WorkItem[] {
+function take<T>(list: T[], count: number): T[] {
   return count > 0 ? list.slice(0, count) : list
+}
+
+/**
+ * 「我派出去的活」一行（卡 `8a671976`）
+ *
+ * 送达凭据 = **那位收件人读过那条派活通知**（`read_by` 里有他）。
+ * 不另立一张"送达表"：通知行本身就是凭据，两处各记一份迟早对不上。
+ */
+interface DispatchedItem {
+  todoId: string
+  title: string
+  status: Todo['status']
+  /** 派给了谁（`agent:<id>`） */
+  to: string
+  /** 对方是否已经看过那条派活通知 */
+  delivered: boolean
+  sentAt: string
 }
 
 export const workCommands: CommandSpec[] = [
@@ -139,8 +156,13 @@ export const workCommands: CommandSpec[] = [
       }
 
       const archivedProjectIds = new Set(projects.filter((p) => p.archived).map((p) => p.id))
-      const open = ctx.deps.todoRepo
-        .list()
+      const allTodos = ctx.deps.todoRepo.list()
+      /**
+       * 派活对账要连**已收口**的卡一起看：我派出去的活不会因为做完就不算数。
+       * 全量取一次建表，下面按 id 反查标题与状态。
+       */
+      const todosById = new Map(allTodos.map((t) => [t.id, t]))
+      const open = allTodos
         .filter((t) => t.status !== 'done' && t.status !== 'discarded')
         .filter((t) =>
           projectId ? t.projectId === projectId : !t.projectId || !archivedProjectIds.has(t.projectId)
@@ -286,8 +308,41 @@ export const workCommands: CommandSpec[] = [
       const droppable =
         buckets.recommend.length + buckets.available.length + buckets.waiting.length + buckets.blocked.length
 
+      /**
+       * 我派出去的活，对方收到没有（卡 `8a671976`）
+       *
+       * 主用户/发起方要能对上这笔账：**我派出去的活，对方是否已经拿到**。
+       * 判据取自派活那条通知自己的读状态，卡被删了的那条直接略过 ——
+       * 通知指向空气时，对账没有意义。
+       */
+      const dispatchedAll: DispatchedItem[] = []
+      try {
+        for (const n of ctx.deps.notificationRepo.listAssignmentsBy(subject)) {
+          const todo = n.refId ? todosById.get(n.refId) : undefined
+          if (!todo) continue
+          const to = n.recipient ?? ''
+          dispatchedAll.push({
+            todoId: todo.id,
+            title: todo.title,
+            status: todo.status,
+            to,
+            delivered: (n.readBy ?? '').split(',').filter(Boolean).includes(to),
+            sentAt: n.createdAt
+          })
+        }
+      } catch {
+        // 依赖里没有这个读法（老测试的桩）不该让 work next 整条挂掉
+      }
+
       const assemble = (dropped: number) => {
         let left = dropped
+        /** 派了多少 / 送到多少 / 还压着多少（回执里三个数要能互相对上） */
+        const dispatched = {
+          total: dispatchedAll.length,
+          delivered: dispatchedAll.filter((d) => d.delivered).length,
+          pending: dispatchedAll.filter((d) => !d.delivered).length,
+          items: take(dispatchedAll, perBucket)
+        }
         const kept = {
           recommend: buckets.recommend,
           available: buckets.available,
@@ -322,6 +377,11 @@ export const workCommands: CommandSpec[] = [
         }
         if (out.available[0]) {
           nextSteps.push(`领一件：todo update ${out.available[0].todoId.slice(0, 8)} --executed-by ${subject}`)
+        }
+        if (dispatched.pending > 0) {
+          nextSteps.push(
+            `你派出去的活里有 ${dispatched.pending} 件对方还没看那条通知：让对方跑 work next 拿活，或 todo get <id> 看进展`
+          )
         }
         if (out.waiting.length > 0 && !isHuman) {
           nextSteps.push('todo list --status proposed --limit 20（等人的那批：别替人拍板）')
@@ -378,11 +438,22 @@ export const workCommands: CommandSpec[] = [
           pendingProposals,
           proposedTodos: counts.proposed,
           awaitingHumanReviewTodos: open.filter((t) => t.status === 'awaiting_review' && t.verifier === 'human').length,
-          assignedToHumanTodos: open.filter((t) => (t.status === 'todo' || t.status === 'in_progress') && executorOf(t) === 'human').length
+          assignedToHumanTodos: open.filter((t) => (t.status === 'todo' || t.status === 'in_progress') && executorOf(t) === 'human').length,
+          /**
+           * 派给主用户的那批**是哪几张、谁提的**（卡 `8a671976`）
+           *
+           * 派给 human 不落单条通知（逐张推送等于轰炸），所以"谁把哪张卡派给了我"
+           * 只能在这里对上：`from` 取卡上的提出者 —— 指派给 human 时它是唯一落库的那一位。
+           */
+          assignedTodos: open
+            .filter((t) => (t.status === 'todo' || t.status === 'in_progress') && executorOf(t) === 'human')
+            .slice(0, perBucket > 0 ? perBucket : 10)
+            .map((t) => ({ todoId: t.id, title: t.title, status: t.status, from: t.createdBy }))
         }
 
         return {
           subject,
+          dispatched,
           scope: { project: projectId ? (projectNames.get(projectId) ?? null) : null },
           counts,
           waitingForHuman,

@@ -149,7 +149,7 @@ describe('MCP 工具表从 schema 生成（69b9b651）', () => {
     }
   })
 
-  it('既有 8 个工具名一字不改（已有接入方在用，qwen 就是）', () => {
+  it('既有 8 个工具名一字不改（已有接入方在用，erin 就是）', () => {
     expect(mcpToolName('todo add')).toBe('add_todo')
     expect(mcpToolName('todo get')).toBe('get_todo')
     expect(mcpToolName('todo list')).toBe('list_todos')

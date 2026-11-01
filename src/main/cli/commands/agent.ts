@@ -705,7 +705,7 @@ export const agentCommands: CommandSpec[] = [
     humanSelfService: true,
     desc: '删掉一条「已不在册」身份的本地凭据（孤儿清理）；已注册身份不受理，收回权限请用 agent revoke',
     args: [
-      { flag: '--id', type: 'string', required: true, desc: '身份，如 agent:qwen' },
+      { flag: '--id', type: 'string', required: true, desc: '身份，如 agent:erin' },
       { flag: '--yes', type: 'boolean', desc: '确认删除（必填；不传只报错，不动文件）' }
     ],
     run: (ctx, flags) => {

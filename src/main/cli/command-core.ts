@@ -116,7 +116,7 @@ export function missingClosure(ctx: CliContext, description: string | null, todo
  * ── 为什么需要这道闸门 ──
  *
  * 1.0.54 立了规矩「验收必须落到状态上，不能只写评论」，但它只写在说明书正文里，
- * 机制上一句都不拦。qwen 实测（4bdfe62a）当场踩实：对 b3ac3d32 复验不通过，
+ * 机制上一句都不拦。erin 实测（4bdfe62a）当场踩实：对 b3ac3d32 复验不通过，
  * 它只发了一条说明性评论，事项仍留在「待验收」，被主用户当场抓到。
  *
  * 这不是它个人的疏忽 —— **文字规矩守不住是这台机器上反复验证过的事**
@@ -424,7 +424,18 @@ export interface CliDeps {
   /** 通知收件箱（同上）：`notification list` 的读窗口、已读位、未读计数都走它 */
   notificationRepo: Pick<
     NotificationRepository,
-    'create' | 'listPage' | 'countPage' | 'markReadBy' | 'unreadCount' | 'unreadCountFor'
+    | 'create'
+    | 'listPage'
+    | 'countPage'
+    | 'markReadBy'
+    | 'unreadCount'
+    | 'unreadCountFor'
+    /**
+     * 指派送达（卡 `8a671976`）：写侧去重 + 读侧"我派出去的那批"。
+     * `createAssignmentOnce` 是**去重的唯一出处** —— 调用方不各自判一次。
+     */
+    | 'createAssignmentOnce'
+    | 'listAssignmentsBy'
   >
   /** 会话提醒回执（同上）：`shouldExpand` 每次写命令后判一次、`markSeen` 给 snooze 用 */
   reminderReceiptRepo: Pick<ReminderReceiptRepository, 'shouldExpand' | 'markSeen'> &
@@ -1185,7 +1196,7 @@ function resolveCommentForDelete(ctx: CliContext, input: string): {
  *
  * ── 为什么这条命令要单独定档 ──
  *
- * qwen 实测（dbfbc553）：`todo delete-comment` 落在写档 —— 不要 `--yes`、
+ * erin 实测（dbfbc553）：`todo delete-comment` 落在写档 —— 不要 `--yes`、
  * 不生成授权申请，调一次就物理删掉。而 `todo reject` 的驳回理由本身就是
  * 一条 `kind=reject` 的评论，删掉它等于把验收证据从链路上抹掉。
  * 多 agent 共用一块看板已是本机现实，"任何一方能悄悄抹掉另一方的结论"
@@ -2290,7 +2301,7 @@ export interface CommandSpec {
    * 但同一条命令对着不同目标时，破坏力可以差一个量级：
    * `todo delete-comment` 删掉自己写错的一条，和删掉**别人写的驳回理由**，
    * 完全是两件事 —— 后者是把验收证据从链路上抹掉，多 agent 共用一块看板时
-   * 等于任何一方都能悄悄抹掉另一方的结论（qwen 实测报的 dbfbc553）。
+   * 等于任何一方都能悄悄抹掉另一方的结论（erin 实测报的 dbfbc553）。
    *
    * 静态 `risk` 做不到这件事：标 write 则删证据不设防，标 destructive
    * 则连自己收拾自己的口误都要人点一次头。所以把判定推迟到**知道目标之后**。

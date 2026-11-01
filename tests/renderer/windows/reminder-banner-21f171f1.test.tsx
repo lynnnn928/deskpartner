@@ -23,7 +23,7 @@ import ReminderBanner from '../../../src/renderer/windows/ReminderBanner'
 const calls: { channel: string; input: unknown }[] = []
 
 type GrantRow = { id: string; agentId: string; scope: string }
-const PENDING: GrantRow[] = [{ id: 'g1', agentId: 'agent:qwen', scope: 'destructive' }]
+const PENDING: GrantRow[] = [{ id: 'g1', agentId: 'agent:erin', scope: 'destructive' }]
 
 /** 守卫挡下"还有子任务"：补 --force 就能继续（与 payload 无关，按 withForce 分支） */
 function mockInvoke(channel: string, input: unknown): unknown {
@@ -113,9 +113,9 @@ beforeEach(() => {
   cleanup()
   const qs = new URLSearchParams({
     type: 'grant',
-    title: 'qwen 想「删除数据」，等你点头',
+    title: 'erin 想「删除数据」，等你点头',
     detail: 'todo rm《重构发版脚本》',
-    todoId: 'grant:agent:qwen:destructive'
+    todoId: 'grant:agent:erin:destructive'
   })
   window.location.hash = `#/reminder-banner?${qs.toString()}`
   ;(window as unknown as { api: unknown }).api = {
@@ -130,7 +130,7 @@ beforeEach(() => {
 describe('授权横幅（21f171f1）：三样信息都读得到，高度跟着内容走', () => {
   it('发起方 / 要动什么 / 目标名都在 DOM 里', () => {
     render(<ReminderBanner />)
-    expect(screen.getByText('qwen 想「删除数据」，等你点头')).toBeTruthy()
+    expect(screen.getByText('erin 想「删除数据」，等你点头')).toBeTruthy()
     expect(screen.getByText('todo rm《重构发版脚本》')).toBeTruthy()
     expect(screen.getByText('操作申请')).toBeTruthy()
   })

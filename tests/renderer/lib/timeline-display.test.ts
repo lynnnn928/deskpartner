@@ -86,11 +86,11 @@ describe('humanizeActor：同一个面板里主体不能有两种叫法', () => 
 
   it('引号里正文的 human 不能被改（改掉就不再是原文了）', () => {
     const out = humanizeActor(
-      'human 删掉了 agent:qwen 的一条评论：「human 承诺过这件事」',
+      'human 删掉了 agent:erin 的一条评论：「human 承诺过这件事」',
       'human',
       null
     )
-    expect(out).toBe('我 删掉了 agent:qwen 的一条评论：「human 承诺过这件事」')
+    expect(out).toBe('我 删掉了 agent:erin 的一条评论：「human 承诺过这件事」')
   })
 
   it('未记录的动作人不动', () => {

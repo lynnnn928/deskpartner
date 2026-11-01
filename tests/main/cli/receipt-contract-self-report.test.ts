@@ -371,7 +371,7 @@ describe('回执 data 的形状要在契约里声明（07a244d9）', () => {
     }
     /**
      * 说明书也得说：agent 唯一会主动读的是 schema 与本文件生成的说明书，
-     * "能查到"和"知道去查"是两件事（qwen 实测在 schema 全文搜 G10 得 0 次那次同源）。
+     * "能查到"和"知道去查"是两件事（erin 实测在 schema 全文搜 G10 得 0 次那次同源）。
      */
     expect(JSON.stringify(schema)).toContain('dataShape')
     expect(buildAgentGuide()).toContain('dataShape')

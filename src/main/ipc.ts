@@ -950,7 +950,8 @@ export function registerIPC(
       offset,
       projectId,
       type,
-      reader
+      reader,
+      unhandled
     }: {
       limit?: number
       offset?: number
@@ -958,6 +959,8 @@ export function registerIPC(
       type?: NotificationType | null
       /** 这是**谁**的收件箱（卡 `c13dbb16`）：界面传 `'human'`，不传 = 旧的全局口径 */
       reader?: string
+      /** 只看没人接手的（卡 `5fd2b595`）：判据在仓储的 WHERE 里，这里只搬参数 */
+      unhandled?: boolean
     } = {}
   ) =>
     safeHandle(() =>
@@ -966,7 +969,8 @@ export function registerIPC(
         type: type ?? null,
         offset,
         limit: limit ?? 500,
-        ...(reader !== undefined ? { unreadFor: reader } : {})
+        ...(reader !== undefined ? { unreadFor: reader } : {}),
+        ...(unhandled !== undefined ? { unhandled } : {})
       })
     )
   )
