@@ -191,6 +191,44 @@ export function scanSanitizationViolations(files: Array<{ file: string; content:
   return violations
 }
 
+/**
+ * 提交信息里的署名闸门（卡 b38ba1af 第二轮）
+ *
+ * **为什么文件内容闸门管不到它**：GitHub 的贡献者列表会把 `Co-Authored-By:` 里的邮箱
+ * 解析成一个账号并算作贡献者。gh-pages 上一条由 AI 工具生成的提交带了
+ * 一个自动追加的共同作者尾注（邮箱是某 AI 厂商的 noreply 地址），于是仓库首页凭空
+ * 多出一个"贡献者"——正文里一个字都搜不到，内容闸门自然是绿的。
+ *
+ * 判据两条：
+ * ① 提交信息里出现的邮箱必须是 GitHub 的 noreply 地址
+ *    （`<id>+<login>@users.noreply.github.com`）—— 别处来的邮箱一律报；
+ * ② 共同作者尾注默认一律报：真要加真实共同作者，把邮箱登记进
+ *    `ALLOWED_COAUTHOR_EMAILS`（显式、可评审，而不是顺手带一行）。
+ */
+const ALLOWED_COAUTHOR_EMAILS = new Set<string>([])
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
+const COAUTHOR_RE = /^\s*Co-Authored-By:\s*(.+?)\s*$/gim
+const GITHUB_NOREPLY_RE = /^(?:\d+\+)?[A-Za-z0-9-]+@users\.noreply\.github\.com$/i
+
+export function scanCommitMessageViolations(hash: string, message: string): string[] {
+  const violations: string[] = []
+  const short = hash.slice(0, 8)
+
+  for (const m of message.matchAll(COAUTHOR_RE)) {
+    const email = (m[1].match(EMAIL_RE) || [])[0] || ''
+    if (!ALLOWED_COAUTHOR_EMAILS.has(email)) {
+      violations.push(`${short}: 提交信息带共同作者尾注 "${m[0].trim()}"`)
+    }
+  }
+
+  for (const email of message.match(EMAIL_RE) || []) {
+    if (GITHUB_NOREPLY_RE.test(email) || ALLOWED_COAUTHOR_EMAILS.has(email)) continue
+    violations.push(`${short}: 提交信息含非 GitHub noreply 邮箱 "${email}"`)
+  }
+
+  return [...new Set(violations)]
+}
+
 describe('公开仓库内容清理与脱敏闸门（9aee52ce）', () => {
   const tracked = execSync('git ls-files -z', {
     cwd: ROOT,
@@ -234,6 +272,88 @@ describe('公开仓库内容清理与脱敏闸门（9aee52ce）', () => {
     const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8')
     expect(changelog).toContain('# 更新日志（CHANGELOG）')
     expect(changelog).toContain('## 1.0.133')
+  })
+
+  it('2b. 提交信息里不含共同作者尾注与非 GitHub noreply 邮箱', () => {
+    /**
+     * 扫**公开仓库那条线**的可达提交：`HEAD` + `origin/*`。
+     * gh-pages 上那条尾注正是这么来的 —— 产品代码的 main 干净，网站分支上多一行，
+     * 贡献者列表就多一个人。
+     *
+     * 三个"不能一把 `git log --all`"的理由（都不是洁癖）：
+     * ① 本机还挂着另一个仓库的远端（`refs/remotes/private/*`）和它的归档分支，
+     *    那里的旧提交本来就带 AI 工具的署名尾注，扫进来会全是假红；
+     * ② `origin/gh-pages` 在本机是**改写前**的旧历史，对象不全，遍历会直接 fatal；
+     * ③ 跳过必须是显式的：走不动的 ref 要落在 `SKIPPABLE_REFS` 里，否则算失败。
+     */
+    const SKIPPABLE_REFS = [/^refs\/remotes\/private\//, /^refs\/remotes\/origin\/gh-pages$/]
+
+    const refs = [
+      'HEAD',
+      ...execSync('git for-each-ref --format=%(refname) refs/remotes/origin', {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ]
+
+    const walkable: string[] = []
+    const skipped: string[] = []
+    for (const ref of refs) {
+      try {
+        execSync(`git rev-list --count "${ref}"`, { cwd: ROOT, stdio: 'ignore' })
+        walkable.push(ref)
+      } catch {
+        skipped.push(ref)
+      }
+    }
+
+    const unexpectedSkip = skipped.filter((r) => !SKIPPABLE_REFS.some((re) => re.test(r)))
+    expect(unexpectedSkip, `这些 ref 走不动却不是已知可跳过项：${JSON.stringify(unexpectedSkip)}`).toEqual(
+      []
+    )
+
+    const raw = execSync(`git log ${walkable.map((r) => `"${r}"`).join(' ')} --format=%H%x1f%B%x1e`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024
+    })
+
+    const violations = raw
+      .split('\x1e')
+      .map((block) => block.replace(/^\n+/, ''))
+      .filter(Boolean)
+      .flatMap((block) => {
+        const [hash, ...rest] = block.split('\x1f')
+        return scanCommitMessageViolations(hash, rest.join('\x1f'))
+      })
+
+    expect(violations).toEqual([])
+  })
+
+  it('2c. 反向验证：共同作者尾注与非 noreply 邮箱必须被提交信息扫描器检出', () => {
+    const trailer = scanCommitMessageViolations(
+      'deadbeefdeadbeef',
+      `docs: 某个提交\n\nCo-Authored-By: Some Tool <tool${'@'}some-ai-vendor.example>`
+    )
+    expect(trailer.some((v) => v.includes('共同作者尾注')), JSON.stringify(trailer)).toBe(true)
+    expect(trailer.some((v) => v.includes('非 GitHub noreply 邮箱')), JSON.stringify(trailer)).toBe(true)
+
+    // 只有邮箱、没有尾注（比如"联系 xxx@vendor"）同样要报
+    const bare = scanCommitMessageViolations('cafebabecafebabe', `fix: 配置写错了，问过 ops${'@'}vendor.example`)
+    expect(bare.some((v) => v.includes('非 GitHub noreply 邮箱')), JSON.stringify(bare)).toBe(true)
+
+    // 另一半：GitHub noreply 邮箱与普通正文（带卡号、带 @ 提及）不许被误报
+    expect(
+      scanCommitMessageViolations(
+        '0badc0de0badc0de',
+        'feat: 派活送达 (#8a671976)\n\n作者 143469658+lynnnn928@users.noreply.github.com\n评审 @alice 与 @bob'
+      )
+    ).toEqual([])
   })
 
   it('4. 反向验证：注入内部代号 / 未登记 agent 代号 / 本机路径时扫描器必须检出', () => {
