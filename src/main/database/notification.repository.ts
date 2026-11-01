@@ -914,13 +914,46 @@ export class NotificationRepository {
   markReadByRef(refId: string, reader: string): number {
     const who = reader.trim()
     if (!who) return 0
-    return this.db
-      .prepare(
-        `UPDATE notifications
-            SET status = 'read', read_at = ?, ${NotificationRepository.APPEND_READER}
-          WHERE ref_id = ? AND status = 'unread'`
-      )
-      .run(new Date().toISOString(), who, who, who, refId).changes
+
+    /**
+     * 卡 `20dc1a2e`：**已读的行也要补读者**。
+     *
+     * 此前这条 UPDATE 只碰 `status = 'unread'` 的行，于是「主用户先在界面点开
+     * （行已 read、`read_by` 只有 human）→ agent 事后 `memo ack`」这种顺序下，
+     * agent 永远进不了 `read_by`，界面按 `5fd2b595` 的判据显示「无人接手」——
+     * 与事实相反，而且她会在最难判断的场景里被误导成"没人管过，再催一次"。
+     *
+     * 现在分两段，语义各归各位：
+     * - 未读的行：翻状态 + 记这次的时间 + 追加读者（= 有人接手了）；
+     * - 已读的行：**只**追加读者，不动 `status`、不改 `read_at` ——
+     *   已读时间属于先读的那个人，后来者只是补记"我也处理过"。
+     *
+     * 幂等由 `read_by` 的集合语义保证：已经在里面就不重复追加、也不重复计数。
+     */
+    const rows = this.db
+      .prepare('SELECT id, status, read_by FROM notifications WHERE ref_id = ?')
+      .all(refId) as Array<{ id: string; status: string; read_by: string | null }>
+
+    const now = new Date().toISOString()
+    let changed = 0
+    for (const row of rows) {
+      const readers = new Set((row.read_by ?? '').split(',').filter(Boolean))
+      const alreadyRecorded = readers.has(who)
+      const wasUnread = row.status !== 'read'
+      if (alreadyRecorded && !wasUnread) continue
+
+      readers.add(who)
+      const nextReaders = [...readers].join(',')
+      if (wasUnread) {
+        this.db
+          .prepare(`UPDATE notifications SET status = 'read', read_at = ?, read_by = ? WHERE id = ?`)
+          .run(now, nextReaders, row.id)
+      } else {
+        this.db.prepare('UPDATE notifications SET read_by = ? WHERE id = ?').run(nextReaders, row.id)
+      }
+      changed++
+    }
+    return changed
   }
 
   /* ── agent 侧：按收件人定向 + 按人记已读（1.0.68，schema 28）── */
