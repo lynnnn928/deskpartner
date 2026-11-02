@@ -33,6 +33,14 @@ export class AutoUpdateService {
   private updater: AppUpdater | null = null
   private checkInFlight: Promise<UpdateStatus> | null = null
 
+  /**
+   * 下载最后一次**收到数据**的时刻（卡 `a3b196c7`）
+   *
+   * 判断"卡住了"只能看它：连接建立起不来，或者传到一半断流，electron-updater 那边
+   * 既不报错也不返回，`downloadUpdate()` 的 promise 会一直挂着 —— 界面就只能一直转。
+   */
+  private lastProgressAt = 0
+
   private ensureUpdater(): AppUpdater {
     if (this.updater) return this.updater
 
@@ -147,6 +155,8 @@ export class AutoUpdateService {
     })
 
     nsisUpdater.on('download-progress', (progress) => {
+      // 有进度就说明链路是活的（见 lastProgressAt 的说明）
+      this.lastProgressAt = Date.now()
       this.state = {
         ...this.state,
         status: 'downloading',
@@ -185,7 +195,15 @@ export class AutoUpdateService {
     }
   }
 
-  async checkForUpdates(timeoutMs = 10_000): Promise<UpdateStatus> {
+  /**
+   * 检查更新（卡 `abb86b06`）
+   *
+   * 30 秒而不是 10 秒：github provider 是两跳（先从 api.github.com 取 release，
+   * 再从 github.com 下 latest.yml），第二跳在走代理的机器上实测 6–8 秒、偶尔破 10 秒。
+   * 10 秒的上限会让"第一次点必然失败、第二次才好"，看着像更新通道坏了。
+   * 真断网时多等 20 秒也不算什么：按钮上写着「检查中…」，不是卡死。
+   */
+  async checkForUpdates(timeoutMs = 30_000): Promise<UpdateStatus> {
     if (this.checkInFlight) {
       return this.checkInFlight
     }
@@ -241,8 +259,20 @@ export class AutoUpdateService {
     return this.checkInFlight
   }
 
+  /**
+   * 下载安装包（卡 `a3b196c7`：卡住要能自己报出来）
+   *
+   * ⚠️ 这里**不取消**传输：electron-updater 的 cancellationToken 要从
+   * `builder-util-runtime` 直接引（本仓库没把它列成依赖），为一个"何时放弃"的判断
+   * 引一条新依赖不划算。改用的判据更简单：**一段时间没收到任何数据**就把状态判成失败，
+   * 让用户看见"卡住了"并能重试；底层那条请求继续跑，真恢复了 `update-downloaded`
+   * 会把状态改回「已就绪」，不白丢。
+   */
   async downloadUpdate(): Promise<UpdateStatus> {
     const updater = this.ensureUpdater()
+    const stallMs = Number(process.env.DESKPARTNER_UPDATE_STALL_MS) || 30_000
+    this.lastProgressAt = Date.now()
+    let stallTimer: ReturnType<typeof setInterval> | null = null
     try {
       this.state = {
         ...this.state,
@@ -250,7 +280,34 @@ export class AutoUpdateService {
         progressPercent: 0,
         errorMessage: null
       }
-      await updater.downloadUpdate()
+      const stalled = new Promise<'stalled'>((resolve) => {
+        stallTimer = setInterval(
+          () => {
+            if (Date.now() - this.lastProgressAt >= stallMs) resolve('stalled')
+          },
+          Math.min(5_000, stallMs)
+        )
+      })
+      /**
+       * 这里先挂上 catch 再接进 race：判"卡住"之后底层那条请求还会继续，
+       * 它可能过一会儿带着错误结束 —— 那时 race 早已定局，没人接的 rejection
+       * 会变成 unhandledRejection（主进程里就是一条没人管的报错）。
+       */
+      let downloadError: unknown = null
+      const download = updater.downloadUpdate().catch((err) => {
+        downloadError = err
+        return 'failed' as const
+      })
+      const outcome = await Promise.race([download, stalled])
+      if (outcome === 'failed') throw downloadError ?? new Error('下载失败')
+      if (outcome === 'stalled') {
+        this.state = {
+          ...this.state,
+          status: 'error',
+          progressPercent: null,
+          errorMessage: `下载更新失败：${Math.round(stallMs / 1000)} 秒没有收到任何数据，请检查网络后重试`
+        }
+      }
     } catch (err) {
       /**
        * 前缀是给界面看的（卡 `99870984`）：以前失败一律写「检查失败」，
@@ -263,9 +320,12 @@ export class AutoUpdateService {
         status: 'error',
         errorMessage: `下载更新失败：${message}`
       }
+    } finally {
+      if (stallTimer) clearInterval(stallTimer)
     }
     return this.getState()
   }
+
 
   quitAndInstall(): { quitting: boolean } {
     const updater = this.ensureUpdater()

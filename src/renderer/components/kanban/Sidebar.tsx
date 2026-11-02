@@ -86,6 +86,17 @@ export const Sidebar: React.FC = () => {
   const [selectedPromptAgent, setSelectedPromptAgent] = useState<string>('')
   const [agentPromptCopied, setAgentPromptCopied] = useState(false)
   const [updateState, setUpdateState] = useState<UpdateStatus | null>(null)
+  /**
+   * 轮询判断"忙不忙"看的当前状态（卡 `abb86b06`）
+   *
+   * 用 ref 而不是把 updateState 塞进下面那个 effect 的依赖：那个 effect 带着
+   * "挂载后 15 秒内一直拉"的时间窗，依赖 state 会让每次状态变化都把窗口重置。
+   * 而点「立即更新」时本地切到 downloading 之后，轮询必须继续跑，进度才会动。
+   */
+  const statusRef = useRef<UpdateStatus['status'] | null>(null)
+  useEffect(() => {
+    statusRef.current = updateState?.status ?? null
+  }, [updateState?.status])
   /** 侧栏这边发起的下载：下完就自动重启安装（卡 `99870984`），不必再等用户去设置页点第二次 */
   const autoInstallAfterDownloadRef = useRef(false)
 
@@ -102,12 +113,10 @@ export const Sidebar: React.FC = () => {
   useEffect(() => {
     let alive = true
     const mountedAt = Date.now()
-    let lastStatus: UpdateStatus['status'] | null = null
     const pull = async () => {
       try {
         const next = await invoke('app:getUpdateState')
         if (!alive) return
-        lastStatus = next?.status ?? null
         setUpdateState(next ?? null)
       } catch {
         // 更新状态读不到不影响导航
@@ -115,7 +124,7 @@ export const Sidebar: React.FC = () => {
     }
     void pull()
     const timer = window.setInterval(() => {
-      const busy = lastStatus === 'checking' || lastStatus === 'downloading'
+      const busy = statusRef.current === 'checking' || statusRef.current === 'downloading'
       if (busy || Date.now() - mountedAt < 15_000) void pull()
     }, 1500)
     return () => {
@@ -523,9 +532,24 @@ export const Sidebar: React.FC = () => {
                 data-testid="sidebar-update-btn"
                 onClick={() => {
                   autoInstallAfterDownloadRef.current = true
+                  // 与设置页同一条判据：先切「下载中」，否则横幅停在「发现新版本」上，
+                  // 下载的几分钟里看着像没点上（卡 `abb86b06`）
+                  setUpdateState((prev) =>
+                    prev ? { ...prev, status: 'downloading', progressPercent: 0, errorMessage: null } : prev
+                  )
                   void invoke('app:downloadUpdate')
                     .then((next) => setUpdateState(next ?? null))
-                    .catch(() => undefined)
+                    .catch((err) =>
+                      setUpdateState((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              status: 'error',
+                              errorMessage: `下载更新失败：${err instanceof Error ? err.message : String(err)}`
+                            }
+                          : prev
+                      )
+                    )
                 }}
               >
                 立即更新

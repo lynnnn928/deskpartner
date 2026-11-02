@@ -129,6 +129,75 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
     })
   })
 
+  /**
+   * 点「立即更新」不能"没反应"（卡 abb86b06）
+   *
+   * 真实下载是几十 MB、几分钟：`app:downloadUpdate` 要等整包下完才 resolve，
+   * 而进度只靠上面那个 800ms 轮询 —— 轮询又只在 status 为 downloading 时才开。
+   * 所以点击时必须在**本地**先切到 downloading，否则下载的整段时间界面一动不动。
+   */
+  it('2b. 点「立即更新」立刻显示「下载中 0%」，不等整包下完（abb86b06）', async () => {
+    let release: ((v: unknown) => void) | null = null
+    let mainState: Record<string, unknown> = updateStatus({ availableVersion: '1.0.133' })
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'app:info') return { version: '1.0.132', dataDir: 'C:/Data/desk-partner' }
+      if (channel === 'app:getUpdateState') return mainState
+      if (channel === 'app:downloadUpdate') {
+        return new Promise((res) => {
+          release = res
+        })
+      }
+      return {}
+    })
+
+    const { getByTestId, getByText, queryByTestId } = render(<SystemSection />)
+    await waitFor(() => {
+      expect(getByTestId('download-update-btn').textContent).toContain('立即更新 v1.0.133')
+    })
+
+    fireEvent.click(getByTestId('download-update-btn'))
+
+    // downloadUpdate 还挂着（真实要几分钟）——界面此刻就得说"在下载"
+    await waitFor(() => {
+      expect(getByText(/下载中 0%/)).toBeTruthy()
+    })
+    expect(queryByTestId('download-update-btn')).toBeNull()
+
+    mainState = updateStatus({ status: 'downloaded', availableVersion: '1.0.133', progressPercent: 100 })
+    release?.(mainState)
+    await waitFor(() => {
+      expect(getByTestId('install-update-btn').textContent).toContain('重启并安装 v1.0.133')
+    })
+  })
+
+  it('2c. 下载失败要看得见原因，而不是点了没反应（abb86b06）', async () => {
+    let mainState: Record<string, unknown> = updateStatus({ availableVersion: '1.0.133' })
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'app:info') return { version: '1.0.132', dataDir: 'C:/Data/desk-partner' }
+      if (channel === 'app:getUpdateState') return mainState
+      if (channel === 'app:downloadUpdate') {
+        mainState = updateStatus({
+          status: 'error',
+          errorMessage: '下载更新失败：Please check update first'
+        })
+        throw new Error('Please check update first')
+      }
+      return {}
+    })
+
+    const { getByTestId, getByText } = render(<SystemSection />)
+    await waitFor(() => {
+      expect(getByTestId('download-update-btn').textContent).toContain('立即更新 v1.0.133')
+    })
+
+    fireEvent.click(getByTestId('download-update-btn'))
+
+    await waitFor(() => {
+      expect(getByText('下载失败')).toBeTruthy()
+    })
+    expect(getByText('下载失败').getAttribute('title')).toContain('Please check update first')
+  })
+
   it('3. 真实 electron-updater 链路：旧版 1.0.132 从更新源检测到 1.0.133 提示并完成包校验下载', async () => {
     const tmpFeedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dp-update-feed-'))
     const installerName = 'DeskPartner Setup 1.0.133.exe'
@@ -186,6 +255,88 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
       await new Promise<void>((resolve) => server.close(() => resolve()))
       fs.rmSync(tmpFeedDir, { recursive: true, force: true })
     }
+  })
+
+  /**
+   * 下载卡住要能自己报出来（卡 a3b196c7）
+   *
+   * 真实场景：连接建起来、传了一点就断流。electron-updater 那边既不报错也不返回，
+   * downloadUpdate() 的 promise 一直挂着 —— 修之前界面就只能一直"下载中"。
+   * 这里用本地更新源模拟：安装包响应只发 64KB 然后**不结束**。
+   */
+  it('3b. 下载中途断流：一段时间没有数据就判失败并给出原因（a3b196c7）', async () => {
+    const tmpFeedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dp-update-stall-'))
+    const installerName = 'DeskPartner Setup 1.0.199.exe'
+    const payload = Buffer.alloc(64 * 1024, 7)
+    const sha512 = crypto.createHash('sha512').update(payload).digest('base64')
+    const latestYml = [
+      'version: 1.0.199',
+      'files:',
+      `  - url: ${installerName}`,
+      `    sha512: ${sha512}`,
+      `    size: 8 * 1024 * 1024`,
+      `path: ${installerName}`,
+      `sha512: ${sha512}`,
+      `releaseDate: '2026-10-29T09:52:54.270Z'`,
+      ''
+    ]
+      .join('\n')
+      .replace('size: 8 * 1024 * 1024', `size: ${8 * 1024 * 1024}`)
+    fs.writeFileSync(path.join(tmpFeedDir, 'latest.yml'), latestYml, 'utf8')
+
+    /** 挂住的响应：先发 64KB，然后一直不结束（模拟断流） */
+    const hanging: import('node:http').ServerResponse[] = []
+    const server = http.createServer((req, res) => {
+      const reqPath = decodeURIComponent((req.url || '/').split('?')[0])
+      if (reqPath.endsWith('.yml')) {
+        res.writeHead(200, { 'Content-Type': 'text/yaml' })
+        res.end(latestYml)
+        return
+      }
+      res.writeHead(200, { 'Content-Length': 8 * 1024 * 1024 })
+      res.write(payload)
+      hanging.push(res)
+    })
+
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+    const addr = server.address() as { port: number }
+    const prevFeed = process.env.DESKPARTNER_UPDATE_FEED_URL
+    const prevStall = process.env.DESKPARTNER_UPDATE_STALL_MS
+    process.env.DESKPARTNER_UPDATE_FEED_URL = `http://127.0.0.1:${addr.port}`
+    // 把"多久没数据算卡住"压到 400ms，用例才跑得快
+    process.env.DESKPARTNER_UPDATE_STALL_MS = '400'
+    currentVersionRef.value = '1.0.132'
+
+    try {
+      const svc = new AutoUpdateService()
+      const checkRes = await svc.checkForUpdates()
+      expect(checkRes.status).toBe('available')
+
+      const dlRes = await svc.downloadUpdate()
+      expect(dlRes.status).toBe('error')
+      expect(dlRes.errorMessage ?? '').toContain('下载更新失败')
+      expect(dlRes.errorMessage ?? '').toMatch(/没有收到任何数据/)
+    } finally {
+      for (const res of hanging) res.destroy()
+      if (prevFeed === undefined) delete process.env.DESKPARTNER_UPDATE_FEED_URL
+      else process.env.DESKPARTNER_UPDATE_FEED_URL = prevFeed
+      if (prevStall === undefined) delete process.env.DESKPARTNER_UPDATE_STALL_MS
+      else process.env.DESKPARTNER_UPDATE_STALL_MS = prevStall
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      fs.rmSync(tmpFeedDir, { recursive: true, force: true })
+    }
+  })
+
+  it('3c. 检查更新的默认超时是 30 秒（abb86b06：10 秒会把"慢"误判成"坏"）', () => {
+    const svc = fs.readFileSync(
+      path.join(process.cwd(), 'src/main/services/auto-update.service.ts'),
+      'utf8'
+    )
+    expect(svc).toMatch(/checkForUpdates\(timeoutMs = 30_000\)/)
+    expect(svc, '10 秒的旧值不该再出现').not.toMatch(/timeoutMs = 10_000/)
+    // 下载停滞的判据也要留痕：断流时不能永远"下载中"
+    expect(svc).toMatch(/DESKPARTNER_UPDATE_STALL_MS/)
+    expect(svc).toMatch(/没有收到任何数据/)
   })
 
   it('4. 开源工程件齐全：LICENSE、package.json 元信息、CI workflow、CONTRIBUTING、SECURITY 与中英 README', () => {
@@ -354,6 +505,38 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith('app:downloadUpdate')
     })
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('app:quitAndInstallUpdate')
+    })
+  })
+
+  it('7b. 侧栏横幅点「立即更新」立刻变「正在下载」，不停在「发现新版本」上（abb86b06）', async () => {
+    let release: ((v: unknown) => void) | null = null
+    let mainState: Record<string, unknown> = updateStatus({ availableVersion: '1.0.136' })
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'app:getUpdateState') return mainState
+      if (channel === 'app:downloadUpdate') {
+        return new Promise((res) => {
+          release = res
+        })
+      }
+      if (channel === 'app:quitAndInstallUpdate') return { quitting: true }
+      return null
+    })
+
+    const { getByTestId, getByText } = render(<Sidebar />)
+    await waitFor(() => {
+      expect(getByTestId('sidebar-update-btn')).toBeTruthy()
+    })
+
+    fireEvent.click(getByTestId('sidebar-update-btn'))
+
+    await waitFor(() => {
+      expect(getByText(/正在下载 v1\.0\.136（0%）/)).toBeTruthy()
+    })
+
+    mainState = updateStatus({ status: 'downloaded', availableVersion: '1.0.136', progressPercent: 100 })
+    release?.(mainState)
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith('app:quitAndInstallUpdate')
     })

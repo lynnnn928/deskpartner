@@ -290,7 +290,29 @@ export const SystemSection: React.FC = () => {
               data-testid="download-update-btn"
               onClick={() => {
                 autoInstallPendingRef.current = true
-                void invoke('app:downloadUpdate').then(setUpdateState).catch(() => undefined)
+                /**
+                 * 点下去先本地切「下载中」（卡 `abb86b06` 的同类：点了没反应）
+                 *
+                 * 进度靠上面那个 800ms 轮询，而轮询只在 status 为 checking / downloading 时开。
+                 * 不在这里先切的话，从点「立即更新」到下载完成的整段时间（几十 MB、几分钟）
+                 * 界面一动不动 —— 用户看到的就是"点了没反应"，而主进程其实正在下。
+                 */
+                setUpdateState((prev) =>
+                  prev ? { ...prev, status: 'downloading', progressPercent: 0, errorMessage: null } : prev
+                )
+                void invoke('app:downloadUpdate')
+                  .then(setUpdateState)
+                  .catch((err) =>
+                    setUpdateState((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            status: 'error',
+                            errorMessage: `下载更新失败：${err instanceof Error ? err.message : String(err)}`
+                          }
+                        : prev
+                    )
+                  )
               }}
             >
               立即更新 v{updateState.availableVersion}
