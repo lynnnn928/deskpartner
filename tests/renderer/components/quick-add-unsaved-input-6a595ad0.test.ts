@@ -184,9 +184,13 @@ describe('速记与驳回弹窗的未保存输入（卡 6a595ad0）', () => {
 
   it('①取消（关闭弹窗）不清草稿：取消是"先不编辑"，不是"这些字不要了"', () => {
     const code = stripComments(read('src/renderer/components/quick-add/QuickAddForm.tsx'))
-    expect(code).toMatch(/const handleCancel = \(\) => \{\s*\n\s*closeDetail\(\)\s*\n\s*\}/)
-    // 卡 6ba3db21：关闭动作收敛成一个 closeDetail —— 内嵌右栏时交给外层回调，
-    // 独立窗口仍走 IPC。取消的语义没变（"先不编辑"），所以下面两条判据照旧。
+    // 卡 6ba3db21（二期）：「取消」改成**请求关闭** —— 内嵌右栏有未保存的改动时要先问一句，
+    // 拦不拦由外层（右栏）决定；独立窗口没有这一层，requestClose 直接落到 closeDetail。
+    // 取消的语义没变（"先不编辑"），所以下面几条判据照旧。
+    expect(code).toMatch(/const handleCancel = \(\) => \{\s*\n\s*requestClose\(\)\s*\n\s*\}/)
+    expect(code, 'requestClose 的兜底仍是直接关闭').toMatch(
+      /const requestClose = \(\) => \{[\s\S]{0,200}closeDetail\(\)/
+    )
     expect(code, '独立窗口那条路仍要真的关窗').toMatch(
       /const closeDetail = \(\) => \{[\s\S]{0,200}invoke\('window:hideQuickAdd'\)/
     )

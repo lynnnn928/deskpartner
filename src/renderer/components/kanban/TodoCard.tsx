@@ -100,6 +100,15 @@ export const TodoCard: React.FC<TodoCardProps> = ({ todo, onEdit, onDelete, onPi
       {...(multiSelectMode ? {} : attributes)}
       {...(multiSelectMode ? {} : listeners)}
       /**
+       * 卡片要能接住焦点（卡 `6ba3db21`）
+       *
+       * 详情右栏关掉时要把焦点还回**这张卡片**（见 TodoDetailPanel 的卸载处理），
+       * 而数据只能靠属性找到它。tabIndex 照抄 dnd-kit 给的那个（0，键盘拖拽要能 Tab 到，
+       * 见它自己的 aria 说明）；批量模式下没有拖拽属性，退到 -1 —— 能被程序聚焦，但进不了 Tab 队列。
+       */
+      data-todo-id={todo.id}
+      tabIndex={multiSelectMode ? -1 : attributes.tabIndex}
+      /**
        * 双击打开弹窗，不必先去找卡片上那个小按钮 ——
        * "要看详情却得先找到编辑图标"是没必要的门槛。
        *
@@ -120,6 +129,8 @@ export const TodoCard: React.FC<TodoCardProps> = ({ todo, onEdit, onDelete, onPi
         'group relative bg-bg-card border border-border/80 p-card flex flex-col gap-2',
         multiSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
         'transition-shadow',
+        // 焦点落在卡片上时给个圈：右栏关掉后焦点回到这里，得看得见它落到了哪一条
+        'focus:outline-none focus:ring-2 focus:ring-accent',
         isDragging && 'shadow-drag scale-105 opacity-90 z-50',
         !isDragging && 'shadow-card hover:shadow-card-hover hover:border-border',
         isDone && 'opacity-70',

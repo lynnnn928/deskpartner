@@ -56,6 +56,16 @@ export interface QuickAddFormProps {
   onClose?: () => void
   /** 内嵌时点父子事项：就地切换，而不是再开一个窗口 */
   onOpenTodo?: (id: string) => void
+  /**
+   * 用户想关（Esc / 取消按钮）—— 与 `onClose` 的区别是**外层还有权拦一下**。
+   *
+   * 右栏有未保存的改动时要先问一句"放弃吗"，而"改没改"只有表单知道；
+   * 所以表单只上报"有人想关"，决定权交给右栏 —— 反过来（表单自己弹确认框）
+   * 会让窗口形态与内嵌形态的关闭语义分叉。
+   */
+  onRequestClose?: () => void
+  /** 脏状态上报：有没有未保存的改动（关闭确认框据此决定拦不拦） */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 /** 弹窗内边距档位 */
@@ -276,6 +286,17 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
     fixedInVersion
   }
   const dirty = baseline !== null && !sameQuickAddDraft(formNow, baseline)
+
+  /**
+   * 把"改没改"告诉外层（卡 6ba3db21 的关闭确认）
+   *
+   * 调用方多半传内联函数、每次渲染都是新引用 —— 所以依赖里带上它、
+   * 让"回调换了"也重报一次：外层只按值比，重报同值不会引起额外渲染。
+   */
+  const onDirtyChange = props.onDirtyChange
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
 
   /**
    * 给下面"装载" effect 读的最新脏值
@@ -542,6 +563,19 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   }
 
   /**
+   * 用户主动要关（Esc / 取消）
+   *
+   * 内嵌时先问外层（右栏可能因为"有未保存改动"而拦一下）；独立窗口没有这层，直接关。
+   */
+  const requestClose = () => {
+    if (embedded && props.onRequestClose) {
+      props.onRequestClose()
+      return
+    }
+    closeDetail()
+  }
+
+  /**
    * 关闭详情（卡 `6ba3db21`）
    *
    * 内嵌时**不能**调 `window:hideQuickAdd` —— 那条 IPC 关的是独立窗口，
@@ -556,7 +590,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   }
 
   const handleCancel = () => {
-    closeDetail()
+    requestClose()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
