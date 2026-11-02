@@ -830,17 +830,24 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
           )}
         </div>
 
-        <button
-          onClick={handleCancel}
-          className="h-6 w-6 flex items-center justify-center rounded-button text-text-secondary hover:bg-surface-muted hover:text-text-primary transition-colors shrink-0"
-          title="关闭"
-          aria-label="关闭"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-            <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" />
-            <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" />
-          </svg>
-        </button>
+        {/*
+          内嵌右栏里不画这个 ✕（卡 `35fa2cbc`）：右栏自己顶部已经有一枚「关闭详情」，
+          两枚 ✕ 一上一下叠在右上角 —— 用户看到的是"两个关闭按钮"，还以为是排版坏了。
+          窗口形态没有外层，这枚必须留着。
+        */}
+        {!embedded && (
+          <button
+            onClick={handleCancel}
+            className="h-6 w-6 flex items-center justify-center rounded-button text-text-secondary hover:bg-surface-muted hover:text-text-primary transition-colors shrink-0"
+            title="关闭"
+            aria-label="关闭"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+              <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" />
+              <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* 草稿恢复提示（卡 6a595ad0） */}

@@ -379,142 +379,155 @@ const Kanban: React.FC = () => {
         {/* 批量工具条只在实际事项列表中展示 */}
         {showItemTools && <BatchBar />}
 
-        {/* 主体：看板两种形态 / 通知中心 / 统计 / 设置 / 用户 */}
-        {mainView === 'notifications' && <NotificationsView />}
-        {mainView === 'approval' && <ApprovalView />}
-        {mainView === 'stats' && <StatsView />}
-        {mainView === 'releases' && !(inBoard && workspaceMode === 'project' && projectTab === 'versions') && <ReleasesView projectId={workspaceMode === 'project' ? filterProject : null} />}
-        {inBoard && workspaceMode === 'project' && projectTab === 'versions' && selectedProject && (
-          <ReleasesView
-            projectId={selectedProject.id}
-            onOpenItems={() => {
-              setProjectTab('items')
-              setMainView('board')
-              setBoardView('kanban')
-            }}
-          />
-        )}
-        {mainView === 'settings' && <SettingsView />}
-        {mainView === 'user' && <UserView />}
-        {mainView === 'quickstart' && <QuickStartView />}
-        {inBoard && workspaceMode === 'project' && projectTab === 'search' && selectedProject && (
-          <GlobalSearchView
-            key={`${projectSearchQuery}|${projectSearchIds.join(',')}`}
-            initialQuery={projectSearchQuery}
-            initialProjectIds={projectSearchIds}
-            onOpenTodo={openSearchResultInProject}
-            onOpenProject={openGlobalSearchProject}
-          />
-        )}
-        {inBoard && workspaceMode === 'project' && projectTab === 'docs' && selectedProject && (
-          <ProjectDocsView
-            projectId={selectedProject.id}
-            onOpenOverview={() => {
-              setProjectTab('overview')
-              setMainView('board')
-              setBoardView('kanban')
-            }}
-          />
-        )}
-        {inBoard && workspaceMode === 'project' && projectTab === 'overview' && selectedProject && (
-          <ProjectOverviewView
-            projectId={selectedProject.id}
-            focusHandoffQuery={handoffFocus && handoffFocus.projectId === selectedProject.id ? handoffFocus.query : ''}
-            onOpenItems={(status) => {
-              setProjectTab('items')
-              setMainView('board')
-              setBoardView('kanban')
-              if (status) {
-                useUIStore.getState().setWorkItemScope('all')
-                useUIStore.getState().setFilterStatus(status)
-              }
-            }}
-            onOpenVersions={() => {
-              setProjectTab('versions')
-              setMainView('board')
-              setBoardView('kanban')
-            }}
-          />
-        )}
-        {inBoard && workspaceMode === 'all' && (
-          <GlobalSearchView onOpenTodo={openGlobalSearchTodo} onOpenProject={openGlobalSearchProject} />
-        )}
         {/*
-          「我的工作」独立行动汇总：在 enterWorkbench() 中已同步将 boardView 重置为 'kanban'，
-          保留 `workspaceMode === 'workbench' && boardView === 'kanban' && <WorkbenchView />` 契约。
+          主体区：视图 + 事项详情卡片并排（卡 `35fa2cbc`）
+
+          详情原来挂在窗口根部、从 y=1 一直贯到窗口底 —— 它的头部因此跑到窗口标题栏那一行，
+          和最小化/关闭按钮挤在一起，看着像"跑到外面去了"。现在它只占**标题栏与工具条之下**
+          这块内容区，右侧留边距、自己是一张卡片：与"详情嵌在列表右侧"的常见形态一致。
         */}
-        {inBoard && workspaceMode === 'workbench' && boardView === 'kanban' && <WorkbenchView />}
-        {inBoard && workspaceMode !== 'workbench' && workspaceMode !== 'all' && (workspaceMode !== 'project' || projectTab === 'items') && boardView === 'kanban' && (
-          <KanbanBoard
-            onOpenProjectSearch={workspaceMode === 'project' ? (query) => {
-              setProjectSearchQuery(query ?? '')
-              setProjectSearchIds(filterProject ? [filterProject] : [])
-              setProjectTab('search')
-              setBoardView('kanban')
-              setMainView('board')
-            } : undefined}
-          />
-        )}
-        {inBoard && workspaceMode !== 'workbench' && workspaceMode !== 'all' && (workspaceMode !== 'project' || projectTab === 'activity') && boardView === 'timeline' && (
-          <div className="flex-1 min-h-0 flex flex-col">
-            {workspaceMode === 'project' && filterProject && (
-              <div className="activity-switch shrink-0 flex flex-wrap items-center justify-between gap-3 px-6 py-2.5 border-b border-border bg-bg-card/50" role="tablist" aria-label="项目动态内容">
-                <div className="inline-flex items-center p-0.5 rounded-button bg-surface-muted border border-border/60">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={activityMode === 'timeline'}
-                    onClick={() => setActivityMode('timeline')}
-                    className={cn(
-                      'h-7 px-3 rounded-input text-label transition-colors inline-flex items-center gap-1.5 cursor-pointer',
-                      activityMode === 'timeline'
-                        ? 'bg-bg-card text-text-primary font-semibold shadow-sm'
-                        : 'text-text-secondary hover:text-text-primary'
-                    )}
-                  >
-                    <Icon name="clock" size={13} />项目动态
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={activityMode === 'notifications'}
-                    onClick={() => setActivityMode('notifications')}
-                    className={cn(
-                      'h-7 px-3 rounded-input text-label transition-colors inline-flex items-center gap-1.5 cursor-pointer',
-                      activityMode === 'notifications'
-                        ? 'bg-bg-card text-text-primary font-semibold shadow-sm'
-                        : 'text-text-secondary hover:text-text-primary'
-                    )}
-                  >
-                    <Icon name="bell" size={13} />项目通知
-                    <span className="rounded-tag bg-accent/12 px-1.5 py-0.5 text-caption text-accent font-medium">收件箱</span>
-                  </button>
+        <div data-testid="kanban-content" className="flex-1 min-h-0 flex min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col min-h-0">
+          {/* 主体：看板两种形态 / 通知中心 / 统计 / 设置 / 用户 */}
+          {mainView === 'notifications' && <NotificationsView />}
+          {mainView === 'approval' && <ApprovalView />}
+          {mainView === 'stats' && <StatsView />}
+          {mainView === 'releases' && !(inBoard && workspaceMode === 'project' && projectTab === 'versions') && <ReleasesView projectId={workspaceMode === 'project' ? filterProject : null} />}
+          {inBoard && workspaceMode === 'project' && projectTab === 'versions' && selectedProject && (
+            <ReleasesView
+              projectId={selectedProject.id}
+              onOpenItems={() => {
+                setProjectTab('items')
+                setMainView('board')
+                setBoardView('kanban')
+              }}
+            />
+          )}
+          {mainView === 'settings' && <SettingsView />}
+          {mainView === 'user' && <UserView />}
+          {mainView === 'quickstart' && <QuickStartView />}
+          {inBoard && workspaceMode === 'project' && projectTab === 'search' && selectedProject && (
+            <GlobalSearchView
+              key={`${projectSearchQuery}|${projectSearchIds.join(',')}`}
+              initialQuery={projectSearchQuery}
+              initialProjectIds={projectSearchIds}
+              onOpenTodo={openSearchResultInProject}
+              onOpenProject={openGlobalSearchProject}
+            />
+          )}
+          {inBoard && workspaceMode === 'project' && projectTab === 'docs' && selectedProject && (
+            <ProjectDocsView
+              projectId={selectedProject.id}
+              onOpenOverview={() => {
+                setProjectTab('overview')
+                setMainView('board')
+                setBoardView('kanban')
+              }}
+            />
+          )}
+          {inBoard && workspaceMode === 'project' && projectTab === 'overview' && selectedProject && (
+            <ProjectOverviewView
+              projectId={selectedProject.id}
+              focusHandoffQuery={handoffFocus && handoffFocus.projectId === selectedProject.id ? handoffFocus.query : ''}
+              onOpenItems={(status) => {
+                setProjectTab('items')
+                setMainView('board')
+                setBoardView('kanban')
+                if (status) {
+                  useUIStore.getState().setWorkItemScope('all')
+                  useUIStore.getState().setFilterStatus(status)
+                }
+              }}
+              onOpenVersions={() => {
+                setProjectTab('versions')
+                setMainView('board')
+                setBoardView('kanban')
+              }}
+            />
+          )}
+          {inBoard && workspaceMode === 'all' && (
+            <GlobalSearchView onOpenTodo={openGlobalSearchTodo} onOpenProject={openGlobalSearchProject} />
+          )}
+          {/*
+            「我的工作」独立行动汇总：在 enterWorkbench() 中已同步将 boardView 重置为 'kanban'，
+            保留 `workspaceMode === 'workbench' && boardView === 'kanban' && <WorkbenchView />` 契约。
+          */}
+          {inBoard && workspaceMode === 'workbench' && boardView === 'kanban' && <WorkbenchView />}
+          {inBoard && workspaceMode !== 'workbench' && workspaceMode !== 'all' && (workspaceMode !== 'project' || projectTab === 'items') && boardView === 'kanban' && (
+            <KanbanBoard
+              onOpenProjectSearch={workspaceMode === 'project' ? (query) => {
+                setProjectSearchQuery(query ?? '')
+                setProjectSearchIds(filterProject ? [filterProject] : [])
+                setProjectTab('search')
+                setBoardView('kanban')
+                setMainView('board')
+              } : undefined}
+            />
+          )}
+          {inBoard && workspaceMode !== 'workbench' && workspaceMode !== 'all' && (workspaceMode !== 'project' || projectTab === 'activity') && boardView === 'timeline' && (
+            <div className="flex-1 min-h-0 flex flex-col">
+              {workspaceMode === 'project' && filterProject && (
+                <div className="activity-switch shrink-0 flex flex-wrap items-center justify-between gap-3 px-6 py-2.5 border-b border-border bg-bg-card/50" role="tablist" aria-label="项目动态内容">
+                  <div className="inline-flex items-center p-0.5 rounded-button bg-surface-muted border border-border/60">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activityMode === 'timeline'}
+                      onClick={() => setActivityMode('timeline')}
+                      className={cn(
+                        'h-7 px-3 rounded-input text-label transition-colors inline-flex items-center gap-1.5 cursor-pointer',
+                        activityMode === 'timeline'
+                          ? 'bg-bg-card text-text-primary font-semibold shadow-sm'
+                          : 'text-text-secondary hover:text-text-primary'
+                      )}
+                    >
+                      <Icon name="clock" size={13} />项目动态
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activityMode === 'notifications'}
+                      onClick={() => setActivityMode('notifications')}
+                      className={cn(
+                        'h-7 px-3 rounded-input text-label transition-colors inline-flex items-center gap-1.5 cursor-pointer',
+                        activityMode === 'notifications'
+                          ? 'bg-bg-card text-text-primary font-semibold shadow-sm'
+                          : 'text-text-secondary hover:text-text-primary'
+                      )}
+                    >
+                      <Icon name="bell" size={13} />项目通知
+                      <span className="rounded-tag bg-accent/12 px-1.5 py-0.5 text-caption text-accent font-medium">收件箱</span>
+                    </button>
+                  </div>
+                  <span className="text-caption text-text-secondary">
+                    {activityMode === 'timeline' ? '时间线：记录项目发生过什么。' : '收件箱：查看需要你知道或处理的项目消息。'}
+                  </span>
                 </div>
-                <span className="text-caption text-text-secondary">
-                  {activityMode === 'timeline' ? '时间线：记录项目发生过什么。' : '收件箱：查看需要你知道或处理的项目消息。'}
-                </span>
-              </div>
-            )}
-            {activityMode === 'notifications' && workspaceMode === 'project' && filterProject ? (
-              <NotificationsView projectId={filterProject} />
-            ) : (
-              <TimelineView />
-            )}
+              )}
+              {activityMode === 'notifications' && workspaceMode === 'project' && filterProject ? (
+                <NotificationsView projectId={filterProject} />
+              ) : (
+                <TimelineView />
+              )}
+            </div>
+          )}
+
           </div>
-        )}
+
+          {/* 事项详情卡片（卡 6ba3db21 / 35fa2cbc）：贴在内容区右侧，三列真实收窄让位 */}
+          {selectedTodoId && (
+            <TodoDetailPanel
+              todoId={selectedTodoId}
+              onClose={closeTodoDetail}
+              onOpenTodo={openTodoDetail}
+            />
+          )}
+        </div>
 
         {/* 全局轻提示：失败不能只落在控制台（1.0.48） */}
         <Toast />
       </div>
 
-      {/* 事项详情右栏（卡 6ba3db21）：与看板同一窗口，三列真实收窄让位 */}
-      {selectedTodoId && (
-        <TodoDetailPanel
-          todoId={selectedTodoId}
-          onClose={closeTodoDetail}
-          onOpenTodo={openTodoDetail}
-        />
-      )}
     </div>
   )
 }

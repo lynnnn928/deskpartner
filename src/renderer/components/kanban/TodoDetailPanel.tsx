@@ -170,7 +170,7 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
       <aside
         data-testid="todo-detail-panel"
         style={{ width }}
-        className="relative shrink-0 min-h-0 flex flex-col border-l border-border bg-bg-primary"
+        className="relative shrink-0 min-h-0 flex flex-col my-3 mr-3 rounded-card border border-border bg-bg-card shadow-card overflow-hidden"
       >
         <div
           onPointerDown={startDrag}

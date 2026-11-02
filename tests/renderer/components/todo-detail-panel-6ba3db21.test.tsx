@@ -335,6 +335,23 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
     expect(kanban).toContain('selectedTodoId &&')
   })
 
+  /**
+   * 右栏里只该有一枚 ✕（卡 35fa2cbc）
+   *
+   * 面板顶部有一枚「关闭详情」，表单自带的顶部也有一个 aria-label="关闭" 的 ✕ ——
+   * 两枚一上一下叠在右上角（实测面板那枚在 y=6、表单那枚在 y=53），
+   * 用户看到的是"两个关闭按钮"，以为是排版坏了。表单那枚必须按 embedded 隐掉，
+   * 窗口形态（没有外层）仍然要留着。
+   */
+  it('源码闸门：表单自带的 ✕ 只在窗口形态出现，内嵌右栏不再叠一枚（35fa2cbc）', () => {
+    const form = read('src/renderer/components/quick-add/QuickAddForm.tsx')
+    const closeAt = form.indexOf('aria-label="关闭"')
+    expect(closeAt, '窗口形态那枚关闭按钮不该被删掉').toBeGreaterThan(0)
+    const guardAt = form.lastIndexOf('{!embedded && (', closeAt)
+    expect(guardAt, '表单那枚 ✕ 必须挂在 !embedded 上').toBeGreaterThan(0)
+    expect(closeAt - guardAt, '守卫要挨着按钮，别离得太远').toBeLessThan(400)
+  })
+
   it('源码闸门：内嵌模式下不许保留「窗口失焦就关闭」那段', () => {
     const form = read('src/renderer/components/quick-add/QuickAddForm.tsx')
     const guardAt = form.indexOf('if (embedded) return')
@@ -364,5 +381,50 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
       'requestClose()'
     )
     expect(form.slice(cancelAt, cancelAt + 120)).not.toContain('closeDetail()')
+  })
+
+  /**
+   * 右栏得是**内容区里的一张卡片**（卡 35fa2cbc）
+   *
+   * 它原先挂在窗口根部：rect 从 y=1 一直贯到窗口底，头部挤进标题栏那一行、
+   * 跟最小化/关闭按钮同排 —— 看着就是"跑到窗口外面去了"。竞品的详情是内容区
+   * 里的一张卡片：从工具栏之下开始、四周留边、自己的圆角与 ✕。
+   *
+   * happy-dom 没有布局，量不了 rect，只能在源码上量嵌套：`kanban-content`
+   * 那个容器（工具栏之下那块）必须把右栏包在里面，右栏自己留边、圆角。
+   */
+  it('源码闸门：右栏被包在内容区容器里，是内容区的一张卡片（35fa2cbc）', () => {
+    const kanban = read('src/renderer/windows/Kanban.tsx')
+    const contentAt = kanban.indexOf('data-testid="kanban-content"')
+    expect(contentAt, '内容区容器不见了').toBeGreaterThan(0)
+
+    // 从内容区容器自己的 <div 开始数深度，回到 0 的那处就是它的收尾
+    const tail = kanban.slice(kanban.lastIndexOf('<div', contentAt))
+    let depth = 0
+    let end = -1
+    for (let k = 0; k < tail.length; ) {
+      if (tail.startsWith('<div', k)) {
+        depth++
+        k += 4
+      } else if (tail.startsWith('</div>', k)) {
+        depth--
+        if (depth === 0) {
+          end = k
+          break
+        }
+        k += 6
+      } else {
+        k++
+      }
+    }
+    expect(end, '内容区容器没有正常收尾').toBeGreaterThan(0)
+
+    const panelAt = tail.indexOf('<TodoDetailPanel')
+    expect(panelAt, '右栏不在内容区里').toBeGreaterThan(0)
+    expect(panelAt, '右栏排在内容区容器收尾之后 —— 等于又挂回窗口根部').toBeLessThan(end)
+
+    const panel = read('src/renderer/components/kanban/TodoDetailPanel.tsx')
+    expect(panel, '右栏要自留边距、自己是一张圆角卡片').toContain('my-3 mr-3 rounded-card')
+    expect(panel, '不该再是贴窗口边缘的整列面板').not.toContain('flex flex-col border-l border-border')
   })
 })
