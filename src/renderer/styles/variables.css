@@ -151,6 +151,9 @@
      此前以 w-[248px] / w-[min(720px,92vw)] / max-w-[1100px] 的形式散在 20 多个文件里。
      min(…, 92vw) 写进令牌值里：窄窗口时"留 8vw 边"这件事不用每个调用方各写一遍。 */
   --size-sidebar: 248px;
+  /* 收起态（卡 f4df6926）：只留图标轨道。宽度与展开态是两个令牌，
+     收起不靠改 --size-sidebar —— 那样展开态的人也会被改到。 */
+  --size-sidebar-collapsed: 56px;
   --size-drawer: min(480px, 92vw);
   --size-dialog: 480px;
   --size-dialog-sm: min(420px, 92vw);

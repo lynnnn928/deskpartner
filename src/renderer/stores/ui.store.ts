@@ -97,6 +97,15 @@ interface UIState {
   /** 看板泳道列宽（px，默认 288，范围 240~420，支持拖拽列右缘调节） */
   kanbanColumnWidth: number
   /**
+   * 左侧边栏是否收起成图标轨道（卡 `f4df6926`）
+   *
+   * 与会折叠的看板列/视角**不同，这个要持久化**：它表达的是"我这台机器上更想要多少
+   * 编辑面积"，属于偏好而不是临时动作 —— 每次重启都弹回 248px 会让人反复去点。
+   * 落点在 localStorage（与列宽同一处），不进 settings 表：它不是跨设备要同步的东西。
+   */
+  sidebarCollapsed: boolean
+  toggleSidebar: () => void
+  /**
    * 按项目筛选：null 不限，其余是项目 id
    *
    * 项目比标签更高一层 —— 标签说"这件事是什么性质"，项目说"这件事属于哪摊"。
@@ -305,6 +314,30 @@ export const useUIStore = create<UIState>()((set) => ({
       return 288
     }
   })(),
+  /**
+   * 只有明确的 '1' 才算收起 —— 认任何"看起来真"的值会让 localStorage 里一条垃圾数据
+   * 把人钉在收起态，而且他点一次就修好了、也说不清为什么原本是收的。
+   */
+  sidebarCollapsed: (() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem('deskpartner.sidebarCollapsed') === '1'
+    } catch {
+      return false
+    }
+  })(),
+  toggleSidebar: () => {
+    set((state) => {
+      const next = !state.sidebarCollapsed
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('deskpartner.sidebarCollapsed', next ? '1' : '0')
+        }
+      } catch {
+        /* 存不进去也不该让这次点击白点 */
+      }
+      return { sidebarCollapsed: next }
+    })
+  },
   filterProject: null,
   filterProjectIds: [],
   workspaceMode: 'workbench',

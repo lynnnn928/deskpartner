@@ -128,6 +128,8 @@ const config: Config = {
         'float-ball': 'var(--float-ball-size, 48px)',
         // 1.0.114：结构尺寸。min(…, 92vw) 写进变量值里 —— 窄窗口留 8vw 边只写一次
         sidebar: 'var(--size-sidebar, 248px)',
+        // 侧栏收起态（卡 f4df6926）：图标轨道宽度
+        'sidebar-collapsed': 'var(--size-sidebar-collapsed, 56px)',
         drawer: 'var(--size-drawer, min(480px, 92vw))',
         'dialog-sm': 'var(--size-dialog-sm, min(420px, 92vw))',
         'dialog-md': 'var(--size-dialog-md, min(560px, 92vw))',

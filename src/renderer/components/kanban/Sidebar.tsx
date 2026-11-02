@@ -58,7 +58,9 @@ export const Sidebar: React.FC = () => {
     filterPriority,
     filterType,
     filterFixedIn,
-    filterCreatedRange
+    filterCreatedRange,
+    sidebarCollapsed,
+    toggleSidebar
   } = useUIStore()
   const { todos } = useTodoStore()
   const { projects, createProject, updateProject, deleteProject } = useProjectStore()
@@ -257,6 +259,140 @@ export const Sidebar: React.FC = () => {
     document.title = appName
   }, [appName])
   const nav = (view: 'notifications' | 'approval' | 'stats' | 'settings' | 'user' | 'quickstart') => setMainView(view)
+  /**
+   * 收起态（卡 `f4df6926`）：只留图标轨道
+   *
+   * 刻意写成**独立的早返回**，而不是给展开态套一堆 `collapsed ? … : …`：
+   * 展开态那棵树是 1.0.114 定稿的，一个三元表达式写错就会悄悄改掉它的排版；
+   * 分成两棵树之后，"展开态一个像素都不变"这件事是可读的。
+   *
+   * 收起态放弃的东西都写在明处：项目名、分组标题、更新横幅的文字。
+   * 保留的是"能不能看出该点哪、有没有新东西"——图标、当前项高亮、未读圆点、悬停标题。
+   */
+  if (sidebarCollapsed) {
+    const railButton = (
+      icon: IconName,
+      label: string,
+      active: boolean,
+      onClick: () => void,
+      badge?: number
+    ) => (
+      <button
+        type="button"
+        onClick={onClick}
+        title={label}
+        aria-label={label}
+        aria-current={active ? 'page' : undefined}
+        data-active={active ? 'true' : 'false'}
+        className={cn(
+          'relative shrink-0 w-9 h-9 flex items-center justify-center rounded-button transition-colors',
+          active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-black/5 hover:text-text-primary'
+        )}
+      >
+        <Icon name={icon} size={15} />
+        {!!badge && badge > 0 && (
+          <span
+            className={cn(
+              'absolute top-1 right-1 w-1.5 h-1.5 rounded-full',
+              active ? 'bg-white' : 'bg-red-500'
+            )}
+          />
+        )}
+      </button>
+    )
+
+    return (
+      <aside
+        data-testid="sidebar-rail"
+        className="sidebar-nav w-sidebar-collapsed shrink-0 flex flex-col items-center border-r border-border bg-black/[0.02] py-2 gap-1"
+      >
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          title="展开侧栏"
+          aria-label="展开侧栏"
+          data-testid="sidebar-expand-btn"
+          className="w-9 h-9 flex items-center justify-center rounded-button text-text-secondary hover:bg-black/5 hover:text-text-primary transition-colors"
+        >
+          <Icon name="chevronLeft" size={15} className="rotate-180" />
+        </button>
+
+        <img
+          src={settings.appIcon || partnerBadge}
+          alt=""
+          draggable={false}
+          data-testid="sidebar-app-icon"
+          title={appName}
+          className={cn(
+            'w-5 h-5 rounded-full object-contain shrink-0 pointer-events-none select-none mb-1',
+            settings.appIcon && 'bg-white'
+          )}
+        />
+
+        <div className="flex flex-col items-center gap-1">
+          {railButton('layers', '我的工作', workspaceMode === 'workbench' && mainView === 'board', enterWorkbench)}
+          {railButton('bell', '通知', mainView === 'notifications', () => setMainView('notifications'), unreadCount)}
+          {railButton('shield', '审批', mainView === 'approval', () => setMainView('approval'), pendingCount)}
+          {railButton('barChart', '统计', mainView === 'stats', () => nav('stats'))}
+        </div>
+
+        <div className="w-5 border-t border-border my-1 shrink-0" />
+
+        {/* 项目只留颜色圆点：悬停给名字，当前项目加底色 */}
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center gap-1">
+          {projects
+            .filter((project) => !project.archived)
+            .map((project) => {
+              const active = workspaceMode === 'project' && filterProject === project.id
+              return (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => enterProject(project.id)}
+                  title={project.name}
+                  aria-label={project.name}
+                  aria-current={active ? 'page' : undefined}
+                  data-testid="sidebar-rail-project"
+                  className={cn(
+                    'w-9 h-9 flex items-center justify-center rounded-button transition-colors',
+                    active ? 'bg-accent/15' : 'hover:bg-black/5'
+                  )}
+                >
+                  <span className="w-3 h-3 rounded-full" style={{ background: project.color }} />
+                </button>
+              )
+            })}
+        </div>
+
+        <div className="w-5 border-t border-border my-1 shrink-0" />
+
+        <div className="flex flex-col items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setMainView('user')}
+            title={`${humanName}（用户与团队：档案、协议、Agent）`}
+            aria-label="用户与团队"
+            aria-current={mainView === 'user' ? 'page' : undefined}
+            className={cn(
+              'w-9 h-9 flex items-center justify-center rounded-button transition-colors',
+              mainView === 'user' ? 'bg-accent text-white' : 'hover:bg-black/5'
+            )}
+          >
+            <span
+              className={cn(
+                'w-5 h-5 rounded-full text-caption flex items-center justify-center',
+                mainView === 'user' ? 'bg-white/25 text-white' : 'bg-accent text-white'
+              )}
+            >
+              {humanName.slice(0, 1)}
+            </span>
+          </button>
+          {railButton('help', '快速上手', mainView === 'quickstart', () => nav('quickstart'))}
+          {railButton('settings', '设置', mainView === 'settings', () => nav('settings'))}
+        </div>
+      </aside>
+    )
+  }
 
   return (
     <aside className="sidebar-nav w-sidebar shrink-0 flex flex-col border-r border-border bg-black/[0.02]">
@@ -273,6 +409,16 @@ export const Sidebar: React.FC = () => {
         />
         <span className="text-column-title font-semibold text-text-primary tracking-tight truncate">{appName}</span>
         <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block -translate-y-px" />
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          title="收起侧栏"
+          aria-label="收起侧栏"
+          data-testid="sidebar-collapse-btn"
+          className="ml-auto shrink-0 w-6 h-6 flex items-center justify-center rounded-button text-text-secondary/60 hover:bg-black/5 hover:text-text-primary transition-colors"
+        >
+          <Icon name="chevronLeft" size={13} />
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col px-2">
