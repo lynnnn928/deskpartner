@@ -138,6 +138,17 @@ const Kanban: React.FC = () => {
   }, [showItemTools])
 
   /**
+   * 详情右栏跟着"背后那块看板"（卡 `5fe4aaad`）
+   *
+   * 换项目 / 换工作台之后，右栏里那条可能根本不在新视图里 —— 留着会让人以为
+   * "这个项目里还有这条"。离开看板视图的那一半在 `ui.store.setMainView` 里做，
+   * 因为那边是唯一改 `mainView` 的入口（含跨窗口深链）。
+   */
+  useEffect(() => {
+    closeTodoDetail()
+  }, [filterProject, workspaceMode, closeTodoDetail])
+
+  /**
    * 深链同步：窗口复用时 loadURL 只改 hash 是同文档导航，组件不重挂载 ——
    * 监听 hashchange 才能把"去审批/去设置"的第二次点击也送达
    * （与设置页 ?section= 深链当年踩的是同一个坑）。

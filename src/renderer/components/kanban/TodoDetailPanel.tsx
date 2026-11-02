@@ -3,6 +3,7 @@ import { QuickAddForm } from '../quick-add/QuickAddForm'
 import { Icon } from '../ui/Icon'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
+import { clearQuickAddDraftForTodo } from '../../lib/unsaved-drafts'
 import { cn } from '../../lib/utils'
 
 /**
@@ -70,6 +71,20 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
   const todoIdRef = useRef(todoId)
   useEffect(() => {
     todoIdRef.current = todoId
+  }, [todoId])
+  /**
+   * 换了一条事项 = 换了一次编辑（卡 `82e4b1f6`）
+   *
+   * 详情里点父/子事项是**就地**换 id，面板不卸载。表单那边因此必须重挂
+   * （下面的 `key={todoId}`）：窗口形态换一条本来就是整页重载，内嵌形态得同义，
+   * 否则"有改动就不重填"的守卫会让新一条顶着上一条的内容，保存就写错了条目。
+   *
+   * 换完之后"有没有未保存的改动"要重新算 —— 旧那条的脏状态不属于新这条，
+   * 留着会让关右栏时白弹一次确认框。
+   */
+  useEffect(() => {
+    setDirty(false)
+    setConfirmOpen(false)
   }, [todoId])
   useEffect(() => {
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -183,6 +198,7 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto">
           <QuickAddForm
+            key={todoId}
             embeddedTodoId={todoId}
             onClose={onClose}
             onOpenTodo={onOpenTodo}
@@ -221,6 +237,14 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
               size="sm"
               data-testid="todo-detail-discard"
               onClick={() => {
+                /**
+                 * 「放弃修改」必须真的丢（卡 `77aedd14`）
+                 *
+                 * 表单在"有改动"时每次渲染都往 sessionStorage 写一份草稿；
+                 * 只关面板、不清草稿，下次打开同一条会把原文原样恢复出来 ——
+                 * 那和这个按钮说的话正相反，等于给了一个假确认。
+                 */
+                clearQuickAddDraftForTodo(todoId)
                 setConfirmOpen(false)
                 setDirty(false)
                 onClose()

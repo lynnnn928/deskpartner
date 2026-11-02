@@ -514,7 +514,14 @@ export const useUIStore = create<UIState>()((set) => ({
   setFilterType: (t) => set({ filterType: t }),
   setFilterFixedIn: (v) => set({ filterFixedIn: v }),
   setBoardView: (view) => set({ boardView: view }),
-  setMainView: (view) => set({ mainView: view }),
+  /**
+   * 换主视图（卡 `5fe4aaad`）
+   *
+   * 离开看板就收起事项详情右栏：右栏是"在当前这块看板上就地看这一条"，
+   * 换掉身后的看板它就没有意义了 —— 留着只会把通知 / 审批页挤窄一半。
+   */
+  setMainView: (view) =>
+    set(view === 'board' ? { mainView: view } : { mainView: view, selectedTodoId: null }),
   setFilterTimeRange: (range) => set({ filterTimeRange: range }),
   setFilterCreatedRange: (range) => set({ filterCreatedRange: range }),
   setFilterDue: (scope) => set({ filterDue: scope }),

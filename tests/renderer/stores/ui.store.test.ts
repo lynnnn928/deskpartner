@@ -28,6 +28,27 @@ describe('useUIStore', () => {
     expect(state.selectedIds).toEqual([])
   })
 
+  /**
+   * 详情右栏跟着主视图走（卡 5fe4aaad）
+   *
+   * 右栏是"在当前这块看板上就地看这一条"，换掉看板它就没有意义了；
+   * 而把它留在通知 / 审批页里只有一个结果 —— 那个页面被挤窄一半。
+   */
+  describe('main view', () => {
+    it('离开看板就收起详情右栏', () => {
+      useUIStore.getState().openTodoDetail('todo-1')
+      useUIStore.getState().setMainView('notifications')
+      expect(useUIStore.getState().mainView).toBe('notifications')
+      expect(useUIStore.getState().selectedTodoId).toBeNull()
+    })
+
+    it('回到看板不清任何东西（本来就没有打开着的右栏）', () => {
+      useUIStore.getState().openTodoDetail('todo-2')
+      useUIStore.getState().setMainView('board')
+      expect(useUIStore.getState().selectedTodoId, '切回看板不该顺手关掉正在看的那条').toBe('todo-2')
+    })
+  })
+
   describe('project workspace navigation', () => {
     it('enters a project without toggling back when selected repeatedly', () => {
       const state = useUIStore.getState()

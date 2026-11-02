@@ -212,6 +212,20 @@ export function clearQuickAddDraft(route: QuickAddRoute): void {
 }
 
 /**
+ * 按事项清草稿（卡 `77aedd14`：内嵌右栏的「放弃修改」）
+ *
+ * 右栏只知道"哪一条"，没有窗口路由可传 —— 而编辑模式的键本来也只由 id 决定
+ * （见 `quickAddRouteKey`）。给一个按 id 的出口，总比让调用方自己拼
+ * `'edit:${id}'` 强：键的格式只留在这一个文件里，改格式时不会漏掉第二处。
+ */
+export function clearQuickAddDraftForTodo(todoId: string): void {
+  dropRaw(
+    QUICK_ADD_PREFIX +
+      quickAddRouteKey({ todoId, status: null, projectId: null, commentId: null })
+  )
+}
+
+/**
  * 驳回理由的草稿
  *
  * 按 todoId 记：同一张卡被退回两次，第二次打开要把上次没说出口的理由还给他。

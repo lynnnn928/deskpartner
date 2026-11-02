@@ -27,38 +27,50 @@ vi.mock('../../../src/renderer/lib/ipc-client', () => ({
  * 除了把收到的回调记在 data-* 上，还额外给两个开关：`stub-dirty` 往上抛脏状态、
  * `stub-request-close` 模拟表单里的「取消 / Esc」。右栏拦不拦，全靠这两个。
  */
-vi.mock('../../../src/renderer/components/quick-add/QuickAddForm', () => ({
-  QuickAddForm: (props: {
-    embeddedTodoId?: string | null
-    onClose?: () => void
-    onOpenTodo?: (id: string) => void
-    onRequestClose?: () => void
-    onDirtyChange?: (dirty: boolean) => void
-  }) =>
-    React.createElement(
-      'div',
-      {
-        'data-testid': 'stub-quick-add-form',
-        'data-todo': props.embeddedTodoId ?? '',
-        'data-has-close': String(typeof props.onClose === 'function'),
-        'data-has-open': String(typeof props.onOpenTodo === 'function'),
-        'data-has-request-close': String(typeof props.onRequestClose === 'function'),
-        'data-has-dirty': String(typeof props.onDirtyChange === 'function')
-      },
-      React.createElement('button', {
-        'data-testid': 'stub-dirty',
-        onClick: () => props.onDirtyChange?.(true)
-      }),
-      React.createElement('button', {
-        'data-testid': 'stub-clean',
-        onClick: () => props.onDirtyChange?.(false)
-      }),
-      React.createElement('button', {
-        'data-testid': 'stub-request-close',
-        onClick: () => props.onRequestClose?.()
-      })
-    )
-}))
+vi.mock('../../../src/renderer/components/quick-add/QuickAddForm', () => {
+  /**
+   * 每次"挂载"发一个序号（卡 `82e4b1f6`）
+   *
+   * 右栏在详情里点父子事项时是**就地换 id**、面板不卸载；判"表单有没有重挂"只能
+   * 看实例换没换 —— 用 data-instance 记下来，比断言源码字符串更接近真实行为。
+   */
+  let seq = 0
+  return {
+    QuickAddForm: (props: {
+      embeddedTodoId?: string | null
+      onClose?: () => void
+      onOpenTodo?: (id: string) => void
+      onRequestClose?: () => void
+      onDirtyChange?: (dirty: boolean) => void
+    }) => {
+      const [instance] = React.useState(() => ++seq)
+      return React.createElement(
+        'div',
+        {
+          'data-testid': 'stub-quick-add-form',
+          'data-instance': String(instance),
+          'data-todo': props.embeddedTodoId ?? '',
+          'data-has-close': String(typeof props.onClose === 'function'),
+          'data-has-open': String(typeof props.onOpenTodo === 'function'),
+          'data-has-request-close': String(typeof props.onRequestClose === 'function'),
+          'data-has-dirty': String(typeof props.onDirtyChange === 'function')
+        },
+        React.createElement('button', {
+          'data-testid': 'stub-dirty',
+          onClick: () => props.onDirtyChange?.(true)
+        }),
+        React.createElement('button', {
+          'data-testid': 'stub-clean',
+          onClick: () => props.onDirtyChange?.(false)
+        }),
+        React.createElement('button', {
+          'data-testid': 'stub-request-close',
+          onClick: () => props.onRequestClose?.()
+        })
+      )
+    }
+  }
+})
 
 import { TodoDetailPanel } from '../../../src/renderer/components/kanban/TodoDetailPanel'
 import { useUIStore } from '../../../src/renderer/stores/ui.store'
@@ -72,6 +84,7 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
   beforeEach(() => {
     useUIStore.setState({ selectedTodoId: null })
     window.localStorage.clear()
+    window.sessionStorage.clear()
   })
   afterEach(() => {
     cleanup()
@@ -241,6 +254,69 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
     unmount()
 
     expect(childFocus).toHaveBeenCalledTimes(1)
+  })
+
+  describe('换了一条事项（卡 82e4b1f6：详情里点父子事项就地切换）', () => {
+    it('表单跟着重挂：不会顶着上一条的内容', () => {
+      const onClose = vi.fn()
+      const { rerender } = render(<TodoDetailPanel todoId="todo-a" onClose={onClose} />)
+      const first = screen.getByTestId('stub-quick-add-form')
+      const firstInstance = first.getAttribute('data-instance')
+
+      rerender(<TodoDetailPanel todoId="todo-b" onClose={onClose} />)
+
+      const second = screen.getByTestId('stub-quick-add-form')
+      expect(second.getAttribute('data-todo')).toBe('todo-b')
+      expect(
+        second.getAttribute('data-instance'),
+        '换一条必须重新挂载 —— 否则装载守卫会让新条目顶着上一条的字'
+      ).not.toBe(firstInstance)
+    })
+
+    it('旧那条的脏状态不带过来：新那条干净，关起来不弹确认', () => {
+      const onClose = vi.fn()
+      const { rerender } = render(<TodoDetailPanel todoId="todo-a" onClose={onClose} />)
+      fireEvent.click(screen.getByTestId('stub-dirty'))
+
+      rerender(<TodoDetailPanel todoId="todo-b" onClose={onClose} />)
+      fireEvent.click(screen.getByTestId('todo-detail-close'))
+
+      expect(screen.queryByText('放弃未保存的修改？')).toBeNull()
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('「放弃修改」真的丢掉这条的草稿（卡 77aedd14）', () => {
+    const key = 'deskpartner.quickAdd.draft.edit:todo-draft'
+    window.sessionStorage.setItem(key, JSON.stringify({ title: '改了一半' }))
+    const onClose = vi.fn()
+
+    render(<TodoDetailPanel todoId="todo-draft" onClose={onClose} />)
+    fireEvent.click(screen.getByTestId('stub-dirty'))
+    fireEvent.click(screen.getByTestId('todo-detail-close'))
+    fireEvent.click(screen.getByTestId('todo-detail-discard'))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(
+      window.sessionStorage.getItem(key),
+      '按钮写着"放弃"，草稿就不能留着 —— 否则下次打开原文又回来'
+    ).toBeNull()
+  })
+
+  it('源码闸门：右栏里的表单按 todoId 重挂（内嵌切换 = 窗口形态的整页重载）', () => {
+    const panel = read('src/renderer/components/kanban/TodoDetailPanel.tsx')
+    expect(panel).toContain('key={todoId}')
+  })
+
+  it('源码闸门：右栏跟着背后那块看板收（卡 5fe4aaad）', () => {
+    const kanban = read('src/renderer/windows/Kanban.tsx')
+    expect(kanban, '换项目 / 换工作台就收起详情').toMatch(
+      /useEffect\(\(\) => \{\s*closeTodoDetail\(\)\s*\}, \[filterProject, workspaceMode, closeTodoDetail\]\)/
+    )
+    const store = read('src/renderer/stores/ui.store.ts')
+    expect(store, '离开看板视图就清掉选中项').toMatch(
+      /set\(view === 'board' \? \{ mainView: view \} : \{ mainView: view, selectedTodoId: null \}\)/
+    )
   })
 
   it('源码闸门：看板内双击改为就地展开，其他入口仍走窗口', () => {

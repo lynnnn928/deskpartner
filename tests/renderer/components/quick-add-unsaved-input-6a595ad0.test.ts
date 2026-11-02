@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {
   clearQuickAddDraft,
+  clearQuickAddDraftForTodo,
   clearRejectReason,
   quickAddDraftFromTodo,
   quickAddRouteKey,
@@ -300,6 +301,24 @@ describe('速记与驳回弹窗的未保存输入（卡 6a595ad0）', () => {
     clearQuickAddDraft(editRoute('t-a'))
     expect(readQuickAddDraft(editRoute('t-a'))).toBeNull()
     expect(readQuickAddDraft(editRoute('t-b'))?.title).toBe('B 的草稿')
+  })
+
+  /**
+   * 内嵌右栏的「放弃修改」要真的丢（卡 77aedd14）
+   *
+   * 右栏只知道 id、没有窗口路由，所以库里补了一个按 id 的出口；
+   * 它必须和 clearQuickAddDraft(editRoute(id)) 命中同一个键 —— 这是"键只存在于
+   * 一个地方"的判据：两条路各拼各的字符串，迟早有一条拼错。
+   */
+  it('按事项清草稿：和按路由清命中同一个键，别的条不受影响', () => {
+    writeQuickAddDraft(editRoute('t-a'), draftOf({ title: 'A 的草稿' }))
+    writeQuickAddDraft(editRoute('t-b'), draftOf({ title: 'B 的草稿' }))
+
+    clearQuickAddDraftForTodo('t-a')
+
+    expect(readQuickAddDraft(editRoute('t-a')), '按 id 清要清在同一个键上').toBeNull()
+    expect(readQuickAddDraft(editRoute('t-b'))?.title, '别的条不该被连坐').toBe('B 的草稿')
+    // 反向验证：让 clearQuickAddDraftForTodo 自己拼 '' + todoId → 本条红。
   })
 
   it('判"改没改"：多值标签按内容比，不看数组引用', () => {
