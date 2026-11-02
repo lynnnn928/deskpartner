@@ -60,8 +60,9 @@ export const KanbanBoard: React.FC<{ onOpenProjectSearch?: (query?: string) => v
   } | null>(null)
 
   const handleEdit = (id: string) => {
-    // 通过 IPC 让主进程打开 QuickAdd 窗口并传入 todoId
-    invoke('window:showQuickAdd', { todoId: id })
+    // 卡 6ba3db21：看板内就地展开右栏，不再开一个盖住看板的独立窗口。
+    // 其他页面的入口（通知、审批、版本、时间线…）暂时仍走 window:showQuickAdd。
+    useUIStore.getState().openTodoDetail(id)
   }
 
   /**

@@ -184,7 +184,12 @@ describe('速记与驳回弹窗的未保存输入（卡 6a595ad0）', () => {
 
   it('①取消（关闭弹窗）不清草稿：取消是"先不编辑"，不是"这些字不要了"', () => {
     const code = stripComments(read('src/renderer/components/quick-add/QuickAddForm.tsx'))
-    expect(code).toMatch(/const handleCancel = \(\) => \{\s*\n\s*invoke\('window:hideQuickAdd'\)\s*\n\s*\}/)
+    expect(code).toMatch(/const handleCancel = \(\) => \{\s*\n\s*closeDetail\(\)\s*\n\s*\}/)
+    // 卡 6ba3db21：关闭动作收敛成一个 closeDetail —— 内嵌右栏时交给外层回调，
+    // 独立窗口仍走 IPC。取消的语义没变（"先不编辑"），所以下面两条判据照旧。
+    expect(code, '独立窗口那条路仍要真的关窗').toMatch(
+      /const closeDetail = \(\) => \{[\s\S]{0,200}invoke\('window:hideQuickAdd'\)/
+    )
     const cancel = code.slice(code.indexOf('const handleCancel'))
     expect(cancel.slice(0, 200), 'handleCancel 里不该清草稿').not.toContain('clearQuickAddDraft')
     // 反向验证：在 handleCancel 里加一句 clearQuickAddDraft → 本条红。

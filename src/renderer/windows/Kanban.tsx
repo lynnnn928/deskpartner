@@ -19,6 +19,7 @@ import { ProjectOverviewView } from '../components/project/ProjectOverviewView'
 import { ProjectDocsView } from '../components/project/ProjectDocsView'
 import { ViewScopeSwitcher } from '../components/kanban/ViewScopeSwitcher'
 import { WorkbenchView } from '../components/workbench/WorkbenchView'
+import { TodoDetailPanel } from '../components/kanban/TodoDetailPanel'
 import { GlobalSearchView } from '../components/workbench/GlobalSearchView'
 import { useSettingsStore } from '../stores/settings.store'
 import { useProjectStore } from '../stores/project.store'
@@ -80,7 +81,10 @@ const Kanban: React.FC = () => {
     setProjectEntryTab,
     workItemScope,
     setWorkItemScope,
-    setFilterStatus
+    setFilterStatus,
+    selectedTodoId,
+    openTodoDetail,
+    closeTodoDetail
   } = useUIStore()
   const multiSelectMode = useUIStore((s) => s.multiSelectMode)
   const toggleMultiSelect = useUIStore((s) => s.toggleMultiSelect)
@@ -491,6 +495,15 @@ const Kanban: React.FC = () => {
         {/* 全局轻提示：失败不能只落在控制台（1.0.48） */}
         <Toast />
       </div>
+
+      {/* 事项详情右栏（卡 6ba3db21）：与看板同一窗口，三列真实收窄让位 */}
+      {selectedTodoId && (
+        <TodoDetailPanel
+          todoId={selectedTodoId}
+          onClose={closeTodoDetail}
+          onOpenTodo={openTodoDetail}
+        />
+      )}
     </div>
   )
 }

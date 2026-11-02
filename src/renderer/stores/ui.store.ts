@@ -106,6 +106,15 @@ interface UIState {
   sidebarCollapsed: boolean
   toggleSidebar: () => void
   /**
+   * 看板内正在展开详情的事项（卡 `6ba3db21`）
+   *
+   * 与"开一个独立的详情窗口"是两条路：这里是**同一窗口内的右栏**，所以只需要一个 id。
+   * 会话级、不落库 —— 关掉应用再打开还停在某条详情上，只会让人以为界面卡住了。
+   */
+  selectedTodoId: string | null
+  openTodoDetail: (id: string) => void
+  closeTodoDetail: () => void
+  /**
    * 按项目筛选：null 不限，其余是项目 id
    *
    * 项目比标签更高一层 —— 标签说"这件事是什么性质"，项目说"这件事属于哪摊"。
@@ -338,6 +347,9 @@ export const useUIStore = create<UIState>()((set) => ({
       return { sidebarCollapsed: next }
     })
   },
+  selectedTodoId: null,
+  openTodoDetail: (id: string) => set({ selectedTodoId: id }),
+  closeTodoDetail: () => set({ selectedTodoId: null }),
   filterProject: null,
   filterProjectIds: [],
   workspaceMode: 'workbench',

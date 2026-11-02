@@ -43,6 +43,21 @@ import {
   type QuickAddDraft
 } from '../../lib/unsaved-drafts'
 
+/**
+ * 内嵌模式的入口参数（卡 `6ba3db21`）
+ *
+ * 独立窗口那三种形态（新增 / 编辑 / 评论定位）靠 hash 路由表达；
+ * 内嵌右栏只有一个场景：**编辑某一条**。所以这里只要一个 id + 两个回调。
+ */
+export interface QuickAddFormProps {
+  /** 内嵌时直接给定要编辑的事项；不传就走窗口 hash 路由 */
+  embeddedTodoId?: string | null
+  /** 内嵌时的关闭动作（保存成功、取消、Esc 都走它） */
+  onClose?: () => void
+  /** 内嵌时点父子事项：就地切换，而不是再开一个窗口 */
+  onOpenTodo?: (id: string) => void
+}
+
 /** 弹窗内边距档位 */
 const PADDING_MAP: Record<SpacingPreset, { padding: number; gap: number }> = {
   compact: { padding: 16, gap: 8 },
@@ -89,7 +104,7 @@ function pickInitialProject(
   return projects[0]?.id ?? null
 }
 
-export const QuickAddForm: React.FC = () => {
+export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   const [title, setTitle] = useState('')
   const [remindAt, setRemindAt] = useState<string | null>(null)
   const [categoryIds, setCategoryIds] = useState<string[]>([])
@@ -191,7 +206,23 @@ export const QuickAddForm: React.FC = () => {
    * 于是 useMemo 只在挂载时算一次，之后一直停在旧模式：
    * 表现就是"双击卡片却弹出新增待办"。
    */
-  const routeParams = useQuickAddRoute()
+  /**
+   * 内嵌模式（卡 `6ba3db21`）：看板右栏里直接给一个要编辑的事项，不走窗口 hash 路由。
+   *
+   * 为什么不让调用方改 hash：hash 属于**窗口**，看板窗口的 hash 是 `#/kanban`；
+   * 借它表达"正在看哪条"会让刷新后停在一条不属于看板的地址上。
+   * 所以这里只覆盖路由对象本身，其余（草稿键、初始项目）都还用同一套逻辑 ——
+   * 两套逻辑一分叉，草稿恢复就会在两种形态下表现不同。
+   */
+  const embedded = props.embeddedTodoId != null
+  const routeFromHash = useQuickAddRoute()
+  const routeParams = React.useMemo(
+    () =>
+      embedded
+        ? { todoId: props.embeddedTodoId ?? null, status: null, projectId: null, commentId: null }
+        : routeFromHash,
+    [embedded, props.embeddedTodoId, routeFromHash]
+  )
 
   const editingTodoId = routeParams.todoId
   const focusCommentId = routeParams.commentId
@@ -397,6 +428,8 @@ export const QuickAddForm: React.FC = () => {
    * - 换一条时 hash 变了，routeParams 变化会触发重置（见下面的 effect）
    */
   useEffect(() => {
+    // 内嵌在右栏时没有"这个窗口失焦"这回事：主窗口一失焦就收起详情等于点哪都没反应
+    if (embedded) return
     const mountedAt = Date.now()
     const handleBlur = () => {
       // 刚打开时的假失焦不算（窗口可能还没真正拿到焦点）
@@ -405,7 +438,7 @@ export const QuickAddForm: React.FC = () => {
     }
     window.addEventListener('blur', handleBlur)
     return () => window.removeEventListener('blur', handleBlur)
-  }, [])
+  }, [embedded])
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -486,7 +519,7 @@ export const QuickAddForm: React.FC = () => {
       setRestoredDraft(false)
       // 关闭窗口。用 IPC 而不是 window.close()：
       // 主进程现在是隐藏复用这个窗口，销毁掉就失去复用的意义了
-      invoke('window:hideQuickAdd')
+      closeDetail()
       if (editingTodoId) {
         /**
          * 编辑保存后**不重置表单**（卡 6a595ad0）
@@ -508,8 +541,22 @@ export const QuickAddForm: React.FC = () => {
     }
   }
 
-  const handleCancel = () => {
+  /**
+   * 关闭详情（卡 `6ba3db21`）
+   *
+   * 内嵌时**不能**调 `window:hideQuickAdd` —— 那条 IPC 关的是独立窗口，
+   * 在看板窗口里执行它什么也不会发生（甚至会把上次没关的详情窗口关掉）。
+   */
+  const closeDetail = () => {
+    if (embedded) {
+      props.onClose?.()
+      return
+    }
     invoke('window:hideQuickAdd')
+  }
+
+  const handleCancel = () => {
+    closeDetail()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -729,7 +776,7 @@ export const QuickAddForm: React.FC = () => {
               {parent && (
                 <button
                   type="button"
-                  onClick={() => void invoke('window:showQuickAdd', { todoId: parent.id })}
+                  onClick={() => props.onOpenTodo ? props.onOpenTodo(parent.id) : void invoke('window:showQuickAdd', { todoId: parent.id })}
                   title={`打开父需求「${parent.title}」的详情`}
                   className="inline-flex items-center gap-1.5 h-6 px-2 rounded-button text-caption
                     text-text-secondary bg-surface-subtle border border-border/70 hover:text-text-primary hover:border-text-secondary
@@ -1083,7 +1130,7 @@ export const QuickAddForm: React.FC = () => {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => void invoke('window:showQuickAdd', { todoId: c.id })}
+                  onClick={() => props.onOpenTodo ? props.onOpenTodo(c.id) : void invoke('window:showQuickAdd', { todoId: c.id })}
                   title="打开这条子事项的详情"
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-left
                     hover:bg-surface-subtle transition-colors group"
