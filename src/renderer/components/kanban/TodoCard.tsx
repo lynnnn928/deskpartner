@@ -129,8 +129,15 @@ export const TodoCard: React.FC<TodoCardProps> = ({ todo, onEdit, onDelete, onPi
         'group relative bg-bg-card border border-border/80 p-card flex flex-col gap-2',
         multiSelectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
         'transition-shadow',
-        // 焦点落在卡片上时给个圈：右栏关掉后焦点回到这里，得看得见它落到了哪一条
-        'focus:outline-none focus:ring-2 focus:ring-accent',
+        /**
+         * 焦点圈只给键盘（卡 `35fa2cbc`）
+         *
+         * 之前是 `focus:ring-2 focus:ring-accent`：鼠标点一下卡片，焦点落到卡片上，
+         * 立刻多出一圈 2px 的深色环（本主题的 accent 就是近黑 #111827），
+         * 看着像"莫名其妙被选中了"。改成 `focus-visible` —— 鼠标点击不再画，
+         * 键盘 Tab 到这一条、或右栏关掉后焦点回来时仍然看得见它落在哪。
+         */
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
         isDragging && 'shadow-drag scale-105 opacity-90 z-50',
         !isDragging && 'shadow-card hover:shadow-card-hover hover:border-border',
         isDone && 'opacity-70',

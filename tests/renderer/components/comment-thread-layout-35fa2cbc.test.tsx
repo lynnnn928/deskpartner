@@ -24,7 +24,7 @@ vi.mock('../../../src/renderer/lib/ipc-client', () => ({
           todoId: 't1',
           parentId: null,
           authorType: 'agent',
-          authorId: 'agent:penguin',
+          authorId: 'agent:alice',
           body: '第一条评论的正文',
           kind: 'comment',
           createdAt: '2026-10-27T07:04:00.000Z'
@@ -38,6 +38,16 @@ vi.mock('../../../src/renderer/lib/ipc-client', () => ({
           body: '楼中楼回复的正文',
           kind: 'comment',
           createdAt: '2026-10-29T07:37:00.000Z'
+        },
+        {
+          id: 'c3',
+          todoId: 't1',
+          parentId: null,
+          authorType: 'agent',
+          authorId: 'agent:alice',
+          body: '这里**加粗**、`行内代码`\n\n- 列表第一项\n- 列表第二项',
+          kind: 'comment',
+          createdAt: '2026-10-30T02:00:00.000Z'
         }
       ]
     }
@@ -48,7 +58,7 @@ vi.mock('../../../src/renderer/lib/ipc-client', () => ({
 afterEach(() => cleanup())
 
 describe('评论行排版（卡 35fa2cbc）', () => {
-  it('时间、回复、删除都排在正文下面，正文占满这一列', async () => {
+  it('时间在左、回复删除靠右，都在正文下面一行；正文占满这一列', async () => {
     render(<CommentThread todoId="t1" />)
     await screen.findByText('第一条评论的正文')
 
@@ -58,18 +68,36 @@ describe('评论行排版（卡 35fa2cbc）', () => {
     // 一行只该有两块：作者图标 + 内容列。多出来的那块就是右侧那条常驻操作列
     expect(row.children.length, '正文右侧又多出来一列').toBe(2)
 
-    const body = within(row).getByText('第一条评论的正文')
+    const body = within(row).getByTestId('comment-body')
     const meta = within(row).getByTestId('comment-meta')
     expect(body.nextElementSibling, '时间与操作要紧跟在正文下面').toBe(meta)
 
-    // 元信息一行里三样都在：时间、回复、删除
+    // 时间在这一行的左、操作靠右（ml-auto），正文不再被右侧那一列挤窄
     expect(within(meta).getByText(/\d\d-\d\d \d\d:\d\d/), '时间不在下面这一行').toBeTruthy()
-    expect(within(meta).getByText('回复')).toBeTruthy()
-    expect(within(meta).getByText('删除')).toBeTruthy()
+    const actions = within(meta).getByTestId('comment-actions')
+    expect(actions.className, '回复/删除要靠右').toContain('ml-auto')
+    expect(within(actions).getByText('回复')).toBeTruthy()
+    expect(within(actions).getByText('删除')).toBeTruthy()
 
     // 名字那一行不该再留时间（那是"跑到最右边"的旧位置）
     const nameRow = body.previousElementSibling as HTMLElement
     expect(nameRow.textContent).not.toMatch(/\d\d-\d\d \d\d:\d\d/)
+  })
+
+  it('评论正文按 Markdown 渲染（加粗、行内代码、列表）', async () => {
+    render(<CommentThread todoId="t1" />)
+    await screen.findAllByTestId('comment-body')
+    // 第三条评论故意写成 Markdown
+    const host = document.querySelector('[data-comment-id="c3"]') as HTMLElement
+    expect(host, '找不到那条 Markdown 评论').toBeTruthy()
+
+    const wrap = within(host).getByTestId('comment-body')
+    expect(wrap.querySelector('strong'), '**加粗** 没有渲染成 strong').toBeTruthy()
+    expect(wrap.querySelector('code'), '行内反引号没有渲染成 code').toBeTruthy()
+    expect(wrap.querySelector('li'), '列表项没有渲染成 li').toBeTruthy()
+    // 原始标记不该原样漏出来
+    expect(wrap.textContent).not.toContain('**')
+    expect(wrap.textContent).not.toContain('`')
   })
 
   it('挪到下面之后，回复与删除照样能点', async () => {

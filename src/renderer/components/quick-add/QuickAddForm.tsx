@@ -1239,6 +1239,8 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
               <span className="font-mono text-caption text-text-secondary font-normal">
                 {timeline.length} 步
               </span>
+              {/* 和上面「本次变更（这次交付）」区分开：这里是这条事项从头到尾的改动（卡 35fa2cbc） */}
+              <span className="text-caption text-text-secondary font-normal">· 全部历史</span>
             </span>
             {timeline.length > 6 && (
               <button

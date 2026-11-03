@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
+import { MarkdownContent } from '../ui/MarkdownContent'
 import { invoke } from '../../lib/ipc-client'
 import { cn } from '../../lib/utils'
 import { ownerLabel } from '../../lib/todo-filter'
@@ -385,13 +386,16 @@ const CommentRow: React.FC<{
         )}
       </div>
       {/* whitespace-pre-wrap：评论里的换行是有意义的（规格/步骤常多行） */}
-      <p className="text-label text-text-primary whitespace-pre-wrap break-words">{comment.body}</p>
+      <div data-testid="comment-body">
+        <MarkdownContent content={comment.body} className="gap-1" />
+      </div>
       {/*
-        时间与操作放在正文下方（卡 `35fa2cbc`）
-        原来时间是名字那行的 ml-auto（推到最右），回复/删除又是正文右侧一个
-        `shrink-0` 的独立列 —— 那条列即使 hover 前是全透明的也照样占宽，
-        一条窄评论右侧会空出五六十像素，正文被挤在中间。现在时间、回复、删除
-        一律排在正文下面一行，正文自己吃满整个宽度。
+        元信息一行：时间在左，回复/删除靠右（卡 `35fa2cbc`）
+
+        原来时间是名字那行的 `ml-auto`（推到最右），回复/删除又是正文右侧一个
+        `shrink-0` 的独立列 —— 那条列 hover 前是全透明的，却照样占宽，
+        一条窄评论右侧会空出五六十像素。现在两者都在正文下面这一行：
+        正文吃满宽度，操作靠右对齐，仍然 hover 才出现（不做无谓的噪音）。
       */}
       <div
         data-testid="comment-meta"
@@ -400,9 +404,8 @@ const CommentRow: React.FC<{
         <span>{formatShort(comment.createdAt)}</span>
         <div
           data-testid="comment-actions"
-          className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="ml-auto flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <span className="text-text-secondary/30">·</span>
           <button
             type="button"
             onClick={() => onReply(comment)}

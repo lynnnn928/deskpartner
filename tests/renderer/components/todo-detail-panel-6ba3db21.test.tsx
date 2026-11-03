@@ -367,7 +367,16 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
     const card = read('src/renderer/components/kanban/TodoCard.tsx')
     expect(card).toContain('data-todo-id={todo.id}')
     expect(card).toContain('tabIndex={multiSelectMode ? -1 : attributes.tabIndex}')
-    expect(card).toContain('focus:ring-accent')
+    expect(card).toContain('focus-visible:ring-accent')
+    /**
+     * 焦点圈只给键盘（卡 `35fa2cbc`）
+     *
+     * 用 `focus:ring-2` 的话，鼠标点一下卡片就画一圈 2px 深色环（本主题 accent 近黑），
+     * 用户看到的是"点一下就莫名多了个黑框"。`focus-visible` 才区分键盘与鼠标。
+     */
+    // 注释里写着"以前用的是 focus:ring-2"，会假红 —— 只扫真正生效的代码
+    const code = card.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+    expect(code, '别用 focus: 画圈，鼠标点击不该留框').not.toMatch(/['"\s]focus:ring-/)
   })
 
   it('源码闸门：表单只上报「有人想关 / 改没改」，拦不拦由右栏决定', () => {
