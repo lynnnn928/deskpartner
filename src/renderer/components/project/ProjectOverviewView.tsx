@@ -72,6 +72,8 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({ projec
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteConfirmed, setDeleteConfirmed] = useState(false)
   const markdownRef = useRef<HTMLTextAreaElement>(null)
+  /** 接手说明那一块（落点时滚到它，别停在概览第一屏） */
+  const handoffSectionRef = useRef<HTMLElement>(null)
   const draftStorageKey = `deskpartner:handoff-draft:${projectId}`
 
   const load = useCallback(async () => {
@@ -216,6 +218,14 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({ projec
     landedRef.current = key
     setMatchOrdinal(0)
     revealMatch(0)
+    /**
+     * 落点还要把这一块滚进视野（卡 `35fa2cbc`）
+     *
+     * 从搜索点进来时页面停在概览最上面那块「当前工作分布」，而接手说明在
+     * 页面下半截 —— 只选中 textarea 里的字没用，人看到的仍是第一屏，
+     * 主用户的原话是"它聚焦打开的是概览第一块，用户一下子就懵啦"。
+     */
+    handoffSectionRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' })
   }, [focusTerm, loading, detail, projectId, draft, revealMatch])
 
   const save = async () => {
@@ -472,7 +482,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({ projec
           </div>
         </section>
 
-        <section className="project-section p-5">
+        <section ref={handoffSectionRef} className="project-section p-5">
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/60">
             <h2 className="text-content font-semibold text-text-primary">项目接手说明</h2>
             <div className="flex items-center gap-2">

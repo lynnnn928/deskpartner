@@ -416,14 +416,7 @@ const Kanban: React.FC = () => {
             />
           )}
           {inBoard && workspaceMode === 'project' && projectTab === 'docs' && selectedProject && (
-            <ProjectDocsView
-              projectId={selectedProject.id}
-              onOpenOverview={() => {
-                setProjectTab('overview')
-                setMainView('board')
-                setBoardView('kanban')
-              }}
-            />
+            <ProjectDocsView projectId={selectedProject.id} />
           )}
           {inBoard && workspaceMode === 'project' && projectTab === 'overview' && selectedProject && (
             <ProjectOverviewView

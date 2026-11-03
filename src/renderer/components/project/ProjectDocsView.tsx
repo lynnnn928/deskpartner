@@ -10,10 +10,10 @@ import { MarkdownContent } from '../ui/MarkdownContent'
 import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
 import { cn } from '../../lib/utils'
+import { HandoffRevisionsDrawer } from './HandoffRevisionsDrawer'
 
 interface ProjectDocsViewProps {
   projectId: string
-  onOpenOverview: () => void
 }
 
 const HANDOFF_KEY = '__handoff__'
@@ -47,7 +47,7 @@ export function sanitizeHtmlForSandbox(raw: string): string {
 /**
  * 项目「文档」页签（方案 C：接手说明留库内，项目可选关联本地 Markdown 文档目录做只读索引与渲染；卡 a3bd40d8 / 095b2006）
  */
-export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId, onOpenOverview }) => {
+export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) => {
   const projects = useProjectStore((s) => s.projects)
   const updateProject = useProjectStore((s) => s.updateProject)
   const fetchProjects = useProjectStore((s) => s.fetchProjects)
@@ -67,6 +67,25 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId, onO
   const [docError, setDocError] = useState<string | null>(null)
   const [filterQuery, setFilterQuery] = useState('')
   const [pickingDir, setPickingDir] = useState(false)
+  /** 接手说明：就地编辑（卡 `35fa2cbc`） */
+  const [editingHandoff, setEditingHandoff] = useState(false)
+  const [handoffDraft, setHandoffDraft] = useState('')
+  const [savingHandoff, setSavingHandoff] = useState(false)
+  const [revisionsOpen, setRevisionsOpen] = useState(false)
+
+  const saveHandoff = useCallback(async () => {
+    if (savingHandoff) return
+    setSavingHandoff(true)
+    try {
+      await updateProject({ id: projectId, handoffMarkdown: handoffDraft })
+      setEditingHandoff(false)
+      showToast('接手说明已保存')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '保存接手说明失败')
+    } finally {
+      setSavingHandoff(false)
+    }
+  }, [handoffDraft, projectId, savingHandoff, showToast, updateProject])
 
   const loadList = useCallback(async () => {
     setLoadingList(true)
@@ -126,6 +145,33 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId, onO
       (d) => d.title.toLowerCase().includes(q) || d.file.toLowerCase().includes(q)
     )
   }, [docList, filterQuery])
+
+  /**
+   * 目录按文件夹分组（卡 `35fa2cbc`）
+   *
+   * 原来是一串两行的条目（标题 + 整条相对路径 + 体积）：12 篇文档在 288px 的
+   * 侧栏里既读不出层次，标题还会被截在半截字上。现在：
+   * - 只按**第一段目录**分组（`architecture/`、`design/`、`generated/`、根目录），
+   *   层次本来就是靠这一级分的，再深就是噪音；
+   * - 每篇一行：标题（截断，完整路径进 title 属性）+ 体积；
+   * - 组内保持后端给的顺序（同目录内按文件名），不在这里二次排序。
+   */
+  const docGroups = useMemo(() => {
+    const map = new Map<string, ProjectDocEntry[]>()
+    for (const doc of filteredDocs) {
+      const slash = doc.file.indexOf('/')
+      // 顶层目录 = 第一段；根目录下的文档单列一组
+      const folder = slash > 0 ? doc.file.slice(0, slash) : '根目录'
+      const arr = map.get(folder) ?? []
+      arr.push(doc)
+      map.set(folder, arr)
+    }
+    // 顺序：根目录在前，其余按目录名排 —— 后端给的是"按路径"的顺序，
+    // 根目录的文档会散落在各组之间，不合并就会出现好几段"根目录"。
+    return [...map.entries()]
+      .sort(([a], [b]) => (a === '根目录' ? -1 : b === '根目录' ? 1 : a.localeCompare(b)))
+      .map(([folder, docs]) => ({ folder, docs }))
+  }, [filteredDocs])
 
   const referencingTodos = useMemo(() => {
     if (selectedKey === HANDOFF_KEY || !docContent) return []
@@ -326,34 +372,39 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId, onO
                 {filterQuery.trim() ? '没有匹配的文档' : '该目录下暂无 .md 或 .html 文档'}
               </div>
             ) : (
-              filteredDocs.map((doc) => (
-                <button
-                  key={doc.file}
-                  type="button"
-                  onClick={() => setSelectedKey(doc.file)}
-                  data-testid={`project-doc-item-${doc.file}`}
-                  className={cn(
-                    'w-full text-left px-3 py-2 rounded-input transition-colors cursor-pointer flex flex-col gap-0.5',
-                    selectedKey === doc.file
-                      ? 'bg-accent/10 text-text-primary border border-accent/30'
-                      : 'hover:bg-surface-subtle text-text-primary border border-transparent'
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-content font-normal text-text-primary truncate">
-                      {doc.title}
-                    </span>
-                    {doc.kind === 'html' && (
-                      <span className="px-1.5 py-0.5 rounded-xs bg-surface-muted text-caption text-text-secondary font-mono shrink-0">
-                        HTML
+              docGroups.map((group) => (
+                <div key={group.folder} className="flex flex-col gap-0.5">
+                  <div className="px-2 pt-2 pb-0.5 text-caption text-text-secondary font-mono">
+                    {group.folder}/
+                    <span className="ml-1 text-text-secondary/60">{group.docs.length}</span>
+                  </div>
+                  {group.docs.map((doc) => (
+                    <button
+                      key={doc.file}
+                      type="button"
+                      onClick={() => setSelectedKey(doc.file)}
+                      data-testid={`project-doc-item-${doc.file}`}
+                      title={doc.file}
+                      className={cn(
+                        'w-full text-left px-2.5 py-1.5 rounded-input transition-colors cursor-pointer flex items-center gap-2',
+                        selectedKey === doc.file
+                          ? 'bg-accent/10 text-text-primary'
+                          : 'hover:bg-surface-subtle text-text-primary'
+                      )}
+                    >
+                      {/* 标题里的反引号是 Markdown 记号，列表里当普通字符读起来像乱码 */}
+                      <span className="min-w-0 flex-1 truncate text-label">{doc.title.replace(/`/g, '')}</span>
+                      {doc.kind === 'html' && (
+                        <span className="px-1 rounded-xs bg-surface-muted text-caption text-text-secondary font-mono shrink-0">
+                          HTML
+                        </span>
+                      )}
+                      <span className="shrink-0 text-caption text-text-secondary font-mono tabular-nums">
+                        {formatBytes(doc.bytes)}
                       </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-2 text-caption text-text-secondary font-mono">
-                    <span className="truncate">{doc.file}</span>
-                    <span className="shrink-0">{formatBytes(doc.bytes)}</span>
-                  </div>
-                </button>
+                    </button>
+                  ))}
+                </div>
               ))
             )}
           </div>
@@ -364,7 +415,7 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId, onO
           {selectedKey === HANDOFF_KEY ? (
             <div className="max-w-3xl mx-auto space-y-4">
               <div className="flex items-center justify-between gap-3 pb-3 border-b border-border">
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-content font-semibold text-text-primary">
                     项目接手说明（库内权威来源）
                   </h2>
@@ -372,21 +423,75 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId, onO
                     保存在数据库内，具备修订历史、提议审批与新鲜度检测；CLI 可用 `dp project get` 读取。
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={onOpenOverview}>
-                  去概览编辑 / 看修订
-                </Button>
+                {/*
+                  就地编辑（卡 `35fa2cbc`）
+                  这块内容就长在文档页上，改它却要跳去「概览」——主用户的原话是
+                  "为什么要跑到概览页才能改"。跳过去的落点还是概览的第一块
+                  （当前工作分布），接手说明在页面下半截，人一下就懵了。
+                  现在编辑、保存、看修订都在这一页完成。
+                */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setRevisionsOpen(true)}
+                  >
+                    <Icon name="clock" size={13} className="mr-1" /> 修订历史
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (editingHandoff) {
+                        setHandoffDraft(project?.handoffMarkdown ?? '')
+                        setEditingHandoff(false)
+                      } else {
+                        setHandoffDraft(project?.handoffMarkdown ?? '')
+                        setEditingHandoff(true)
+                      }
+                    }}
+                  >
+                    {editingHandoff ? '取消' : '编辑说明'}
+                  </Button>
+                  {editingHandoff && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={savingHandoff}
+                      onClick={() => void saveHandoff()}
+                    >
+                      {savingHandoff ? '保存中…' : '保存'}
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              {project?.handoffMarkdown?.trim() ? (
+              {editingHandoff ? (
+                <textarea
+                  value={handoffDraft}
+                  onChange={(e) => setHandoffDraft(e.target.value)}
+                  aria-label="项目接手说明正文"
+                  placeholder="写清楚：项目目标、已定方向、明确不做的事、工作入口、下一步。"
+                  className="w-full min-h-96 p-4 rounded-card border border-border bg-bg-card
+                    text-label leading-relaxed text-text-primary outline-none resize-y
+                    focus:border-accent transition-colors"
+                />
+              ) : project?.handoffMarkdown?.trim() ? (
                 <div className="p-5 rounded-card border border-border bg-bg-card">
                   <MarkdownContent content={project.handoffMarkdown} />
                 </div>
               ) : (
                 <EmptyState
                   title="暂无接手说明内容"
-                  description="可在项目「概览」页编辑保存，或由 Agent 通过 project handoff-propose 提交提议。"
+                  description="点右上「编辑说明」直接写，或由 Agent 通过 project handoff-propose 提交提议。"
                 />
               )}
+
+              <HandoffRevisionsDrawer
+                projectId={projectId}
+                open={revisionsOpen}
+                onClose={() => setRevisionsOpen(false)}
+              />
             </div>
           ) : loadingDoc ? (
             <div className="max-w-3xl mx-auto py-12 text-label text-text-secondary">
