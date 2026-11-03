@@ -9,7 +9,13 @@ interface MarkdownContentProps {
 /**
  * 轻量安全的 Markdown 阅读视图渲染器（Read-First, Edit-on-Demand 契约组件）：
  * 支持标题（# ~ ###）、无序/有序列表、任务复选框（- [ ] / - [x]）、引用块（>）、
- * 代码块（```）、行内代码（`code`）、加粗（**bold**）与分割线（---），自动过滤 HTML 注释。
+ * 代码块（```）、行内代码（`code`）、加粗（**bold**）、分割线（---）、
+ * **GFM 表格**（`| a | b |` + `| :--- | :---: |` 分隔行，卡 `51671d3e`）与
+ * 单元格内的 `<br>` 换行，自动过滤 HTML 注释。
+ *
+ * 表格为什么必须支持（卡 `51671d3e`）：项目文档里的评审标准、字段对照几乎都是
+ * 表格写的，读不了表格等于读不了那份文档 —— 主用户实测一篇答辩方案整块表格变成
+ * 一屏竖线源码，只能换系统程序打开。
  */
 export const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, className }) => {
   const cleaned = content.replace(/<!--[\s\S]*?-->/g, '').trim()
@@ -78,6 +84,59 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, class
         </div>
       )
       i++
+      continue
+    }
+
+    // 表格：表头行 + 分隔行（| --- | :---: |）+ 数据行
+    if (trimmed.startsWith('|') && isTableSeparator(lines[i + 1])) {
+      const header = splitTableRow(trimmed)
+      const aligns = splitTableRow(lines[i + 1].trim()).map(alignOfCell)
+      i += 2
+      const rows: string[][] = []
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        rows.push(splitTableRow(lines[i].trim()))
+        i++
+      }
+      const alignClass = (k: number): string =>
+        aligns[k] === 'center' ? 'text-center' : aligns[k] === 'right' ? 'text-right' : 'text-left'
+      blocks.push(
+        <div key={key++} className="my-1 overflow-x-auto">
+          <table className="w-full border-collapse text-caption text-text-primary">
+            <thead>
+              <tr>
+                {header.map((cell, idx) => (
+                  <th
+                    key={idx}
+                    className={cn(
+                      'border border-border/70 bg-surface-muted px-2 py-1 font-semibold align-top break-words',
+                      alignClass(idx)
+                    )}
+                  >
+                    {renderInline(cell)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr key={ri}>
+                  {row.map((cell, ci) => (
+                    <td
+                      key={ci}
+                      className={cn(
+                        'border border-border/60 px-2 py-1 align-top break-words',
+                        alignClass(ci)
+                      )}
+                    >
+                      {renderInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
       continue
     }
 
@@ -168,14 +227,67 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, class
 }
 
 /**
- * 渲染行内 Markdown（**加粗** 与 `行内代码`）
+ * 分隔行判据：`| --- | :---: | ---: |`
+ *
+ * 只认"整行都是 `-`/`:` 组成的单元格"，防止把 `| 说明 | 备注 |` 这种普通文字
+ * 当成表格的分隔行 —— 误判的后果是把正文吞进表格里。
+ */
+function isTableSeparator(line?: string): boolean {
+  if (!line) return false
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('|')) return false
+  const cells = splitTableRow(trimmed)
+  return cells.length > 0 && cells.every((cell) => /^:?-{2,}:?$/.test(cell))
+}
+
+/** 拆一行表格：`| a | b |` → `['a', 'b']`；`\|` 转义的竖线当普通字符 */
+function splitTableRow(line: string): string[] {
+  const inner = line.trim().replace(/^\|/, '').replace(/\|$/, '')
+  const cells: string[] = []
+  let buf = ''
+  for (let k = 0; k < inner.length; k += 1) {
+    const ch = inner[k]
+    if (ch === '\\' && inner[k + 1] === '|') {
+      buf += '|'
+      k += 1
+      continue
+    }
+    if (ch === '|') {
+      cells.push(buf.trim())
+      buf = ''
+      continue
+    }
+    buf += ch
+  }
+  cells.push(buf.trim())
+  return cells
+}
+
+/** 对齐：`:---` 左 / `:---:` 中 / `---:` 右 / 无冒号按左 */
+function alignOfCell(cell: string): 'left' | 'center' | 'right' {
+  const t = cell.trim()
+  const left = t.startsWith(':')
+  const right = t.endsWith(':')
+  if (left && right) return 'center'
+  if (right) return 'right'
+  return 'left'
+}
+
+/**
+ * 渲染行内 Markdown（**加粗**、`行内代码` 与 `<br>` 换行）
+ *
+ * `<br>` 是唯一放行的 HTML：文档作者用它在一个单元格里分行，而它不携带任何
+ * 属性或脚本，渲染成一个 React 元素而不是 innerHTML —— 安全面没有变大。
  */
 function renderInline(text: string): React.ReactNode {
-  const tokenRegex = /(\*\*[^*]+\*\*|`[^`]+`)/g
+  const tokenRegex = /(\*\*[^*]+\*\*|`[^`]+`|<br\s*\/?>)/gi
   const parts = text.split(tokenRegex)
   if (parts.length === 1) return text
 
   return parts.map((part, idx) => {
+    if (/^<br\s*\/?>$/i.test(part)) {
+      return <br key={idx} />
+    }
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       return (
         <strong key={idx} className="font-semibold text-text-primary">
