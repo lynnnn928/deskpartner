@@ -227,7 +227,12 @@ describe('闸门：渲染层不能只剩流转、丢掉落痕', () => {
   })
 
   it('渲染层不再自己拼「从哪来到哪去」的句子（翻译只有一份，在主进程）', () => {
-    const src = readCode('src/renderer/components/quick-add/QuickAddForm.tsx')
+    /**
+     * 时间线的渲染在 1.0.142 搬进 `ChangeStream`（卡 `35fa2cbc` 把「本次变更」
+     * 与「变更记录」合成了一条流），判据跟着搬到那个文件 —— 要钉的是
+     * "拿主进程的 `what` 渲染"，不是它写在哪个组件里。
+     */
+    const src = readCode('src/renderer/components/quick-add/ChangeStream.tsx')
     // 断言的是**意图**（拿 what 渲染），不是某一个字面量 ——
     // 早先写死 `{t.what}`，后来渲染层为了换掉 `human` 改成
     // `humanizeActor(t.what, ...)`，闸门就假红了。闸门该拦的是"翻译搬回渲染层"。

@@ -6,7 +6,6 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { matchesTodoFilter, matchesViewScope, ownerLabel, type TodoFilter } from '../../lib/todo-filter'
 import { matchesDueScope } from '../../lib/due-scope'
 import { TodoStatusPill, TodoPriorityBadge } from '../ui/Badge'
-import { invoke } from '../../lib/ipc-client'
 import type { TodoStatus } from '../../types/enums'
 
 const ACTIONABLE: TodoStatus[] = ['proposed', 'todo', 'in_progress', 'awaiting_review']
@@ -30,7 +29,8 @@ export const WorkbenchView: React.FC = () => {
     filterProjectIds,
     filterCreatedRange,
     filterDue,
-    viewScope
+    viewScope,
+    openTodoDetail
   } = useUIStore()
 
   const filter: TodoFilter = useMemo(() => ({
@@ -106,7 +106,16 @@ export const WorkbenchView: React.FC = () => {
                   <button
                     key={todo.id}
                     type="button"
-                    onClick={() => void invoke('window:showQuickAdd', { todoId: todo.id })}
+                    /**
+                     * 详情就地展开在右栏（卡 `6ba3db21` / `35fa2cbc`）
+                     *
+                     * 这里原来调 `window:showQuickAdd` 开一个独立窗口：同一条事项，
+                     * 从项目看板点开是"右栏",从「我的工作」点开却是另一个浮窗 ——
+                     * 两套外壳、两套排版要各改一遍（主用户 11-03 实测：
+                     * 「我的工作里的事项详情没有改哦」）。现在统一走内嵌右栏，
+                     * 看板窗口里那块 `TodoDetailPanel` 本来就是按选中项渲染的。
+                     */
+                    onClick={() => openTodoDetail(todo.id)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
                     <div className="w-20 shrink-0">

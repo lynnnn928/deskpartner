@@ -96,29 +96,34 @@ describe('本次变更：链路四段必须都接上（482e4b03）', () => {
     expect(ipc, 'IPC 里没调 buildReviewDiff').toMatch(/buildReviewDiff\s*\(/)
 
     // 渲染层：组件存在，且真的被挂进详情抽屉
-    const comp = read('src/renderer/components/quick-add/ReviewDiff.tsx')
+    const comp = read('src/renderer/components/quick-add/ChangeStream.tsx')
     expect(comp, '组件没调 todo:reviewDiff').toContain('todo:reviewDiff')
     const form = read('src/renderer/components/quick-add/QuickAddForm.tsx')
-    // 1.0.73 时这里是「组件里有一句『本次变更』标题」；卡 35fa2cbc 把这块与
-    // 变更记录合成了一个带页签的区块后，标题搬到了页签上（在 QuickAddForm 里），
-    // 判据跟着搬 —— 要钉的是"详情里看得见这个入口"，不是它写在哪个文件。
-    expect(form, '详情抽屉里没有「改动详情」这个页签').toContain('改动详情')
-    expect(form, '详情抽屉没挂 ReviewDiff').toMatch(/<ReviewDiff[\s>]/)
+    // 判据钉的是"详情里看得见这个入口"，不是它写在哪个文件：
+    // 1.0.73 是标题、后来是页签、现在是同一条流里的「本次交付」分界。
+    expect(comp, '合成后的流里没有「本次交付」这条分界').toContain('本次交付')
+    expect(form, '详情抽屉没挂 ChangeStream').toMatch(/<ChangeStream[\s>]/)
   })
 
-  it('⑨ 本次交付与全部历史合成一块，默认看历史（35fa2cbc）', () => {
+  it('⑨ 本次交付的改动直接挂在时间线上，不再分页签（35fa2cbc）', () => {
     const form = stripComments(read('src/renderer/components/quick-add/QuickAddForm.tsx'))
-    expect(form, '默认页签必须是历史').toContain("useState<'history' | 'review'>('history')")
-    expect(form, '合成后的区块没了').toContain('data-testid="change-section"')
-    // 没交付过（reviewItems === null）时不该冒出"本次变更"这个页签
-    expect(form, '没有交付也画页签').toMatch(/\{reviewItems && \(/)
+    const stream = stripComments(read('src/renderer/components/quick-add/ChangeStream.tsx'))
+
+    // 页签是这轮要拆掉的东西：留着就是在让人自己把两边对起来看
+    expect(form, '页签还在').not.toContain('change-tab-')
+    expect(stream, '页签还在').not.toContain('change-tab-')
+
+    // 合成一块：时间线与改动详情各取一次，再按 at 对上号
+    expect(stream, '没接时间线').toContain('timeline:')
+    expect(stream, '没有按 at 对号').toMatch(/diffByAt/)
+    expect(stream, '没有本次交付的分界').toContain('cutAt')
+
     // 取数只留一处：两边各拉一遍正是这轮要治的重复
-    const diff = stripComments(read('src/renderer/components/quick-add/ReviewDiff.tsx'))
-    expect((diff.match(/todo:reviewDiff/g) ?? []).length, '取数散成了多处').toBe(1)
+    expect((stream.match(/todo:reviewDiff/g) ?? []).length, '取数散成了多处').toBe(1)
   })
 
   it('⑥ 批注复用评论通道（不新造一套往来存储）', () => {
-    const comp = stripComments(read('src/renderer/components/quick-add/ReviewDiff.tsx'))
+    const comp = stripComments(read('src/renderer/components/quick-add/ChangeStream.tsx'))
     // 提单要求"人可逐条批注后通过/驳回"。批注走 todo:addComment 是关键决策：
     // 落进评论后，驳回/返工的既有通知链、todo get 的读入口、线程 UI 全部自动生效。
     expect(comp, '批注没走评论通道').toContain("invoke('todo:addComment'")

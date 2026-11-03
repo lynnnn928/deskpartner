@@ -15,7 +15,7 @@ import { useQuickAddRoute } from './useQuickAddRoute'
 import { EmptyValidator } from './EmptyValidator'
 import { CommentThread } from './CommentThread'
 // 「改动详情」（1.0.73 起叫「本次变更」，1.0.142 改名，卡 `35fa2cbc`）：验收时看这一次交付改了什么
-import { ReviewDiff, useReviewDiff } from './ReviewDiff'
+import { ChangeStream, useReviewDiff } from './ChangeStream'
 import { useTodoStore } from '../../stores/todo.store'
 import { useUIStore } from '../../stores/ui.store'
 import { Icon } from '../ui/Icon'
@@ -29,8 +29,6 @@ import { formatTodoAgentPrompt, shortId } from '../../lib/utils'
 import type { TodoOwner } from '../../types/todo'
 import type { SpacingPreset } from '../../types/enums'
 import { invoke } from '../../lib/ipc-client'
-import { formatTimeOnly } from '../../lib/date'
-import { planStamp, humanizeActor } from '../../lib/timeline-display'
 import type { TimelineEntry } from '../../types/todo'
 import { cn } from '../../lib/utils'
 // 没保存的输入先存哪儿（卡 6a595ad0）—— 为什么是 sessionStorage 见该文件的说明
@@ -752,19 +750,8 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   const [commentsToken, setCommentsToken] = useState(0)
   const [showAllTimeline, setShowAllTimeline] = useState(false)
   const [editingDesc, setEditingDesc] = useState(false)
-  /**
-   * 「变更」区块的页签（卡 `35fa2cbc`）
-   *
-   * 默认停在历史：日常看的是"这条怎么走到今天的"；要验收时才切到改动详情。
-   * 换事项时回到历史 —— 上一次在看改动详情，不代表下一条也要看那一面。
-   */
-  const [changeTab, setChangeTab] = useState<'history' | 'review'>('history')
   /** 本次交付的改动清单；null = 还没进过待验收（那时不出现这个页签） */
   const reviewItems = useReviewDiff(editingTodoId ?? null)
-
-  useEffect(() => {
-    setChangeTab('history')
-  }, [editingTodoId])
 
   useEffect(() => {
     setEditingDesc(false)
@@ -1237,133 +1224,14 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
         />
       )}
 
-      {/*
-        变更：改动详情 + 变更记录，合成一块（卡 `35fa2cbc`）
-
-        ── 为什么合成一块、默认看历史 ──
-
-        原来这是上下两段：「本次变更」（这次交付改了什么，可逐条批注）和
-        「变更记录」（从头到尾的流转）。主用户的原话是"最底下还有一个变更记录？
-        这两之间的区别是什么" —— 两块长得很像、都叫"变更"，一屏又都占满，
-        要点在于**她根本不缺信息，缺的是"先看哪个"**。合成一块之后：
-        默认停在历史（日常最常看的那一面），要验收时切到改动详情。
-
-        ── 名字改了：本次变更 → 改动详情 ──
-
-        主用户："'本次变更'实际上不是本次变更吧，是改动详情吧？"。
-        她说得对：这里装的是**这一次交付具体改了什么**（描述追加的正文、
-        状态箭头、字段的 before → after），与"哪一刻发生的"无关；
-        而"记录"那一面才是时间线。名字跟着内容走，免得再问一次区别。
-
-        ── 没有交付过就不出现那个页签 ──
-
-        `reviewItems === null` 表示从没进过待验收 —— 这时不该有一个点开是空的
-        页签（那是把"缺失"画成"选项"）。空数组则是"交付了但只推了状态"，
-        页签要在，里面如实说明。
-      */}
+      {/* 变更：一条流（卡 `35fa2cbc`）—— 为什么不再分页签，见 ChangeStream 的说明 */}
       {editingTodoId && (timeline.length > 1 || reviewItems) && (
-        <div className="flex flex-col gap-1.5 pt-2 border-t border-border" data-testid="change-section">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-label font-semibold text-text-primary inline-flex items-center gap-1.5 shrink-0">
-              <Icon name="clock" size={13} />
-              <span>变更</span>
-            </span>
-
-            <div className="inline-flex items-center p-0.5 rounded-button bg-surface-muted border border-border/60">
-              <button
-                type="button"
-                onClick={() => setChangeTab('history')}
-                aria-pressed={changeTab === 'history'}
-                data-testid="change-tab-history"
-                title="这条事项从头到尾的流转"
-                className={cn(
-                  'h-6 px-2.5 rounded-input text-caption transition-colors cursor-pointer',
-                  changeTab === 'history'
-                    ? 'bg-bg-card text-text-primary font-semibold shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary'
-                )}
-              >
-                变更记录
-                <span className="ml-1 font-mono opacity-70">{timeline.length}</span>
-              </button>
-              {reviewItems && (
-                <button
-                  type="button"
-                  onClick={() => setChangeTab('review')}
-                  aria-pressed={changeTab === 'review'}
-                  data-testid="change-tab-review"
-                  title="这一次交付具体改了什么（可逐条批注）"
-                  className={cn(
-                    'h-6 px-2.5 rounded-input text-caption transition-colors cursor-pointer',
-                    changeTab === 'review'
-                      ? 'bg-bg-card text-text-primary font-semibold shadow-sm'
-                      : 'text-text-secondary hover:text-text-primary'
-                  )}
-                >
-                  改动详情
-                  <span className="ml-1 font-mono opacity-70">{reviewItems.length}</span>
-                </button>
-              )}
-            </div>
-
-            {changeTab === 'history' && timeline.length > 6 && (
-              <button
-                type="button"
-                onClick={() => setShowAllTimeline(!showAllTimeline)}
-                className="text-caption text-text-secondary hover:text-accent transition-colors shrink-0"
-              >
-                {showAllTimeline ? '只看最近 5 步' : `展开全部 ${timeline.length} 步`}
-              </button>
-            )}
-          </div>
-
-          {changeTab === 'history' ? (
-            <div className="rounded-card border border-border/70 bg-surface-subtle px-2.5 py-2 flex flex-col gap-0.5">
-              {visibleTimeline.map((t, i) => {
-                const prev = i > 0 ? visibleTimeline[i - 1] : null
-                const { newDay, dayLabel } = planStamp(t.at, prev?.at ?? null)
-
-                return (
-                  <div key={t.timelineSeq} className="flex flex-col">
-                    {newDay && (
-                      <span className="text-caption font-medium text-text-secondary pt-1.5 pb-0.5">
-                        {dayLabel}
-                      </span>
-                    )}
-                    {/*
-                      时间走行内、每行都写（卡 `35fa2cbc`）
-
-                      原来是「固定 w-9 右对齐的时间列 + 正文」，于是左缘多出一条
-                      40px 的竖带：日期标签又要 pl-10 才不显得掉队，两条边对不上，
-                      窄右栏里正好是一块白给的空地。现在日期、时间、正文共用
-                      一个左缘。同一分钟的两条也各自带时间：省掉的那次会让那一行
-                      的正文顶到最左，看着像另一条轨。
-                    */}
-                    <div className="text-caption py-0.5 break-words line-clamp-2">
-                      <span className="text-text-secondary tabular-nums font-mono mr-1.5">
-                        {formatTimeOnly(t.at)}
-                      </span>
-                      {/* 追加描述的留痕自带 80 字预览，三行挨在一起就是一面墙；两行封顶，细节去「改动详情」看 */}
-                      <span className="text-text-primary">
-                        {humanizeActor(t.what, t.actor, settings?.humanName)}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            reviewItems && (
-              <div className="rounded-card border border-border/70 bg-surface-subtle px-2.5 py-2">
-                <ReviewDiff
-                  todoId={editingTodoId}
-                  items={reviewItems}
-                  onAnnotated={() => setCommentsToken((n) => n + 1)}
-                />
-              </div>
-            )
-          )}
-        </div>
+        <ChangeStream
+          todoId={editingTodoId}
+          timeline={timeline}
+          reviewItems={reviewItems}
+          onAnnotated={() => setCommentsToken((n) => n + 1)}
+        />
       )}
 
       </div>
