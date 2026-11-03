@@ -123,7 +123,7 @@ ${renderGatesBrief()}
 （batch 里的同一条命令也按这个默认跑；整批另有总量上界，超了回执带 truncated / skipped、剩余记录没执行）。
 （CLI 直连不受这条限制，重定向成文件仍是全量）；要看更多就显式传 limit。get_guide 的说明书正文原样透传、不截断。
 
-【接入后的读取顺序】先用 get_profile 认识主用户（不要推断缺失信息），再用 get_protocol 读取全局协作协议；进入项目后传 project 参数读取项目范围。随后用 get_project 读项目接手说明和状态计数（默认不给事项清单，要清单加 limit），search_project 找历史决定和评论，最后用 list_todos(status:"any", brief:true) 看完整事项范围。\n【申请与审批】新身份、写入授权及档案/协议/接手说明修改提议由主用户在 DeskPartner「审批」页处理。接手说明用 propose_handoff 提交，用 list_handoff_proposals 查询状态；update_handoff 仅供主用户直接保存。注册不等于已获写权限；提议批准前不生效。协议是可编辑约定，不能覆盖 schema.gates 的代码硬关口。`
+【接入后的读取顺序】先用 get_profile 认识主用户（不要推断缺失信息），再用 get_protocol 读取全局协作协议；进入项目后传 project 参数读取项目范围。随后用 get_project 读项目接手说明和状态计数（默认不给事项清单，要清单加 limit），search_project 找历史决定和评论；要事项清单时用 list_todos 带 project 做有界读取（默认 brief、按上面的条数上限），要不要继续读按回执 meta 的 matched/nextOffset 判断 —— limit:0 是审计/导出用的全量姿势，日常不要一次拉全。\n【申请与审批】新身份、写入授权及档案/协议/接手说明修改提议由主用户在 DeskPartner「审批」页处理。接手说明用 propose_handoff 提交，用 list_handoff_proposals 查询状态；update_handoff 仅供主用户直接保存。注册不等于已获写权限；提议批准前不生效。协议是可编辑约定，不能覆盖 schema.gates 的代码硬关口。`
 
 /**
  * 从 `GATES` 渲染一段**紧凑的**关口摘要，给 MCP instructions 用。
