@@ -126,7 +126,49 @@ ${HARD_RULES}`
 }
 
 /**
- * 推荐给新手的 agent 产品清单（PRD v1.2 用户拍板）。
+ * 把已在用的项目交给另一个 agent 接手（卡 `35fa2cbc`）
+ *
+ * 主用户的原话：「我有新项目想要接进来之后转手让你接手，但是我不知道要给你发啥」。
+ * 这不是"登记新项目"（那是 `buildProjectPrompt`），而是**项目已经在库里**，
+ * 只是换一只 AI 来干活 —— 它最需要的是：本机入口、这个项目的 id、以及
+ * "先读接手说明再动手"这条约束。
+ */
+export interface HandoffProjectInfo {
+  id: string
+  name: string
+  docsDir?: string | null
+}
+
+export function buildHandoffPrompt(
+  project: HandoffProjectInfo,
+  access: CliAccess | null = null
+): string {
+  const shortId = project.id.slice(0, 8)
+  const docs = (project.docsDir ?? '').trim()
+  const docsLine = docs
+    ? `关联文档目录：${docs}（项目自己的设计/决策文档在里面，按需要读，别一股脑全读）`
+    : '关联文档目录：暂未关联（需要的话请主用户在「文档」页关联后再读）'
+  return `你是 DeskPartner 的协作 agent。主用户在 DeskPartner 里已经有一个在用的项目「${project.name}」，现在要把它的接手工作交给你，请按下面的信息接入。
+
+${buildAccessBlock(access)}
+
+【这个项目的入口】
+- 项目：#${shortId}（完整 id ${project.id}）
+- ${docsLine}
+- 接手说明（**库内权威来源，先读它再干别的**）：project get ${project.id}
+  里面写了项目目标、已定方向、明确不做的事、工作入口与下一步。
+
+请按这个顺序工作：
+1. 按上面的接入地址读取接入说明，了解命令与规则；自检身份（agent whoami），没获批先走接入手续，**获批前不要写任何数据**。
+2. 读这个项目的接手说明（project get）与当前事项（todo list，按项目过滤），必要时再看版本（release list）与项目搜索（project search）。
+3. 用你自己的话把理解复述一遍：项目在做什么、现在走到哪一步、哪些事在等主用户拍板、你建议下一步先做哪一条。**等主用户确认或纠正，不要先动手改**。
+4. 主用户确认后，从看板上挑**最小的一条**事项开始；改状态、写结论之前，先看那条事项的评论与「变更」里的本次交付。
+5. 拿不准的放进「待确认」并写明依据，不要替主用户拍板；接手说明有需要改的地方走提议（handoff-propose），不直接覆盖。
+
+${HARD_RULES}`
+}
+
+/** 推荐给新手的 agent 产品清单（PRD v1.2 用户拍板）。
  * 官方链接、费用和能力标签在逐项核对前明确标为「待核对」，不凭印象写入。
  */
 export const RECOMMENDED_AGENTS = [

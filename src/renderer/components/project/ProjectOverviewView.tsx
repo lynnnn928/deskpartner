@@ -17,6 +17,8 @@ import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
 import { HandoffRevisionsDrawer } from './HandoffRevisionsDrawer'
 import { resolveHandoffTodoReferences } from '../../lib/handoff-references'
+import { buildHandoffPrompt } from '../../lib/onboarding-prompts'
+import { useCliAccess } from '../../lib/use-cli-access'
 import { findHandoffMatches, handoffMatchLine, revealHandoffMatch } from '../../lib/handoff-locate'
 import { cn } from '../../lib/utils'
 
@@ -64,6 +66,9 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({ projec
   const dirtyRef = useRef(false)
   const [saving, setSaving] = useState(false)
   const [revisionsOpen, setRevisionsOpen] = useState(false)
+  /** 「让 AI 接手项目」复制后的短暂状态 */
+  const [handoffPromptCopied, setHandoffPromptCopied] = useState(false)
+  const cliAccess = useCliAccess()
   const [editingHandoff, setEditingHandoff] = useState(false)
   const [releases, setReleases] = useState<Release[]>([])
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -486,6 +491,35 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({ projec
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/60">
             <h2 className="text-content font-semibold text-text-primary">项目接手说明</h2>
             <div className="flex items-center gap-2">
+              {/*
+                让 AI 接手项目（卡 `35fa2cbc`）
+                主用户的原话："我有新项目想要接进来之后转手让你接手，但是我不知道要给你发啥"。
+                按钮只做一件事：把这个项目的入口、约束和"先读接手说明再动手"写成
+                一段能直接粘给任意 AI 的提示词。它不改数据，也不假设对方已经接入过。
+              */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="border border-border bg-surface-subtle hover:bg-surface-muted px-2.5 text-text-primary cursor-pointer"
+                data-testid="handoff-ai-prompt"
+                title="复制一段提示词，粘给任意 AI 就能开始接手这个项目"
+                onClick={() => {
+                  const prompt = buildHandoffPrompt(
+                    { id: projectId, name: detail.project.name, docsDir: detail.project.docsDir },
+                    cliAccess
+                  )
+                  void navigator.clipboard
+                    .writeText(prompt)
+                    .then(() => {
+                      setHandoffPromptCopied(true)
+                      window.setTimeout(() => setHandoffPromptCopied(false), 2200)
+                    })
+                    .catch(() => showToast('无法复制，请检查系统剪贴板权限'))
+                }}
+              >
+                <Icon name="bot" size={13} className="mr-1" />
+                {handoffPromptCopied ? '已复制提示词' : '让 AI 接手项目'}
+              </Button>
               {!isEmpty && !focusTerm && (
                 <Button
                   variant="ghost"

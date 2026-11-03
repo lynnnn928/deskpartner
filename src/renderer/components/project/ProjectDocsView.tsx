@@ -73,6 +73,11 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
   const [savingHandoff, setSavingHandoff] = useState(false)
   const [revisionsOpen, setRevisionsOpen] = useState(false)
 
+  // 换文档就退出编辑态（否则主区一直停在"编辑布局"，别的文档就没法滚了）
+  useEffect(() => {
+    setEditingHandoff(false)
+  }, [selectedKey])
+
   const saveHandoff = useCallback(async () => {
     if (savingHandoff) return
     setSavingHandoff(true)
@@ -411,9 +416,26 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
         </aside>
 
         {/* 右侧阅读区 */}
-        <main className="flex-1 min-w-0 min-h-0 overflow-y-auto p-6">
+        {/*
+          编辑态把可用高度吃满（卡 `35fa2cbc`）
+
+          原来编辑框固定 `min-h-96`，下面那截全空着 —— 主用户的原话是
+          "怎么编辑框下方那么多留空"。编辑时主区改成 flex 列、编辑框 flex-1，
+          一屏能看多少行就多少行；阅读态仍然是普通滚动区。
+        */}
+        <main
+          className={cn(
+            'flex-1 min-w-0 min-h-0 p-6',
+            editingHandoff ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
+          )}
+        >
           {selectedKey === HANDOFF_KEY ? (
-            <div className="max-w-3xl mx-auto space-y-4">
+            <div
+              className={cn(
+                'max-w-3xl mx-auto w-full',
+                editingHandoff ? 'flex flex-col gap-4 flex-1 min-h-0' : 'space-y-4'
+              )}
+            >
               <div className="flex items-center justify-between gap-3 pb-3 border-b border-border">
                 <div className="min-w-0">
                   <h2 className="text-content font-semibold text-text-primary">
@@ -472,8 +494,8 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
                   onChange={(e) => setHandoffDraft(e.target.value)}
                   aria-label="项目接手说明正文"
                   placeholder="写清楚：项目目标、已定方向、明确不做的事、工作入口、下一步。"
-                  className="w-full min-h-96 p-4 rounded-card border border-border bg-bg-card
-                    text-label leading-relaxed text-text-primary outline-none resize-y
+                  className="w-full min-h-0 flex-1 p-4 rounded-card border border-border bg-bg-card
+                    text-label leading-relaxed text-text-primary outline-none resize-none
                     focus:border-accent transition-colors"
                 />
               ) : project?.handoffMarkdown?.trim() ? (
