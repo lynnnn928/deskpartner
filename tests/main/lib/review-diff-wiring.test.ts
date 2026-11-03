@@ -102,7 +102,7 @@ describe('本次变更：链路四段必须都接上（482e4b03）', () => {
     // 1.0.73 时这里是「组件里有一句『本次变更』标题」；卡 35fa2cbc 把这块与
     // 变更记录合成了一个带页签的区块后，标题搬到了页签上（在 QuickAddForm 里），
     // 判据跟着搬 —— 要钉的是"详情里看得见这个入口"，不是它写在哪个文件。
-    expect(form, '详情抽屉里没有「本次变更」这个页签').toContain('本次变更')
+    expect(form, '详情抽屉里没有「改动详情」这个页签').toContain('改动详情')
     expect(form, '详情抽屉没挂 ReviewDiff').toMatch(/<ReviewDiff[\s>]/)
   })
 

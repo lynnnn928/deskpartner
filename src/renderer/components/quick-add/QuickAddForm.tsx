@@ -14,7 +14,7 @@ import { VersionPicker } from './VersionPicker'
 import { useQuickAddRoute } from './useQuickAddRoute'
 import { EmptyValidator } from './EmptyValidator'
 import { CommentThread } from './CommentThread'
-// 「本次变更」（1.0.73，`482e4b03`）：验收时看这一次交付改了什么
+// 「改动详情」（1.0.73 起叫「本次变更」，1.0.142 改名，卡 `35fa2cbc`）：验收时看这一次交付改了什么
 import { ReviewDiff, useReviewDiff } from './ReviewDiff'
 import { useTodoStore } from '../../stores/todo.store'
 import { useUIStore } from '../../stores/ui.store'
@@ -742,7 +742,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   /**
    * 评论线程的刷新令牌（1.0.73）
    *
-   * 「本次变更」里的批注是**发进评论线程**的（复用既有往来通道），
+   * 「改动详情」里的批注是**发进评论线程**的（复用既有往来通道），
    * 而两个组件各拉各的数据 —— 不通知的话，人发完批注要手动关闭再打开
    * 才看得见它，看着像"批注没发出去"。
    *
@@ -755,8 +755,8 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   /**
    * 「变更」区块的页签（卡 `35fa2cbc`）
    *
-   * 默认停在历史：日常看的是"这条怎么走到今天的"；要验收时才切到本次变更。
-   * 换事项时回到历史 —— 上一次在看本次变更，不代表下一条也要看那一面。
+   * 默认停在历史：日常看的是"这条怎么走到今天的"；要验收时才切到改动详情。
+   * 换事项时回到历史 —— 上一次在看改动详情，不代表下一条也要看那一面。
    */
   const [changeTab, setChangeTab] = useState<'history' | 'review'>('history')
   /** 本次交付的改动清单；null = 还没进过待验收（那时不出现这个页签） */
@@ -1177,7 +1177,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
         )}
       </div>
 
-      {/* ── 四、动态与协作区（子任务 / 本次变更 / 评论 / 变更记录） ── */}
+      {/* ── 四、动态与协作区（子任务 / 评论 / 变更：改动详情 + 变更记录） ── */}
       {children.length > 0 && (
         <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
           <div className="flex items-center justify-between">
@@ -1238,7 +1238,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
       )}
 
       {/*
-        变更：一次交付 + 全部历史，合成一块（卡 `35fa2cbc`）
+        变更：改动详情 + 变更记录，合成一块（卡 `35fa2cbc`）
 
         ── 为什么合成一块、默认看历史 ──
 
@@ -1246,7 +1246,14 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
         「变更记录」（从头到尾的流转）。主用户的原话是"最底下还有一个变更记录？
         这两之间的区别是什么" —— 两块长得很像、都叫"变更"，一屏又都占满，
         要点在于**她根本不缺信息，缺的是"先看哪个"**。合成一块之后：
-        默认停在历史（日常最常看的那一面），要验收时切到「本次变更」。
+        默认停在历史（日常最常看的那一面），要验收时切到改动详情。
+
+        ── 名字改了：本次变更 → 改动详情 ──
+
+        主用户："'本次变更'实际上不是本次变更吧，是改动详情吧？"。
+        她说得对：这里装的是**这一次交付具体改了什么**（描述追加的正文、
+        状态箭头、字段的 before → after），与"哪一刻发生的"无关；
+        而"记录"那一面才是时间线。名字跟着内容走，免得再问一次区别。
 
         ── 没有交付过就不出现那个页签 ──
 
@@ -1285,7 +1292,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
                   onClick={() => setChangeTab('review')}
                   aria-pressed={changeTab === 'review'}
                   data-testid="change-tab-review"
-                  title="最近一次交付改了什么（可逐条批注）"
+                  title="这一次交付具体改了什么（可逐条批注）"
                   className={cn(
                     'h-6 px-2.5 rounded-input text-caption transition-colors cursor-pointer',
                     changeTab === 'review'
@@ -1293,7 +1300,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
                       : 'text-text-secondary hover:text-text-primary'
                   )}
                 >
-                  本次变更
+                  改动详情
                   <span className="ml-1 font-mono opacity-70">{reviewItems.length}</span>
                 </button>
               )}
@@ -1314,24 +1321,30 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
             <div className="rounded-card border border-border/70 bg-surface-subtle px-2.5 py-2 flex flex-col gap-0.5">
               {visibleTimeline.map((t, i) => {
                 const prev = i > 0 ? visibleTimeline[i - 1] : null
-                const { newDay, dayLabel, showTime } = planStamp(t.at, prev?.at ?? null)
+                const { newDay, dayLabel } = planStamp(t.at, prev?.at ?? null)
 
                 return (
                   <div key={t.timelineSeq} className="flex flex-col">
                     {newDay && (
-                      <span className="text-caption font-medium text-text-secondary pt-1.5 pb-0.5 pl-10">
+                      <span className="text-caption font-medium text-text-secondary pt-1.5 pb-0.5">
                         {dayLabel}
                       </span>
                     )}
-                    <div className="flex items-start gap-2 px-1.5 py-0.5 rounded-xs text-caption">
-                      <span
-                        className="text-text-secondary shrink-0 w-9 text-right tabular-nums font-mono"
-                        title="发生时间"
-                      >
-                        {showTime ? formatTimeOnly(t.at) : ''}
+                    {/*
+                      时间走行内、每行都写（卡 `35fa2cbc`）
+
+                      原来是「固定 w-9 右对齐的时间列 + 正文」，于是左缘多出一条
+                      40px 的竖带：日期标签又要 pl-10 才不显得掉队，两条边对不上，
+                      窄右栏里正好是一块白给的空地。现在日期、时间、正文共用
+                      一个左缘。同一分钟的两条也各自带时间：省掉的那次会让那一行
+                      的正文顶到最左，看着像另一条轨。
+                    */}
+                    <div className="text-caption py-0.5 break-words line-clamp-2">
+                      <span className="text-text-secondary tabular-nums font-mono mr-1.5">
+                        {formatTimeOnly(t.at)}
                       </span>
-                      {/* 追加描述的留痕自带 80 字预览，三行挨在一起就是一面墙；两行封顶，细节去「本次变更」看 */}
-                      <span className="min-w-0 flex-1 text-text-primary break-words line-clamp-2">
+                      {/* 追加描述的留痕自带 80 字预览，三行挨在一起就是一面墙；两行封顶，细节去「改动详情」看 */}
+                      <span className="text-text-primary">
                         {humanizeActor(t.what, t.actor, settings?.humanName)}
                       </span>
                     </div>

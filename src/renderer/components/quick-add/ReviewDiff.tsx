@@ -22,17 +22,23 @@ interface ReviewDiffProps {
 }
 
 /**
- * 「本次变更」（1.0.73，主用户提单 `482e4b03`）
+ * 「改动详情」（1.0.73 提单 `482e4b03`；1.0.142 起由「本次变更」改名，卡 `35fa2cbc`）
  *
  * ── 它要解决什么 ──
  *
  * 提单原文：「验收阶段渲染本次变更 diff，替代纯文字结论」，
  * 现状是「人验收时看不到 agent 这次到底改了什么，只有描述追加后的文本」。
  *
- * ── 与上面「变更记录」的分工（很重要，别混）──
+ * ── 名字为什么是「改动详情」而不是「本次变更」──
+ *
+ * 主用户："'本次变更'实际上不是本次变更吧，是改动详情吧？"。
+ * 这里装的是**这一次交付具体改了什么**（追加的正文、状态箭头、字段 before → after），
+ * 说的是"改成了什么"，不是"哪一刻发生的"；时间线那一面才叫「变更记录」。
+ *
+ * ── 与「变更记录」的分工（很重要，别混）──
  *
  * - **变更记录**答「这条事项**一路怎么走过来的**」—— 是历史，越全越好；
- * - **本次变更**答「**这一次交付**改了什么」—— 是待验的标的物，只该有这一次。
+ * - **改动详情**答「**这一次交付**改成了什么」—— 是待验的标的物，只该有这一次。
  *
  * 所以两者不是冗余的。人在验收时的真实动作是"对照这次的改动决定放不放行"，
  * 而在一屏历史里找他这次做了什么，正是提单说的"验收体验弱"。
@@ -123,7 +129,7 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, items, onAnnotat
 
   // 交付了但确实没有可列的变化（例如只推了状态）→ 也要说明，不静默留白
   if (items.length === 0) {
-    return <p className="text-label text-text-secondary px-2 py-1">本次仅变更状态，未修改内容。</p>
+    return <p className="text-label text-text-secondary px-2 py-1">这次交付只动了状态，没有改内容。</p>
   }
 
   return (
@@ -145,9 +151,10 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, items, onAnnotat
         const shown = isOpen ? text : text.split('\n').slice(0, PREVIEW_LINES).join('\n')
 
         return (
-          <div key={`${item.kind}-${item.at}-${i}`} className="flex flex-col gap-1 px-2 py-1">
+          <div key={`${item.kind}-${item.at}-${i}`} className="flex flex-col gap-1.5 py-1">
             <div className="flex items-start gap-1.5 text-label">
-              <span className="shrink-0 text-text-secondary w-8 text-right tabular-nums leading-5">
+              {/* 时间走行内（不再占固定宽度的一列）：摘要、正文、展开共用条目左缘 */}
+              <span className="shrink-0 text-text-secondary tabular-nums font-mono leading-5">
                 {formatTimeOnly(item.at)}
               </span>
               {/* 摘要本身带身份，走与「变更记录」同一个 humanizeActor，不再重复渲染一遍作者 */}
@@ -167,12 +174,10 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, items, onAnnotat
               </button>
             </div>
 
-            {/* 描述：按 Markdown 渲染，长内容先收着 */}
+            {/* 描述：按 Markdown 渲染，长内容先收着（不再套一层卡片：外层已经是卡片了） */}
             {totalLines > 0 && (
-              <div className="pl-10 flex flex-col gap-1">
-                <div className="rounded-card border border-border/60 bg-bg-card px-2.5 py-2">
-                  <MarkdownContent content={shown} className="gap-1" />
-                </div>
+              <div className="flex flex-col gap-1">
+                <MarkdownContent content={shown} className="gap-1" />
                 {totalLines > PREVIEW_LINES && (
                   <button
                     type="button"
@@ -194,7 +199,7 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, items, onAnnotat
 
             {/* 状态：箭头（与动态同一套色点，不新造视觉） */}
             {item.status && (
-              <div className="pl-10 flex items-center gap-1.5 text-label text-text-secondary">
+              <div className="flex items-center gap-1.5 text-label text-text-secondary">
                 <StatusDot status={item.status.from} />
                 <span>{item.status.from ? STATUS_META[item.status.from].label : '新建'}</span>
                 <span aria-hidden>→</span>
@@ -207,7 +212,7 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, items, onAnnotat
 
             {/* 字段：逐条 before → after */}
             {item.fields && item.fields.length > 0 && (
-              <div className="pl-10 flex flex-col">
+              <div className="flex flex-col">
                 {item.fields.map((f, fi) => (
                   <span key={fi} className="text-label text-text-primary">
                     {fieldLine(f)}
@@ -217,7 +222,7 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, items, onAnnotat
             )}
 
             {annotating === i && (
-              <div className="pl-10 flex flex-col gap-1 mt-1">
+              <div className="flex flex-col gap-1 mt-1">
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}

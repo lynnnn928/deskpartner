@@ -16,7 +16,7 @@ interface CommentThreadProps {
   /**
    * 外部触发的刷新令牌（1.0.73，`482e4b03`）
    *
-   * 「本次变更」里的批注是发进这里的，但两个组件各拉各的数据 ——
+   * 「改动详情」里的批注是发进这里的，但两个组件各拉各的数据 ——
    * 值一变就重取一次，让批注立刻出现在线程里。
    *
    * 为什么是"令牌"而不是父组件直接把评论列表传下来：线程内部还有折叠状态、
@@ -84,7 +84,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ todoId, refreshTok
     return () => {
       alive = false
     }
-    // refreshToken 变化 = 外部（本次变更的批注）刚写了一条，要重新取
+    // refreshToken 变化 = 外部（改动详情的批注）刚写了一条，要重新取
   }, [load, refreshToken])
 
   useEffect(() => {
