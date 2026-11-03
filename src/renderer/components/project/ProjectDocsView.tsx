@@ -378,37 +378,53 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
               </div>
             ) : (
               docGroups.map((group) => (
-                <div key={group.folder} className="flex flex-col gap-0.5">
-                  <div className="px-2 pt-2 pb-0.5 text-caption text-text-secondary font-mono">
-                    {group.folder}/
-                    <span className="ml-1 text-text-secondary/60">{group.docs.length}</span>
+                <div key={group.folder} className="flex flex-col">
+                  {/*
+                    组头与文档行必须长得不一样（卡 `5665baf5`）：原先组头是 `根目录 / 6`
+                    这样一行与文档同号的小字，左缘又对齐，读起来像"一整列同等地位的条目"，
+                    主用户实测扫不出有几个文件夹。现在组头带图标、字重亮一档、条数靠右，
+                    组内文档缩进并挂一条左竖线。
+                  */}
+                  <div className="mt-2 mb-1 flex items-center gap-1.5 px-2" data-testid={`project-doc-group-${group.folder}`}>
+                    <Icon name="folder" className="w-3.5 h-3.5 shrink-0 text-text-secondary/70" />
+                    <span className="min-w-0 flex-1 truncate text-label font-medium text-text-primary">
+                      {group.folder}
+                    </span>
+                    <span className="shrink-0 text-caption text-text-secondary tabular-nums">
+                      {group.docs.length}
+                    </span>
                   </div>
-                  {group.docs.map((doc) => (
-                    <button
-                      key={doc.file}
-                      type="button"
-                      onClick={() => setSelectedKey(doc.file)}
-                      data-testid={`project-doc-item-${doc.file}`}
-                      title={doc.file}
-                      className={cn(
-                        'w-full text-left px-2.5 py-1.5 rounded-input transition-colors cursor-pointer flex items-center gap-2',
-                        selectedKey === doc.file
-                          ? 'bg-accent/10 text-text-primary'
-                          : 'hover:bg-surface-subtle text-text-primary'
-                      )}
-                    >
-                      {/* 标题里的反引号是 Markdown 记号，列表里当普通字符读起来像乱码 */}
-                      <span className="min-w-0 flex-1 truncate text-label">{doc.title.replace(/`/g, '')}</span>
-                      {doc.kind === 'html' && (
-                        <span className="px-1 rounded-xs bg-surface-muted text-caption text-text-secondary font-mono shrink-0">
-                          HTML
+                  <div
+                    className="ml-3 flex flex-col gap-0.5 border-l border-border/60 pl-2"
+                    data-testid={`project-doc-group-body-${group.folder}`}
+                  >
+                    {group.docs.map((doc) => (
+                      <button
+                        key={doc.file}
+                        type="button"
+                        onClick={() => setSelectedKey(doc.file)}
+                        data-testid={`project-doc-item-${doc.file}`}
+                        title={doc.file}
+                        className={cn(
+                          'w-full text-left px-2.5 py-1.5 rounded-input transition-colors cursor-pointer flex items-center gap-2',
+                          selectedKey === doc.file
+                            ? 'bg-accent/10 text-text-primary'
+                            : 'hover:bg-surface-subtle text-text-primary'
+                        )}
+                      >
+                        {/* 标题里的反引号是 Markdown 记号，列表里当普通字符读起来像乱码 */}
+                        <span className="min-w-0 flex-1 truncate text-label">{doc.title.replace(/`/g, '')}</span>
+                        {doc.kind === 'html' && (
+                          <span className="px-1 rounded-xs bg-surface-muted text-caption text-text-secondary font-mono shrink-0">
+                            HTML
+                          </span>
+                        )}
+                        <span className="shrink-0 text-caption text-text-secondary font-mono tabular-nums">
+                          {formatBytes(doc.bytes)}
                         </span>
-                      )}
-                      <span className="shrink-0 text-caption text-text-secondary font-mono tabular-nums">
-                        {formatBytes(doc.bytes)}
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))
             )}
