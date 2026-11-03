@@ -777,10 +777,23 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
       )}
       style={{
         borderRadius: editingTodoId ? 0 : settings.quickAddBorderRadius,
-        padding: spacing.padding,
-        gap: spacing.gap
+        // 编辑模式（内嵌右栏）里滚动交给下面那层，内边距也一并交给它：
+        // 常量操作栏才能贴住卡片底边、上边线一直画到右边（否则会被滚动条那道 6px 沟打断）
+        padding: editingTodoId ? 0 : spacing.padding,
+        gap: editingTodoId ? 0 : spacing.gap
       }}
     >
+      {/*
+        滚动层（卡 `35fa2cbc`）
+
+        底部操作栏要跟卡片头部同质感，就得整条铺到卡片边缘；而只要它还在
+        滚动容器里，右侧那条 6px 的滚动条沟就会把它的上边线截断。所以把
+        「滚动」单独拎成一层，操作栏留在滚动层外面。
+      */}
+      <div
+        className={cn('flex flex-col', editingTodoId && 'flex-1 min-h-0 overflow-y-auto')}
+        style={editingTodoId ? { padding: spacing.padding, gap: spacing.gap } : { gap: spacing.gap }}
+      >
       {/* ── 一、顶部元信息栏：左侧编号与父需求面包屑，右侧关闭按钮 ── */}
       <div className="flex items-center justify-between gap-2 min-h-6">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -1268,12 +1281,28 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
         </div>
       )}
 
+      </div>
+
       {/* ── 五、底部常驻操作栏 ── */}
+      {/*
+        与卡片头部同一质感（卡 `35fa2cbc`）
+
+        原来这里是 `bg-bg-primary` 的灰条、只比内容区宽 7px：坐在白色卡片里
+        像一块浮着的灰板，与上面那条"白底 + 1px 细线"的头部对不上。
+        现在改成与卡片同底色、同一条上边线，并在滚动层之外铺满整个卡片宽度。
+      */}
       <div
         className={cn(
-          'flex justify-end gap-2 mt-1',
-          editingTodoId && 'sticky bottom-0 z-10 -mx-2 px-2 pt-2.5 pb-1 bg-bg-primary border-t border-border'
+          'flex justify-end gap-2 shrink-0',
+          editingTodoId
+            ? 'bg-bg-card border-t border-border pt-2 pb-2'
+            : 'mt-1'
         )}
+        style={
+          editingTodoId
+            ? { paddingLeft: spacing.padding, paddingRight: spacing.padding }
+            : undefined
+        }
       >
         <Button variant="ghost" onClick={handleCancel}>取消</Button>
         <Button variant="primary" onClick={handleSubmit}>提交保存</Button>

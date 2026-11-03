@@ -383,30 +383,44 @@ const CommentRow: React.FC<{
             {kind.label}
           </span>
         )}
-        <span className="text-text-secondary/60 ml-auto shrink-0">
-          {formatShort(comment.createdAt)}
-        </span>
       </div>
       {/* whitespace-pre-wrap：评论里的换行是有意义的（规格/步骤常多行） */}
       <p className="text-label text-text-primary whitespace-pre-wrap break-words">{comment.body}</p>
-    </div>
-    <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-      <button
-        type="button"
-        onClick={() => onReply(comment)}
-        className="text-label text-text-secondary hover:text-accent"
-        title="回复这条评论"
+      {/*
+        时间与操作放在正文下方（卡 `35fa2cbc`）
+        原来时间是名字那行的 ml-auto（推到最右），回复/删除又是正文右侧一个
+        `shrink-0` 的独立列 —— 那条列即使 hover 前是全透明的也照样占宽，
+        一条窄评论右侧会空出五六十像素，正文被挤在中间。现在时间、回复、删除
+        一律排在正文下面一行，正文自己吃满整个宽度。
+      */}
+      <div
+        data-testid="comment-meta"
+        className="flex items-center gap-1.5 mt-1 text-caption text-text-secondary/70"
       >
-        回复
-      </button>
-      <button
-        type="button"
-        onClick={() => onDelete(comment)}
-        className="text-label text-text-secondary hover:text-red-500"
-        title="删除这条评论"
-      >
-        删除
-      </button>
+        <span>{formatShort(comment.createdAt)}</span>
+        <div
+          data-testid="comment-actions"
+          className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <span className="text-text-secondary/30">·</span>
+          <button
+            type="button"
+            onClick={() => onReply(comment)}
+            className="hover:text-accent"
+            title="回复这条评论"
+          >
+            回复
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(comment)}
+            className="hover:text-red-500"
+            title="删除这条评论"
+          >
+            删除
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 )

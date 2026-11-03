@@ -196,7 +196,8 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
             <Icon name="x" size={13} />
           </button>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* 滚动由表单自己那层负责：底部操作栏要留在滚动层外面，才能整条铺到卡片边缘 */}
+        <div className="flex-1 min-h-0 flex flex-col">
           <QuickAddForm
             key={todoId}
             embeddedTodoId={todoId}
