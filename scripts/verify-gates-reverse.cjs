@@ -77,16 +77,18 @@ const GROUPS = [
     cases: [
       [
         '① 真的把翻译搬回渲染层（代码里拼状态标签）',
-        'src/renderer/components/quick-add/QuickAddForm.tsx',
-        'const handleCancel = () => {',
-        'const _injected = STATUS_META[t.fromStatus].label\n  const handleCancel = () => {',
+        // 1.0.142：时间线的渲染从 QuickAddForm 搬进 ChangeStream（卡 35fa2cbc），
+        // 闸门跟着搬了，注入目标没跟上 —— 于是这一项"恒绿"（发版实测抓到）。
+        'src/renderer/components/quick-add/ChangeStream.tsx',
+        '  const diffByAt = useMemo(() => {',
+        '  const _injected = STATUS_META[t.fromStatus].label\n  const diffByAt = useMemo(() => {',
         'red'
       ],
       [
         '② 注释里提到那个词（不该被判违规 —— 剥注释后应仍绿）',
-        'src/renderer/components/quick-add/QuickAddForm.tsx',
-        'const handleCancel = () => {',
-        '/* 这段注释里写了「怎么走过来的」，是说明不是代码 */\n  const handleCancel = () => {',
+        'src/renderer/components/quick-add/ChangeStream.tsx',
+        '  const diffByAt = useMemo(() => {',
+        '  /* 这段注释里写了「怎么走过来的」，是说明不是代码 */\n  const diffByAt = useMemo(() => {',
         'green'
       ]
     ]
