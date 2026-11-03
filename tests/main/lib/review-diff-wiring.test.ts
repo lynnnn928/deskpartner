@@ -98,9 +98,23 @@ describe('本次变更：链路四段必须都接上（482e4b03）', () => {
     // 渲染层：组件存在，且真的被挂进详情抽屉
     const comp = read('src/renderer/components/quick-add/ReviewDiff.tsx')
     expect(comp, '组件没调 todo:reviewDiff').toContain('todo:reviewDiff')
-    expect(comp, '组件里没有「本次变更」这个标题').toContain('本次变更')
     const form = read('src/renderer/components/quick-add/QuickAddForm.tsx')
+    // 1.0.73 时这里是「组件里有一句『本次变更』标题」；卡 35fa2cbc 把这块与
+    // 变更记录合成了一个带页签的区块后，标题搬到了页签上（在 QuickAddForm 里），
+    // 判据跟着搬 —— 要钉的是"详情里看得见这个入口"，不是它写在哪个文件。
+    expect(form, '详情抽屉里没有「本次变更」这个页签').toContain('本次变更')
     expect(form, '详情抽屉没挂 ReviewDiff').toMatch(/<ReviewDiff[\s>]/)
+  })
+
+  it('⑨ 本次交付与全部历史合成一块，默认看历史（35fa2cbc）', () => {
+    const form = stripComments(read('src/renderer/components/quick-add/QuickAddForm.tsx'))
+    expect(form, '默认页签必须是历史').toContain("useState<'history' | 'review'>('history')")
+    expect(form, '合成后的区块没了').toContain('data-testid="change-section"')
+    // 没交付过（reviewItems === null）时不该冒出"本次变更"这个页签
+    expect(form, '没有交付也画页签').toMatch(/\{reviewItems && \(/)
+    // 取数只留一处：两边各拉一遍正是这轮要治的重复
+    const diff = stripComments(read('src/renderer/components/quick-add/ReviewDiff.tsx'))
+    expect((diff.match(/todo:reviewDiff/g) ?? []).length, '取数散成了多处').toBe(1)
   })
 
   it('⑥ 批注复用评论通道（不新造一套往来存储）', () => {

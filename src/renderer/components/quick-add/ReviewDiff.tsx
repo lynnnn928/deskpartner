@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { Button } from '../ui/Button'
 import { MarkdownContent } from '../ui/MarkdownContent'
@@ -15,6 +15,8 @@ const PREVIEW_LINES = 8
 
 interface ReviewDiffProps {
   todoId: string
+  /** 本次交付的变更清单（由外层 `useReviewDiff` 取好传进来，见下方说明） */
+  items: ReviewDiffItem[]
   /** 批注成功后通知外层（通常是刷新评论线程，让批注立刻出现在下面） */
   onAnnotated?: () => void
 }
@@ -52,17 +54,23 @@ interface ReviewDiffProps {
  * 渲染一个"本次没有变更"的空框是**说错话** —— 事实是"还没交付过"，
  * 不是"交付了但什么都没改"。本项目反复在治"缺失 ≠ 否定"。
  */
-export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, onAnnotated }) => {
-  const { settings } = useSettingsStore()
+/**
+ * 取「本次交付」的变更清单
+ *
+ * 取数从组件里拎出来的原因（卡 `35fa2cbc`）：这块与「变更记录」合成了一个
+ * 带页签的区块，页签上要显示条数、没有交付过的时候那个页签不该出现 ——
+ * 判断得由外层做，所以是 hook 而不是组件内部自己拉。
+ *
+ * 返回 `null` = 从没进过待验收（不是"交付了但没改什么"，那是空数组）。
+ */
+export function useReviewDiff(todoId: string | null): ReviewDiffItem[] | null {
   const [items, setItems] = useState<ReviewDiffItem[] | null>(null)
-  /** 正在批注哪一条（用下标作 key：同一条变更可能有两条一样的 summary） */
-  const [annotating, setAnnotating] = useState<number | null>(null)
-  /** 已展开全文的那几条：描述追加动辄上千字，默认先收起 */
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
-  const [draft, setDraft] = useState('')
-  const [busy, setBusy] = useState(false)
 
-  const load = useCallback(() => {
+  useEffect(() => {
+    if (!todoId) {
+      setItems(null)
+      return
+    }
     let alive = true
     void invoke('todo:reviewDiff', { todoId })
       .then((list) => {
@@ -76,7 +84,17 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, onAnnotated }) =
     }
   }, [todoId])
 
-  useEffect(() => load(), [load])
+  return items
+}
+
+export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, items, onAnnotated }) => {
+  const { settings } = useSettingsStore()
+  /** 正在批注哪一条（用下标作 key：同一条变更可能有两条一样的 summary） */
+  const [annotating, setAnnotating] = useState<number | null>(null)
+  /** 已展开全文的那几条：描述追加动辄上千字，默认先收起 */
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const submit = async (item: ReviewDiffItem) => {
     const body = draft.trim()
@@ -103,34 +121,13 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, onAnnotated }) =
     }
   }
 
-  // null = 还没交付过 → 整块不渲染（不是渲染空框）
-  if (!items) return null
   // 交付了但确实没有可列的变化（例如只推了状态）→ 也要说明，不静默留白
   if (items.length === 0) {
-    return (
-      <div className="flex flex-col gap-1 pt-2 border-t border-border">
-        <span className="text-content font-medium text-text-primary inline-flex items-center gap-1">
-          <Icon name="checkCircle" size={13} />
-          本次变更
-          <span className="text-label text-text-secondary font-normal">· 这次交付</span>
-        </span>
-        <p className="text-label text-text-secondary px-2">
-          本次仅变更状态，未修改内容。
-        </p>
-      </div>
-    )
+    return <p className="text-label text-text-secondary px-2 py-1">本次仅变更状态，未修改内容。</p>
   }
 
   return (
-    <div className="flex flex-col gap-1 pt-2 border-t border-border">
-      <span className="text-content font-medium text-text-primary inline-flex items-center gap-1">
-        <Icon name="checkCircle" size={13} />
-        本次变更
-        <span className="text-label text-text-secondary font-normal">
-          {items.length} 条 · 这次交付
-        </span>
-      </span>
-
+    <div className="flex flex-col gap-1">
       {items.map((item, i) => {
         /**
          * 描述类变更现在按 Markdown 渲染（卡 `35fa2cbc`）
@@ -173,7 +170,7 @@ export const ReviewDiff: React.FC<ReviewDiffProps> = ({ todoId, onAnnotated }) =
             {/* 描述：按 Markdown 渲染，长内容先收着 */}
             {totalLines > 0 && (
               <div className="pl-10 flex flex-col gap-1">
-                <div className="rounded-card border border-border/60 bg-surface-subtle px-2.5 py-2">
+                <div className="rounded-card border border-border/60 bg-bg-card px-2.5 py-2">
                   <MarkdownContent content={shown} className="gap-1" />
                 </div>
                 {totalLines > PREVIEW_LINES && (
