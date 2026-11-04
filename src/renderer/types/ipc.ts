@@ -24,7 +24,8 @@ import type {
   UpdateProjectInput,
   ProjectPurgeResult,
   ProjectDocListResult,
-  ProjectDocContent
+  ProjectDocContent,
+  ProjectDocRevisionList
 } from './project'
 import type {
   Release,
@@ -180,8 +181,15 @@ export interface IPCChannels {
   'project:pickDocsDir': { input: { id: string }; result: Project | null }
   /** 列出项目关联文档目录下的 .md 文件 */
   'project:listDocs': { input: { id: string }; result: ProjectDocListResult }
-  /** 读取项目关联文档目录下的某篇 .md 文件正文 */
+  /**
+   * 读取项目关联文档目录下的某篇 .md 文件正文。
+   *
+   * 界面这条路**顺带存一版读时快照**（卡 `e15d1a78`，内容没变则不写）——
+   * CLI 的 `doc show` 不走这里，它声明着只读，不动库。
+   */
   'project:readDoc': { input: { id: string; file: string }; result: ProjectDocContent }
+  /** 某篇关联目录文档的读时快照历史（倒序、含全文）：只读，不回写磁盘 */
+  'project:docRevisions': { input: { id: string; file: string }; result: ProjectDocRevisionList }
   /** 用系统程序打开项目的文档目录或其中某篇文档 */
   'project:openDocExternal': { input: { id: string; file?: string }; result: { opened: string } }
 

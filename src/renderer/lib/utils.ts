@@ -59,6 +59,16 @@ export function shortId(id: string): string {
 }
 
 /**
+ * 文件体积的显示形式（文档页与文档历史抽屉共用，卡 `e15d1a78`）
+ *
+ * 只到 KB：关联目录里的单篇文档上限 2MB，再上一档（MB）在这个量级里没有信息量。
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  return `${(bytes / 1024).toFixed(1)} KB`
+}
+
+/**
  * 生成直接粘贴给 AI 助手的一句话事项指派/查看指令（卡 `58d024f6`）
  *
  * 采用主用户拍板的方案 2（带项目名 + 8 位短号 + 标题）：

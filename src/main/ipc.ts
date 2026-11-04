@@ -752,8 +752,29 @@ export function registerIPC(
     safeHandle(() => projectRepo.listProjectDocs(id))
   )
 
+  /**
+   * 界面读一篇文档时顺带存一版读时快照（卡 `e15d1a78`）。
+   *
+   * 记录点放在这里而不是仓储的 `readProjectDoc` 里：`doc show` 声明着 `readOnly`，
+   * 读命令不该悄悄写库；**只给界面**这条口径也由这一行落定。
+   * 内容没变时仓储侧会去重，重复打开同一篇不留噪音。
+   */
   ipcMain.handle('project:readDoc', (_e, { id, file }: { id: string; file: string }) =>
-    safeHandle(() => projectRepo.readProjectDoc(id, file))
+    safeHandle(() => {
+      const doc = projectRepo.readProjectDoc(id, file)
+      projectRepo.recordDocRevision({
+        projectId: doc.projectId,
+        file: doc.file,
+        sha256: doc.sha256,
+        bytes: doc.bytes,
+        content: doc.content
+      })
+      return doc
+    })
+  )
+
+  ipcMain.handle('project:docRevisions', (_e, { id, file }: { id: string; file: string }) =>
+    safeHandle(() => projectRepo.listProjectDocRevisions(id, file))
   )
 
   ipcMain.handle('project:openDocExternal', (_e, { id, file }: { id: string; file?: string }) =>

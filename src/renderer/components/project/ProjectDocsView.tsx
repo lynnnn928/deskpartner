@@ -9,19 +9,15 @@ import { TodoStatusPill } from '../ui/Badge'
 import { MarkdownContent } from '../ui/MarkdownContent'
 import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
-import { cn } from '../../lib/utils'
+import { cn, formatBytes } from '../../lib/utils'
 import { HandoffRevisionsDrawer } from './HandoffRevisionsDrawer'
+import { DocRevisionsDrawer } from './DocRevisionsDrawer'
 
 interface ProjectDocsViewProps {
   projectId: string
 }
 
 const HANDOFF_KEY = '__handoff__'
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  return `${(bytes / 1024).toFixed(1)} KB`
-}
 
 function formatDate(iso: string): string {
   if (!iso) return ''
@@ -72,10 +68,13 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
   const [handoffDraft, setHandoffDraft] = useState('')
   const [savingHandoff, setSavingHandoff] = useState(false)
   const [revisionsOpen, setRevisionsOpen] = useState(false)
+  /** 关联目录文档的历史抽屉（卡 `e15d1a78`；只读历史，不回写磁盘） */
+  const [historyOpen, setHistoryOpen] = useState(false)
 
-  // 换文档就退出编辑态（否则主区一直停在"编辑布局"，别的文档就没法滚了）
+  // 换文档就退出编辑态（否则主区一直停在"编辑布局"，别的文档就没法滚了），历史抽屉一并关掉
   useEffect(() => {
     setEditingHandoff(false)
+    setHistoryOpen(false)
   }, [selectedKey])
 
   const saveHandoff = useCallback(async () => {
@@ -562,6 +561,9 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+                    <Icon name="clock" size={13} className="mr-1" /> 版本历史
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -638,6 +640,12 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
                   </div>
                 )}
               </div>
+              <DocRevisionsDrawer
+                projectId={projectId}
+                file={docContent.file}
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+              />
             </div>
           ) : null}
         </main>

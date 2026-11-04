@@ -17,7 +17,8 @@ import type {
   ProjectPurgeResult,
   ProjectDocEntry,
   ProjectDocListResult,
-  ProjectDocContent
+  ProjectDocContent,
+  ProjectDocRevisionList
 } from '../../renderer/types/project'
 
 /** 回执类型定义在共享类型里（渲染层也要用），这里转出保持既有引用不断 */
@@ -39,6 +40,8 @@ const DEFAULT_PROJECT_COLOR = '#5388F6'
 
 /** 每个项目最多保留多少版接手说明修订（超出删最旧，基线行同样适用） */
 export const HANDOFF_REVISION_LIMIT = 50
+/** 每篇关联目录文档最多保留多少版读时快照（超出删最旧；卡 `e15d1a78`） */
+export const DOC_REVISION_LIMIT = 20
 /** 基线行作者：保存时库里已有说明但从没有修订行（修订历史上线前写的内容） */
 export const HANDOFF_BASELINE_AUTHOR = '迁移前'
 /** 基线行作者：已有修订，但当前说明与最新一版对不上（绕开仓储层改过列） */
@@ -790,6 +793,7 @@ export class ProjectRepository {
         notifications: 0,
         releases: 0,
         handoffRevisions: 0,
+        docRevisions: 0,
         handoffProposals: 0,
         collaborationRules: 0,
         permissionMatrix: 0,
@@ -821,6 +825,7 @@ export class ProjectRepository {
       }
       del('releases', byProject('releases'), [id])
       del('handoffRevisions', byProject('project_handoff_revisions'), [id])
+      del('docRevisions', byProject('project_doc_revisions'), [id])
       del('handoffProposals', byProject('project_handoff_proposals'), [id])
       del('collaborationRules', byProject('collaboration_rules'), [id])
       del('permissionMatrix', byProject('permission_matrix'), [id])
@@ -1314,6 +1319,87 @@ export class ProjectRepository {
       projectName: listRes.projectName,
       docsDir: listRes.docsDir,
       content
+    }
+  }
+
+  /**
+   * 记一版关联目录文档的读时快照（卡 `e15d1a78`）。**只读历史**：不回写磁盘、不回滚。
+   *
+   * 调用点只有界面读文档那一处（IPC `project:readDoc`）—— 没有放进 `readProjectDoc`：
+   * `doc show` 声明着 `readOnly`，读命令不该悄悄写库。
+   *
+   * 判据：
+   * - (project, file, sha256) 去重：**内容没变就不写新的一版**，重复打开同一篇不留噪音；
+   * - 每篇只留最近 DOC_REVISION_LIMIT 版；`seq` 写入时现算，修剪不回收序号；
+   * - 同一篇文档的 `MAX(seq)+1` 与插入在同一个事务里，两处并发读不会写进同一个序号。
+   */
+  recordDocRevision(doc: {
+    projectId: string
+    file: string
+    sha256: string
+    bytes: number
+    content: string
+  }): void {
+    this.db.transaction(() => {
+      const next =
+        ((
+          this.db
+            .prepare(
+              'SELECT MAX(seq) AS m FROM project_doc_revisions WHERE project_id = ? AND file = ?'
+            )
+            .get(doc.projectId, doc.file) as { m: number | null }
+        ).m ?? 0) + 1
+      const inserted = this.db
+        .prepare(
+          `INSERT OR IGNORE INTO project_doc_revisions
+             (id, project_id, file, seq, sha256, bytes, body, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          uuidv4(),
+          doc.projectId,
+          doc.file,
+          next,
+          doc.sha256,
+          doc.bytes,
+          doc.content,
+          new Date().toISOString()
+        )
+      // 这一版已经存过（内容与某一版相同）：不修剪、也不占序号
+      if (inserted.changes === 0) return
+      this.db
+        .prepare('DELETE FROM project_doc_revisions WHERE project_id = ? AND file = ? AND seq <= ?')
+        .run(doc.projectId, doc.file, next - DOC_REVISION_LIMIT)
+    })()
+  }
+
+  /**
+   * 某篇关联目录文档的版本列表（倒序、含全文）—— 只读历史，不回写磁盘。
+   *
+   * 借 `readProjectDoc` 做路径解析（名字/相对路径/近似候选那套）并确认文件还在，
+   * 顺带拿到**磁盘上当前内容的指纹**：它用来标出哪一版是「当前」。
+   * 判据按内容比，不按时间先后 —— A → B → A 这种改回去的，当前就是最早那一版。
+   */
+  listProjectDocRevisions(idOrPrefix: string, target: string): ProjectDocRevisionList {
+    const doc = this.readProjectDoc(idOrPrefix, target)
+    const rows = this.db
+      .prepare('SELECT * FROM project_doc_revisions WHERE project_id = ? AND file = ? ORDER BY seq DESC')
+      .all(doc.projectId, doc.file) as Record<string, unknown>[]
+    return {
+      projectId: doc.projectId,
+      file: doc.file,
+      title: doc.title,
+      kind: doc.kind,
+      currentSha256: doc.sha256,
+      revisions: rows.map((row) => ({
+        id: row.id as string,
+        seq: row.seq as number,
+        sha256: row.sha256 as string,
+        bytes: row.bytes as number,
+        body: row.body as string,
+        createdAt: row.created_at as string,
+        isCurrent: (row.sha256 as string) === doc.sha256
+      }))
     }
   }
 

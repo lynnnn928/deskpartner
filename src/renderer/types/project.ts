@@ -66,6 +66,38 @@ export interface ProjectDocContent extends ProjectDocEntry {
 }
 
 /**
+ * 关联目录文档的一版读时快照（卡 `e15d1a78`）
+ *
+ * 只读历史：快照取自**界面读这篇文档的那一刻**，不回写磁盘、不回滚，
+ * 也没有 CLI 出口（主用户 2026-11-04 定口径：先只给界面）。
+ */
+export interface ProjectDocRevision {
+  id: string
+  /** 每篇文档内的版本号，从 1 开始；修剪掉最旧的也不回收、不重排 */
+  seq: number
+  /** 这一版的内容指纹 */
+  sha256: string
+  bytes: number
+  /** 正文全文 —— 界面要靠它显示旧版内容与行级差异 */
+  body: string
+  createdAt: string
+  /** 与磁盘上当前内容一致（按内容判定，不看时间先后） */
+  isCurrent: boolean
+}
+
+export interface ProjectDocRevisionList {
+  projectId: string
+  /** 相对文档目录的路径（正斜杠） */
+  file: string
+  title: string
+  kind: 'md' | 'html'
+  /** 磁盘上当前内容的指纹，用来标出哪一版是「当前」 */
+  currentSha256: string
+  /** 版本倒序：最新一版在前 */
+  revisions: ProjectDocRevision[]
+}
+
+/**
  * 永久删除项目的回执（卡 `c177e466`）：逐表报数。
  *
  * 报数不是装饰 —— "清了多少条"是这次破坏性动作**唯一可核对的事实**，
@@ -82,6 +114,7 @@ export interface ProjectPurgeResult {
     notifications: number
     releases: number
     handoffRevisions: number
+    docRevisions: number
     handoffProposals: number
     collaborationRules: number
     permissionMatrix: number

@@ -1475,6 +1475,38 @@ const migrations: MigrationFn[] = [
         WHERE (read_by IS NULL OR read_by = '')
           AND status = 'read'`
     ).run()
+  },
+  // ── 49：关联目录文档的读时快照（卡 `e15d1a78`）──
+  //
+  // 关联目录里的 .md/.html 一直只有"每次重读磁盘"这一条路：用外部编辑器改一次、
+  // 界面刷新回来就只剩最新版，看不到"改之前写的是什么"（接手说明有修订历史，
+  // 目录文档没有 —— 这个落差会让人以为目录文档也是受管的）。
+  //
+  // 口径（主用户 2026-11-04 拍板）：**读时快照，只读历史**。
+  // - 记录点是**界面读某篇文档时**（IPC `project:readDoc`），不去 CLI：
+  //   `doc show` 声明着 `readOnly`，读命令不该悄悄写库。
+  // - (project_id, file, sha256) 去重：内容没变就不写新的一版。
+  // - `seq` 是**每篇文档内**单调递增的版本号（与接手说明的 `seq` 同源：修剪最旧的
+  //   之后也不回收、不重排，所以「第 7 版」永远指同一版），排序与修剪都靠它，
+  //   不靠 `created_at` —— 同一毫秒的两条排不出确定次序。
+  // - 不回写磁盘、不回滚：外部目录的权威在磁盘（还可能是 git 工作区）。
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS project_doc_revisions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        file TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        sha256 TEXT NOT NULL,
+        bytes INTEGER NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (project_id, file, sha256),
+        UNIQUE (project_id, file, seq)
+      );
+      CREATE INDEX IF NOT EXISTS idx_doc_revisions_file
+        ON project_doc_revisions(project_id, file, seq DESC);
+    `)
   }
 ]
 
