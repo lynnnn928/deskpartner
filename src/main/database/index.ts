@@ -42,7 +42,32 @@ export function readConfiguredDataDir(): string | null {
   }
 }
 
+/**
+ * 隔离运行时不许写"真实的数据目录指针"（卡 `c7be7fcd`）
+ *
+ * `DESKPARTNER_DATA_DIR` 生效时，这个实例的库是隔离的，但**指针文件的位置**来自
+ * `captureInitialUserDataDir()` —— 那个值在覆盖之前就定死了 = 真实 userData。
+ * 于是"换数据目录"这个动作会把**真实安装**的启动路径指到刚才那个隔离目录：
+ * 下次用户启动应用，打开的是另一个库（数据没丢，但看起来像丢了）。
+ * 2026-11-11 实测：一次隔离环境下的换目录验证正是这样把真实应用指到了 scratchpad，
+ * 当天 1.0.144 发版的版本登记因此打在空库上、报 `identity_unregistered`。
+ *
+ * 想在这种情况下验证换目录，就显式给 `DESKPARTNER_DATA_DIR_CONFIG`：
+ * 指针也落进隔离目录，隔离才真的彻底。
+ */
+export function isolationConfigWriteError(env: NodeJS.ProcessEnv = process.env): string | null {
+  if (!(env.DESKPARTNER_DATA_DIR ?? '').trim()) return null
+  if ((env.DESKPARTNER_DATA_DIR_CONFIG ?? '').trim()) return null
+  return (
+    '这个实例跑在隔离数据目录（DESKPARTNER_DATA_DIR），不能改真实应用的数据目录指针：' +
+    '改了会把下次启动指到刚才那个隔离目录。要在这里验证换目录，' +
+    '请同时设置 DESKPARTNER_DATA_DIR_CONFIG，让指针也落在隔离目录里。'
+  )
+}
+
 export function writeConfiguredDataDir(targetDir: string): void {
+  const blocked = isolationConfigWriteError()
+  if (blocked) throw new Error(blocked)
   const cfgPath = getDataDirConfigPath()
   fs.mkdirSync(path.dirname(cfgPath), { recursive: true })
   fs.writeFileSync(
@@ -79,6 +104,14 @@ export async function migrateDataDirectory(
   if (path.relative(prevDir, nextDir) === '') {
     return { changed: false, dataDir: prevDir, previousDir: prevDir }
   }
+
+  /**
+   * 能不能写指针，要在**搬之前**问清楚（卡 c7be7fcd）：
+   * 库与附件都复制过去了才在 `writeConfiguredDataDir` 里抛，会留下一个
+   * "目标目录有库、指针没改"的半迁移现场 —— 那种状态比直接拒绝更难收拾。
+   */
+  const blocked = isolationConfigWriteError()
+  if (blocked) throw new Error(blocked)
 
   fs.mkdirSync(nextDir, { recursive: true })
   const probeFile = path.join(nextDir, `.dp-write-probe-${process.pid}-${Date.now()}`)
