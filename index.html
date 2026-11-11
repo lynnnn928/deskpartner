@@ -11,6 +11,11 @@
   <meta name="robots" content="index,follow,max-image-preview:large" />
   <link rel="canonical" href="https://lynnnn928.github.io/deskpartner/" />
   <link rel="alternate" type="text/plain" href="https://lynnnn928.github.io/deskpartner/llms.txt" title="LLMs.txt — AI 助手机器可读说明" />
+  <!-- 界面预览的五张图：预先加载，切 tab 不再等 300KB 的网络往返 -->
+  <link rel="preload" as="image" href="assets/approval-view.png" />
+  <link rel="preload" as="image" href="assets/kanban-board.png" />
+  <link rel="preload" as="image" href="assets/quickstart-view.png" />
+  <link rel="preload" as="image" href="assets/todo-attachments.png" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="DeskPartner" />
   <meta property="og:title" content="DeskPartner — 让 AI 接着工作" />
@@ -393,6 +398,7 @@
         <a href="#manual">使用手册</a>
         <a href="#setup">开始接入</a>
         <a href="#faq">常见问题</a>
+        <a href="#roadmap">版本与计划</a>
       </nav>
       <div class="nav-actions">
         <a class="btn btn-secondary btn-small" href="https://github.com/lynnnn928/deskpartner" target="_blank" rel="noopener">GitHub</a>
@@ -743,6 +749,39 @@
       </div>
     </section>
   </main>
+
+    <section id="roadmap" class="section">
+      <div class="container">
+        <div class="section-head"><p class="section-kicker">Shipped &amp; next</p><h2>已经能用的，和确实排着的。</h2><p class="section-intro">这一页只写两件事：今天装下去就能用的能力，和我们确实排进计划的事。计划项都来自公开的问题清单，做完就移上来，不承诺时间。</p></div>
+        <div class="use-grid">
+          <article class="card">
+            <span class="scenario-tag">NOW / 已经能用</span>
+            <h3>当前版本</h3>
+            <ul class="proof-list">
+              <li>7 态工作流与首尾两道关口；<strong>禁止自验自过</strong>（G10）</li>
+              <li>项目接手说明 + 历史决定全文检索；<code>#8位编号</code> 实时引用事项状态</li>
+              <li>四档权限与人机审批：高危动作看清前后差异再批准，批准即原子回放</li>
+              <li>项目文档目录：Markdown 只读浏览、按文件夹分组、<strong>可回看历史版本</strong></li>
+              <li>事项附件：<strong>图片直接看缩略图与大图</strong>，其它文件交给系统默认程序打开（目前仅桌面界面）</li>
+              <li>桌面快捷工具：悬浮球、全局快捷键速记、顶部提醒与审批横幅</li>
+              <li>数据 100% 本地 SQLite；迁移与导入前自动快照；JSON 全量导出与恢复</li>
+              <li>标准 MCP 服务器（stdio）+ 76 条 CLI 命令 / 69 个 MCP 工具</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="scenario-tag">NEXT / 计划中</span>
+            <h3>还打算做</h3>
+            <ul class="proof-list">
+              <li><strong>把附件也交给 AI</strong>：先给只读清单与元数据，再放开 agent 上传自己的产出（截图、报告）</li>
+              <li><strong>详情只剩一个外壳</strong>：通知、审批、版本等页面点开事项也就地展开右栏，不再弹独立窗口</li>
+              <li><strong>收件箱按对象分栏</strong>：「指名给我」与「全部动态」分开，真纸条不再被广播淹掉</li>
+              <li>官方 MCP Registry 的条目随版本更新（已收录 <code>io.github.lynnnn928/deskpartner</code>）</li>
+            </ul>
+          </article>
+        </div>
+        <p class="section-intro" style="margin-top:18px">当前仅支持 <strong>Windows 10 / 11（64 位）</strong>；macOS 与 Linux 没有排期。历史版本与逐版更新点见 <a href="https://github.com/lynnnn928/deskpartner/blob/main/CHANGELOG.md" target="_blank" rel="noopener">更新日志</a> 与 <a href="https://github.com/lynnnn928/deskpartner/releases" target="_blank" rel="noopener">Releases</a>。</p>
+      </div>
+    </section>
 
   <footer>
     <div class="container footer-inner">
