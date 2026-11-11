@@ -2,6 +2,8 @@
 
 **让 AI 接着工作，从当前进展继续——多 AI 共享的本地结构化项目记忆与接续工作台。**
 
+🪟 Windows 10 / 11（64 位）· 当前仅支持 Windows
+
 [产品主页](https://lynnnn928.github.io/deskpartner/) · [在线手册](https://lynnnn928.github.io/deskpartner/#manual) · [llms.txt (AI 读取)](https://lynnnn928.github.io/deskpartner/llms.txt) · [English](README.en.md) · [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md) · [下载最新版](https://github.com/lynnnn928/deskpartner/releases)
 
 > **3 秒看懂 DeskPartner 的定位与边界**

@@ -2,6 +2,8 @@
 
 **Let your AI agents pick up right where the last one left off—a local-first shared project memory and handoff workspace for multi-AI collaboration.**
 
+🪟 Windows 10 / 11 (64-bit) · Windows only for now
+
 [中文文档](README.md) · [Website](https://lynnnn928.github.io/deskpartner/) · [User Manual](https://lynnnn928.github.io/deskpartner/#manual) · [llms.txt](https://lynnnn928.github.io/deskpartner/llms.txt) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Releases](https://github.com/lynnnn928/deskpartner/releases)
 
 > **What DeskPartner Is (and Isn't) in 3 Seconds**
