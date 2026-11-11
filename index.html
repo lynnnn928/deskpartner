@@ -563,7 +563,7 @@
                 <li class="status-item"><span class="status-dot proposed" aria-hidden="true"></span><div><div class="status-head"><strong>待确认</strong><code>proposed</code><span class="chip">入口关口</span></div><p>AI 助手发现的新问题或待评估提议先落在此列。未经你拍板确认，不能围绕它拆解子任务或自行转入执行。</p></div></li>
                 <li class="status-item"><span class="status-dot todo" aria-hidden="true"></span><div><div class="status-head"><strong>待办</strong><code>todo</code><span class="chip">已确认立项</span></div><p>已确认要做、排入队列等待启动的事项。</p></div></li>
                 <li class="status-item"><span class="status-dot in-progress" aria-hidden="true"></span><div><div class="status-head"><strong>进行中</strong><code>in_progress</code><span class="chip">正在执行</span></div><p>执行人（你或被指派的 AI 助手）正在处理的事项；若验收未通过被退回，也会携带退回理由回到此列。</p></div></li>
-                <li class="status-item"><span class="status-dot awaiting-review" aria-hidden="true"></span><div><div class="status-head"><strong>待验收</strong><code>awaiting_review</code><span class="chip">交付关口</span></div><p>执行人已完成并附上验证证据，等待验收人核对。详情抽屉会自动展示「本次变更」对比。</p></div></li>
+                <li class="status-item"><span class="status-dot awaiting-review" aria-hidden="true"></span><div><div class="status-head"><strong>待验收</strong><code>awaiting_review</code><span class="chip">交付关口</span></div><p>执行人已完成并附上验证证据，等待验收人核对。详情里把这次交付的改动与整条流转合成一条「变更」流，默认看历史。</p></div></li>
                 <li class="status-item"><span class="status-dot done" aria-hidden="true"></span><div><div class="status-head"><strong>已完成</strong><code>done</code><span class="chip">验收通过</span></div><p>经由非执行人本人验收通过并正式收口的事项，可关联至具体发布版本号。</p></div></li>
                 <li class="status-item"><span class="status-dot suspended" aria-hidden="true"></span><div><div class="status-head"><strong>挂起</strong><code>suspended</code><span class="chip">暂时搁置</span></div><p>因外部条件未就绪而暂停推进的事项，待条件满足后可随时恢复。</p></div></li>
                 <li class="status-item"><span class="status-dot discarded" aria-hidden="true"></span><div><div class="status-head"><strong>不做</strong><code>discarded</code><span class="chip">明确不做</span></div><p>经评估决定不再执行的事项（留作历史决策记录，不计入未完成工作量，也不计入完成率）。</p></div></li>
@@ -576,6 +576,10 @@
                 <div class="mini-card"><strong>执行人（Executor）</strong><p>承接执行并提交验证证据；禁止自验自过。</p></div>
                 <div class="mini-card"><strong>父需求与子任务</strong><p>所有子任务完成后，父需求方可进入待验收 / 完成。</p></div>
               </div>
+            </div>
+            <div class="manual-group">
+              <h4>事项可以带图片与文件</h4>
+              <div class="mini-card"><strong>图片直接看，文件交给系统打开</strong><p>在事项的评论区上方添加附件：图片显示缩略图，点开看大图；其它文件交给系统默认程序打开。文件复制进数据目录（单文件上限 25 MB），换数据目录时附件跟着走。这一项只在桌面界面提供，AI 助手读写不到。</p></div>
             </div>
           </div>
 
@@ -591,13 +595,14 @@
               <div class="mini-card"><strong>让下一个 Agent 从当前进展接手</strong><p>每个项目概览页配有支持 Markdown 与 50 版修订历史的接手说明，写下 <code>#8位编号</code> 自动关联展示对应事项的实时状态。</p></div>
             </div>
             <div class="manual-group">
-              <h4>项目内五大页签</h4>
+              <h4>项目内六个页签</h4>
               <div class="mini-grid">
                 <div class="mini-card"><strong>概览</strong><p>项目背景、接手说明与当前进展。</p></div>
-                <div class="mini-card"><strong>事项</strong><p>拖拽看板与多维筛选，按状态、负责人、标签查看。</p></div>
+                <div class="mini-card"><strong>事项</strong><p>拖拽看板与多维筛选：状态、负责人、执行人、标签、优先级、版本。</p></div>
                 <div class="mini-card"><strong>动态</strong><p>状态流转时间线与项目通知。</p></div>
                 <div class="mini-card"><strong>版本</strong><p>按版本号聚合交付事项。</p></div>
-                <div class="mini-card"><strong>搜索</strong><p>全文检索事项、评论与接手说明。</p></div>
+                <div class="mini-card"><strong>文档</strong><p>关联项目目录下的 Markdown，按文件夹分组浏览；改坏了一句，能翻回上一版（保留最近 20 版）。</p></div>
+                <div class="mini-card"><strong>全局搜索</strong><p>全文检索事项、评论与接手说明。</p></div>
               </div>
             </div>
           </div>
