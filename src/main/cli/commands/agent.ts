@@ -663,6 +663,17 @@ export const agentCommands: CommandSpec[] = [
           path: credentialsPath(),
           count: rows.length,
           orphanCount: orphans.length,
+          /**
+           * 边界摆在用户会看到的地方（卡 `6b77c794` 的 ① 那一半）
+           *
+           * 只说清"能挡什么、挡不住什么"，不劝退也不安慰：收得紧的只有另一个
+           * Windows 账户（1.0.144 起写文件时断继承、只授当前用户）；同一账户下的
+           * 进程一律读得到 —— 那是"身份是归属标注，不是认证"的必然结果。
+           */
+          boundary:
+            '这些 token 是明文，落在本机主目录下。写文件时已断开继承、只授当前 Windows 账户，' +
+            '所以别的账户读不到；但同一个账户下的任何进程都能读、也能自称某个身份 —— ' +
+            '身份是归属标注，不是认证。',
           ...(orphans.length
             ? {
                 orphans,

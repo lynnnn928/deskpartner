@@ -19,6 +19,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { createHash, randomBytes } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 
 /**
  * 凭据文件：用户主目录下，与数据库分开（数据库会被备份/迁移，凭据不该跟着走）
@@ -80,10 +81,44 @@ export function writeCredential(agentId: string, token: string): void {
   const file = readCredentials()
   file.profiles[agentId] = { token, issuedAt: new Date().toISOString() }
   if (!file.default || !file.profiles[file.default]) file.default = agentId
-  const dir = path.dirname(credentialsPath())
-  fs.mkdirSync(dir, { recursive: true })
-  // 私钥级别的权限：同机其他用户不该读得到（Windows 上此选项无效果）
-  fs.writeFileSync(credentialsPath(), JSON.stringify(file, null, 2), { mode: 0o600 })
+  writeCredentialsFile(JSON.stringify(file, null, 2))
+}
+
+/**
+ * 写凭据文件，并在 Windows 上把它的访问权限收成"只有当前用户"。
+ *
+ * ## 为什么 `mode: 0o600` 不够（卡 `6b77c794`）
+ *
+ * `mode` 只对 POSIX 生效 —— **Node 在 Windows 上不设 ACL**，文件的权限完全来自
+ * 继承。实测这台机器：`icacls ~/.deskpartner` 上有一条**别的本机账户**的显式授权
+ * （`LAPTOP-…\AgentOS-Worker:(OI)(CI)(F)`），于是凭据文件对那个账户完全可读
+ * （`(I)(F)`）—— 六份 32 字符明文 token 一次全走。
+ *
+ * 所以 Windows 上补一步：**断继承**（`/inheritance:r`）+ 只授当前用户
+ * （`/grant:r <user>:F`）。实测改后 `icacls` 只报 `…\L:(F)`，那条继承来的
+ * 账户授权不再出现在这个文件上。
+ *
+ * ## 只做得了"另一个账户"这一半
+ *
+ * 同一账户下的任何进程照样读得到 —— `DESKPARTNER_AGENT=agent:x` 一条环境变量
+ * 就能自称某个身份，全程没有认证动作。那是"身份是归属标注、不是认证"这条边界的
+ * 必然结果，写在说明书与 `agent credentials` 的回执里；这里不假装它被修好了。
+ *
+ * 加固失败**不阻断签发**：它是加固，不是功能。
+ */
+function writeCredentialsFile(text: string): void {
+  fs.mkdirSync(path.dirname(credentialsPath()), { recursive: true })
+  fs.writeFileSync(credentialsPath(), text, { mode: 0o600 })
+  if (process.platform !== 'win32') return
+  try {
+    execFileSync(
+      'icacls',
+      [credentialsPath(), '/inheritance:r', '/grant:r', `${os.userInfo().username}:F`],
+      { stdio: 'ignore', windowsHide: true }
+    )
+  } catch {
+    // 收不紧就算了：文件已经写好了，"另一个账户可读"这一条本机不一定收得动
+  }
 }
 
 /**
@@ -151,10 +186,8 @@ export function removeCredential(agentId: string): RemoveCredentialResult {
   const next: CredentialFile = { version: 1, profiles }
   if (defaultAfter) next.default = defaultAfter
 
-  const dir = path.dirname(credentialsPath())
-  fs.mkdirSync(dir, { recursive: true })
-  // 与 `writeCredential` 同一个权限口径：私钥级别，同机其他用户不该读得到
-  fs.writeFileSync(credentialsPath(), JSON.stringify(next, null, 2), { mode: 0o600 })
+  // 与 `writeCredential` 同一个口径：写完就收 Windows 权限（见那里的说明）
+  writeCredentialsFile(JSON.stringify(next, null, 2))
 
   return { removed: true, wasDefault, defaultAfter, remaining: rest.length }
 }
