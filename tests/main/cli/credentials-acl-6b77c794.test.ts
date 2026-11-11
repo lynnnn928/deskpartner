@@ -53,26 +53,26 @@ onlyOnWindows('凭据文件的 Windows 权限收口（卡 6b77c794）', () => {
   })
 
   it('收口之后凭据内容仍然完整', () => {
-    writeCredential('agent:y', 'tok-2')
+    writeCredential('agent:a', 'tok-2')
 
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'))
-    expect(saved.profiles['agent:y'].token).toBe('tok-2')
-    expect(saved.default).toBe('agent:y')
+    expect(saved.profiles['agent:a'].token).toBe('tok-2')
+    expect(saved.default).toBe('agent:a')
   })
 
   it('删除某份凭据后同样只剩自己的授权', () => {
-    writeCredential('agent:z', 'tok-3')
-    writeCredential('agent:w', 'tok-4')
+    writeCredential('agent:b', 'tok-3')
+    writeCredential('agent:c', 'tok-4')
 
-    const res = removeCredential('agent:z')
+    const res = removeCredential('agent:b')
 
     expect(res.removed).toBe(true)
     expect(aclOf(file)).not.toContain('(I)')
-    expect(JSON.parse(fs.readFileSync(file, 'utf8')).profiles).not.toHaveProperty('agent:z')
+    expect(JSON.parse(fs.readFileSync(file, 'utf8')).profiles).not.toHaveProperty('agent:b')
   })
 
   it('没有这个身份时不写文件，也不去动权限', () => {
-    const res = removeCredential('agent:never-issued')
+    const res = removeCredential('agent:never-registered')
 
     expect(res.removed).toBe(false)
     expect(fs.existsSync(file)).toBe(false)
