@@ -2,19 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
   "name": "io.github.lynnnn928/deskpartner",
   "description": "A shared local kanban board for your AI agents (69 MCP tools, 15 guardrails, 100% local SQLite).",
+  "version": "1.0.143",
   "repository": {
     "url": "https://github.com/lynnnn928/deskpartner",
     "source": "github"
   },
-  "version_detail": {
-    "version": "1.0.134"
-  },
   "packages": [
     {
-      "registry_name": "github",
-      "name": "lynnnn928/deskpartner",
-      "version": "1.0.134",
-      "runtime": "node",
+      "registry_type": "github",
+      "registry_base_url": "https://github.com",
+      "identifier": "https://github.com/lynnnn928/deskpartner/releases/download/v1.0.143/DeskPartner.Setup.1.0.143.exe",
+      "version": "1.0.143",
       "transport": {
         "type": "stdio"
       },
