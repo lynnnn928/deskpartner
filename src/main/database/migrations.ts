@@ -1507,6 +1507,38 @@ const migrations: MigrationFn[] = [
       CREATE INDEX IF NOT EXISTS idx_doc_revisions_file
         ON project_doc_revisions(project_id, file, seq DESC);
     `)
+  },
+  // ── 50：事项附件（图片 / 文件）──
+  //
+  // 卡片上原本挂不了东西：交付要看的截图、日志、产物只能“放到某个目录、把路径贴在评论里”，
+  // 路径一改就断，对方还得自己去开。
+  //
+  // 口径（主用户 2026-11-11：图片直接预览、文件用系统默认程序打开）：
+  // - 文件**复制**进数据目录 attachments/<todo_id>/<id><ext>，库里存**相对数据目录**的路径
+  //   —— 卡片自己的东西要跟着卡片活：源文件移走/删掉后附件仍在；数据目录迁移
+  //   （migrateDataDirectory）一并搬 attachments/，相对路径不破。
+  // - seq 是**每张事项内**的展示序号，与接手说明/文档快照同源：删了不回收、不重排。
+  // - kind 只分 image / file 两类：image 由界面出缩略图与预览，file 交给系统默认程序。
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS todo_attachments (
+        id TEXT PRIMARY KEY,
+        todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+        seq INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        ext TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        mime TEXT NOT NULL,
+        bytes INTEGER NOT NULL,
+        sha256 TEXT NOT NULL,
+        rel_path TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (todo_id, seq)
+      );
+      CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo
+        ON todo_attachments(todo_id, seq);
+    `)
   }
 ]
 

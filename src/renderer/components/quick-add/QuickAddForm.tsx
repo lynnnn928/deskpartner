@@ -14,6 +14,7 @@ import { VersionPicker } from './VersionPicker'
 import { useQuickAddRoute } from './useQuickAddRoute'
 import { EmptyValidator } from './EmptyValidator'
 import { CommentThread } from './CommentThread'
+import { TodoAttachments } from './TodoAttachments'
 // 「改动详情」（1.0.73 起叫「本次变更」，1.0.142 改名，卡 `35fa2cbc`）：验收时看这一次交付改了什么
 import { ChangeStream, useReviewDiff } from './ChangeStream'
 import { useTodoStore } from '../../stores/todo.store'
@@ -1215,7 +1216,10 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
         </div>
       )}
 
-      {/* 评论线程（1.0.54） */}
+            {/* 附件（schema v50）：挂在评论之前 —— 它是这张卡自己的东西，往来排它下面 */}
+      {editingTodoId && <TodoAttachments todoId={editingTodoId} />}
+
+{/* 评论线程（1.0.54） */}
       {editingTodoId && (
         <CommentThread
           todoId={editingTodoId}

@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { ipcMain, BrowserWindow, app, dialog, shell, nativeImage, type IpcMainInvokeEvent } from 'electron'
 import { getDataDirPath, migrateDataDirectory } from './database/index'
 import { TodoRepository } from './database/todo.repository'
@@ -17,12 +18,14 @@ import { NotificationRepository, type NotificationType } from './database/notifi
 import { ReminderReceiptRepository } from './database/reminder-receipt.repository'
 // 事项评论（1.0.54）：详情页的评论线程走 IPC 读写
 import { CommentRepository, type CommentKind } from './database/comment.repository'
+import { AttachmentRepository } from './database/attachment.repository'
 import type { ApprovalHistoryFilter, GrantHistoryFilter, GrantScope, ListGrantsFilter } from './database/agent.repository'
 import { pickExecSummary } from './lib/exec-summary'
 import { buildExecReceipt } from './lib/exec-receipt'
 import { buildDescChangeEvent } from './lib/desc-audit'
 // 审计翻译层（1.0.62）：与 CLI 共用同一份判据，界面上也读得出"谁改了什么、删了什么"
 import { buildTodoAudit, mergeTimeline } from './lib/audit-text'
+import { resolveRelPath } from './lib/attachments'
 // 「本次变更」聚合（1.0.73，`482e4b03`）：验收时看这一次交付改了什么
 import { buildReviewDiff } from './lib/review-diff'
 import { buildAgentGuideIndex, cliEnvVarAvailable, resolveLauncherPath, resolveMcpPath } from './cli/agent-guide'
@@ -36,7 +39,7 @@ import { DB_VERSION } from '../renderer/lib/constants'
 /** 暴露本进程标识，供 ChangeBroadcastService 跳过自身产生的事件 */
 export const LOCAL_ACTOR_ID = `proc-${process.pid}-${Date.now()}`
 import type { IPCChannels, IPCChannelName } from '../renderer/types/ipc'
-import type { CreateTodoInput, UpdateTodoInput, Todo } from '../renderer/types/todo'
+import type { CreateTodoInput, UpdateTodoInput, Todo, AttachmentAddResult } from '../renderer/types/todo'
 import type { TodoStatus } from '../renderer/types/enums'
 import type { AppSettings } from '../renderer/types/settings'
 import type { WindowBounds, WindowPosition } from '../renderer/types/settings'
@@ -236,6 +239,8 @@ export function registerIPC(
 ): void {
   const protocolRepo = new ProtocolRepository()
   const profileRepo = new ProfileRepository()
+// 事项附件（schema v50）：与评论一样按需构造，不新增构造点
+const attachmentRepo = new AttachmentRepository()
 
   // ── 待办事项 ──
   ipcMain.handle('todo:create', (_e, input: CreateTodoInput) =>
@@ -344,7 +349,9 @@ export function registerIPC(
     safeHandle(() => {
       // 界面路径：渲染进程只被人操作，视为人的拍板，G4 放行（含删除待确认条目）
       // 动作人记 human（渲染进程只被人操作）——删除留痕要靠它回答"谁删的"
-      todoRepo.delete(id, 'gui', 'human')
+      // 附件文件不归外键管：先收文件再删行，否则数据目录里留下谁也认不出的残片
+attachmentRepo.removeAllForTodo(id)
+todoRepo.delete(id, 'gui', 'human')
       timerService.cancelReminder(id)
       broadcastDataChanged('todo', getWindows)
       telemetryService?.record({
@@ -577,7 +584,102 @@ export function registerIPC(
     })
   )
 
-  // ── 分类标签 ──
+    // ── 事项附件（schema v50）──
+  /**
+   * 附件是**复制**进数据目录的副本（分工与磁盘口径见 AttachmentRepository 的说明）。
+   *
+   * 为什么"选文件"与"加附件"是两条通道：系统对话框没法无头驱动 ——
+   * 拆开之后，验证脚本与将来的 CLI 都能直接走给路径的那条（`todo:addAttachments`）。
+   */
+  ipcMain.handle('todo:attachments', (_e, { todoId }: { todoId: string }) =>
+    safeHandle(() => attachmentRepo.list(todoId))
+  )
+
+  ipcMain.handle('todo:attachmentThumbs', (_e, { ids }: { ids: string[] }) =>
+    safeHandle(() => {
+      const dataDir = getDataDirPath()
+      const out: Record<string, string> = {}
+      for (const id of ids) {
+        const file = attachmentRepo.find(id)
+        if (!file || file.kind !== 'image') continue
+        const url = imageDataUrl(resolveRelPath(dataDir, file.relPath), ATTACH_THUMB_EDGE)
+        if (url) out[id] = url
+      }
+      return out
+    })
+  )
+
+  ipcMain.handle('todo:attachmentPreview', (_e, { id }: { id: string }) =>
+    safeHandle(() => {
+      const file = attachmentRepo.find(id)
+      if (!file) throw new Error('附件不存在，可能已被删除')
+      if (file.kind !== 'image') return { dataUrl: null, name: file.name }
+      const dataUrl = imageDataUrl(
+        resolveRelPath(getDataDirPath(), file.relPath),
+        ATTACH_PREVIEW_EDGE
+      )
+      if (!dataUrl) throw new Error(`读不出这张图片的内容：${file.name}`)
+      return { dataUrl, name: file.name }
+    })
+  )
+
+  const addAttachments = (todoId: string, paths: string[]): AttachmentAddResult => {
+    const res = attachmentRepo.add({ todoId, paths, actor: 'human' })
+    if (res.added.length) broadcastDataChanged('todo', getWindows)
+    return res
+  }
+
+  ipcMain.handle('todo:pickAttachments', (e, { todoId }: { todoId: string }) =>
+    safeHandleAsync(async () => {
+      const ownerWin = BrowserWindow.fromWebContents(e.sender)
+      const dialogOpts: Electron.OpenDialogOptions = {
+        title: '选择要关联到这条事项的图片或文件（可多选）',
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'] },
+          { name: '所有文件', extensions: ['*'] }
+        ]
+      }
+      const picked = ownerWin
+        ? await dialog.showOpenDialog(ownerWin, dialogOpts)
+        : await dialog.showOpenDialog(dialogOpts)
+      if (picked.canceled || !picked.filePaths.length) return null
+      return addAttachments(todoId, picked.filePaths)
+    })
+  )
+
+  ipcMain.handle(
+    'todo:addAttachments',
+    (_e, { todoId, paths }: { todoId: string; paths: string[] }) =>
+      safeHandle(() => addAttachments(todoId, paths))
+  )
+
+  /**
+   * 交给系统默认程序打开
+   *
+   * 与「打开项目文档目录」（`project:openDocExternal`）同源：`shell.openPath` 返回
+   * 空串才算成功，非空是系统给的错误文案，直接抛给界面显示。
+   */
+  ipcMain.handle('todo:openAttachment', (_e, { id }: { id: string }) =>
+    safeHandleAsync(async () => {
+      const file = attachmentRepo.find(id)
+      if (!file) throw new Error('附件不存在，可能已被删除')
+      const abs = resolveRelPath(getDataDirPath(), file.relPath)
+      if (!fs.existsSync(abs)) throw new Error(`附件文件不在了（可能被手工删掉）：${file.name}`)
+      const errMsg = await shell.openPath(abs)
+      if (errMsg) throw new Error(errMsg)
+      return { opened: file.name }
+    })
+  )
+
+  ipcMain.handle('todo:removeAttachment', (_e, { id }: { id: string }) =>
+    safeHandle(() => {
+      attachmentRepo.remove({ id, actor: 'human' })
+      broadcastDataChanged('todo', getWindows)
+    })
+  )
+
+// ── 分类标签 ──
   ipcMain.handle(
     'category:create',
     (_e, input: CategoryCreateInput) =>
@@ -1765,6 +1867,38 @@ export function registerIPC(
   console.log('[IPC] 所有处理器已注册')
 }
 
+/**
+ * 图片文件 → data URL（限制长边）
+ *
+ * 为什么必须走主进程：生产 CSP 是 img-src 'self' data: blob:（src/shared/csp.ts），
+ * 渲染层引 file:// 的图会被直接拦掉 —— 应用图标选择器（app:pickAppIcon）当初
+ * 就是这么做的，这里沿用同一口径。
+ *
+ * 为什么限长边：原图动辄几十 MB，转成 base64 再经 IPC 传进渲染进程会卡住界面；
+ * 列表缩略图与预览各取一个够用的长边就够。
+ */
+function imageDataUrl(absPath: string, maxEdge: number): string | null {
+  try {
+    const img = nativeImage.createFromPath(absPath)
+    if (img.isEmpty()) return null
+    const { width, height } = img.getSize()
+    const longest = Math.max(width, height)
+    const out =
+      longest > maxEdge
+        ? width >= height
+          ? img.resize({ width: maxEdge, quality: 'good' })
+          : img.resize({ height: maxEdge, quality: 'good' })
+        : img
+    return out.toDataURL()
+  } catch {
+    return null
+  }
+}
+
+/** 列表缩略图的长边（卡片里显示 56px 上下，留足 2 倍屏） */
+const ATTACH_THUMB_EDGE = 320
+/** 预览大图的长边：够看清界面文字，又不至于把界面拖住 */
+const ATTACH_PREVIEW_EDGE = 1600
 /** 广播数据变更事件到所有渲染进程 */
 /**
  * 本进程标识

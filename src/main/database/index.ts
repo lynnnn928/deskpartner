@@ -5,6 +5,8 @@ import Database from 'better-sqlite3'
 import { runMigrations } from './migrations'
 import { DB_FILENAME } from '../../renderer/lib/constants'
 
+import { ATTACHMENTS_DIR } from '../lib/attachments'
+
 let db: Database.Database | null = null
 let initialUserDataDir: string | null = null
 let activeDataDir: string | null = null
@@ -101,6 +103,23 @@ export async function migrateDataDirectory(
     /* 历史备份文件复制失败不阻塞主库迁移 */
   }
 
+  /**
+   * 附件目录一起搬（schema v50）
+   *
+   * 附件的路径是**相对数据目录**存的，目录换了却不搬，换完目录全部附件都会指空。
+   * 与历史备份一样**复制不删**：旧目录留着的仍是完整的一份回退点。
+   * 搬不动不阻塞这次换目录（库能用比附件在位重要），但要在日志里留一句 ——
+   * 静默失败会让人过几天才发现附件打不开，那时已经找不到原因。
+   */
+  try {
+    const srcAttach = path.join(prevDir, ATTACHMENTS_DIR)
+    const dstAttach = path.join(nextDir, ATTACHMENTS_DIR)
+    if (fs.existsSync(srcAttach) && !fs.existsSync(dstAttach)) {
+      fs.cpSync(srcAttach, dstAttach, { recursive: true })
+    }
+  } catch (err) {
+    console.error(`[Data] 附件目录未能随数据目录迁移：${err instanceof Error ? err.message : String(err)}`)
+  }
   writeConfiguredDataDir(nextDir)
   closeDatabase()
   activeDataDir = nextDir

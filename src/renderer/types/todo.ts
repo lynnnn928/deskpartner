@@ -211,6 +211,41 @@ export interface TodoComment {
   createdAt: string
 }
 
+/** 附件类型：图片能预览，其余交给系统默认程序打开 */
+export type AttachmentKind = 'image' | 'file'
+
+/**
+ * 事项附件（schema v50）
+ *
+ * 与主进程 `AttachmentRepository.TodoAttachment` 结构一致（IPC 传 JSON，各声明各的）。
+ *
+ * 它是**复制**进数据目录的副本，不是对外部路径的引用：源文件被移走或删掉后，
+ * 附件仍然打得开；备份数据目录时也一起带走。界面只拿得到 `relPath`（相对数据目录），
+ * 绝对路径由主进程解析 —— 渲染层不该自己拼磁盘路径。
+ */
+export interface TodoAttachment {
+  id: string
+  todoId: string
+  /** 这条事项内的展示序号，删了不回收 */
+  seq: number
+  /** 原始文件名，给人看的 */
+  name: string
+  ext: string
+  kind: AttachmentKind
+  mime: string
+  bytes: number
+  sha256: string
+  relPath: string
+  createdBy: string
+  createdAt: string
+}
+
+/** 一次添加附件的结果：成功的落库了，失败的带着原因 —— 一个文件太大不该让整批失败 */
+export interface AttachmentAddResult {
+  added: TodoAttachment[]
+  failed: Array<{ path: string; reason: string }>
+}
+
 /**
  * 一次字段变化（1.0.73，`482e4b03`）
  *

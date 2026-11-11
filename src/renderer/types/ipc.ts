@@ -5,6 +5,8 @@ import type {
   TodoTransition,
   TodoRestoreResult,
   TodoComment,
+  TodoAttachment,
+  AttachmentAddResult,
   CommentKind,
   TimelineEntry,
   ReviewDiffItem,
@@ -121,6 +123,28 @@ export interface IPCChannels {
     result: TodoComment
   }
   'todo:deleteComment': { input: { id: string }; result: void }
+  /**
+   * 事项附件（schema v50）
+   *
+   * 附件是**复制**进数据目录的副本 —— 源文件移走、删掉都不影响它。
+   * 图片不让渲染层直接引 `file://`（生产 CSP 是 `img-src 'self' data: blob:`，会被拦）：
+   * 缩略图与预览大图都由主进程用 `nativeImage` 转成 data URL 再回给界面；
+   * 普通文件点一下交给系统默认程序打开（与「打开项目文档目录」同源）。
+   */
+  'todo:attachments': { input: { todoId: string }; result: TodoAttachment[] }
+  /** 批量取图片缩略图：id → data URL；非图片、读不出的不出现在结果里 */
+  'todo:attachmentThumbs': { input: { ids: string[] }; result: Record<string, string> }
+  /** 取一张图片的预览大图（长边有上限，避免巨型 data URL） */
+  'todo:attachmentPreview': {
+    input: { id: string }
+    result: { dataUrl: string | null; name: string }
+  }
+  /** 开系统文件对话框选择（取消返回 null）：选中的文件复制进数据目录并落库 */
+  'todo:pickAttachments': { input: { todoId: string }; result: AttachmentAddResult | null }
+  /** 直接给路径（无对话框）：界面之外（验证、将来的 CLI）走这条 */
+  'todo:addAttachments': { input: { todoId: string; paths: string[] }; result: AttachmentAddResult }
+  'todo:openAttachment': { input: { id: string }; result: { opened: string } }
+  'todo:removeAttachment': { input: { id: string }; result: void }
 
   /**
    * 「本次变更」（1.0.73，主用户提单 `482e4b03`）
