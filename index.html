@@ -278,8 +278,17 @@
     .proof-list { display: grid; gap: 9px; padding: 0; list-style: none; }
     .proof-list li { display: flex; gap: 9px; color: var(--panel-strong-fg); font-size: 13px; }
     .proof-list li::before { content: "✓"; color: var(--status-mint); font-weight: 700; }
-    /* .proof-list 起初只用在深色 win-proof 面板里；放进浅色卡片必须换回正文色，否则白底白字 */
-    .proof-list.on-paper li { color: var(--ink); }
+    /*
+      「版本与计划」的清单
+      不能复用 .proof-list：那是给深色 win-proof 面板写的一行式 flex 清单，
+      条目里放 <strong>/<code> 会被拆成并排的 flex 项（"事项附 件： 图片直接看…"），
+      长包名还会顶出卡片。这里用普通行内流 + 绝对定位的对勾。
+    */
+    .roadmap-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .roadmap-list li { position: relative; padding-left: 22px; color: var(--ink); font-size: 13.5px; line-height: 1.68; }
+    .roadmap-list li::before { content: "✓"; position: absolute; left: 0; top: 0; color: var(--status-mint); font-weight: 700; }
+    .roadmap-list.next li::before { content: "○"; color: var(--faint); }
+    .roadmap-list code { padding: 1px 5px; border: 1px solid var(--line); border-radius: var(--radius-xs); background: var(--paper-deep); font-size: 12.5px; overflow-wrap: anywhere; }
 
     /* Product tour */
     .tour { display: grid; gap: 24px; }
@@ -764,7 +773,7 @@
           <article class="card">
             <span class="scenario-tag">NOW / 已经能用</span>
             <h3>当前版本</h3>
-            <ul class="proof-list on-paper">
+            <ul class="roadmap-list">
               <li>7 态工作流与首尾两道关口；<strong>禁止自验自过</strong>（G10）</li>
               <li>项目接手说明 + 历史决定全文检索；<code>#8位编号</code> 实时引用事项状态</li>
               <li>四档权限与人机审批：高危动作看清前后差异再批准，批准即原子回放</li>
@@ -778,7 +787,7 @@
           <article class="card">
             <span class="scenario-tag">NEXT / 计划中</span>
             <h3>还打算做</h3>
-            <ul class="proof-list on-paper">
+            <ul class="roadmap-list next">
               <li><strong>把附件也交给 AI</strong>：先给只读清单与元数据，再放开 agent 上传自己的产出（截图、报告）</li>
               <li><strong>详情只剩一个外壳</strong>：通知、审批、版本等页面点开事项也就地展开右栏，不再弹独立窗口</li>
               <li><strong>收件箱按对象分栏</strong>：「指名给我」与「全部动态」分开，真纸条不再被广播淹掉</li>
