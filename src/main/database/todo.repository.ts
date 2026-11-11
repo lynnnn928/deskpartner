@@ -785,7 +785,17 @@ export class TodoRepository {
       // undefined = 未提及（保持原值）；显式传入才改提出者
       createdBy: input.createdBy ?? existing.createdBy,
       // executedBy 三态：undefined 保持 / null 清空指派（回到提出者执行）/ 值 = 指派
-      // 发生推进类写入且尚未显式指派时，记录实际 actor，避免交付长期显示为“无人执行”。
+      /**
+       * 发生推进类写入且尚未显式指派时，记录实际 actor，避免交付长期显示为“无人执行”。
+       *
+       * ⚠️ 例外：「待确认 → 待办」＝接受提议，不算认领（卡片 d2e202a6）
+       *
+       * 主用户接受一条 agent 提的提议时只做了"该做"的拍板，却被记成"我来做"：执行者被钉成
+       * human，收口时 G10（运动员不当裁判）反过来挡在他自己面前。
+       * 判据：能证明他不是运动员的动作，不该被记成运动员。这一步本来只有主用户能做
+       * （move_out_of_proposed 对 agent 默认 deny），所以不必再判 actor。
+       * 其余推进（in_progress / awaiting_review）的自动认领保留 —— 那是人真的在干。
+       */
       executedBy:
         input.executedBy !== undefined
           ? input.executedBy
@@ -795,7 +805,8 @@ export class TodoRepository {
               input.status !== undefined &&
               input.status !== existing.status &&
               ['todo', 'in_progress', 'awaiting_review'].includes(input.status) &&
-              !(existing.status === 'awaiting_review' && input.status === 'in_progress')
+              !(existing.status === 'awaiting_review' && input.status === 'in_progress') &&
+              !(existing.status === 'proposed' && input.status === 'todo')
             ? (input.actor as TodoOwner)
             : existing.executedBy,
       // verifier 同样三态：undefined 保持 / 值 = 改验收者
