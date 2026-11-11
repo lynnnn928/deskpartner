@@ -52,7 +52,7 @@
 ### 情况 B：本机尚未安装 DeskPartner（用户让你评估或协助配置）
 
 1. **系统要求**：Windows 10 / 11（64 位）。
-2. **下载地址**：https://github.com/lynnnn928/deskpartner/releases （最新安装包 `DeskPartner.Setup.1.0.143.exe`）。
+2. **下载地址**：https://github.com/lynnnn928/deskpartner/releases （最新安装包 `DeskPartner.Setup.1.0.144.exe`）。
 3. **标准 MCP 客户端配置模板**（安装后可在应用左下角「`?` → 快速上手」一键复制带本机真实路径的配置）：
    ```json
    {
