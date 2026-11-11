@@ -365,6 +365,11 @@
     @media (min-width: 960px) {
       .problem-grid, .roles-grid, .use-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
+
+    /* 「版本与计划」只有两张卡，三列网格的第三格会空着 */
+    @media (min-width: 720px) {
+      .use-grid.roadmap-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
     @media (min-width: 1080px) {
       .nav-links { display: flex; gap: 18px; }
     }
@@ -755,7 +760,7 @@
     <section id="roadmap" class="section">
       <div class="container">
         <div class="section-head"><p class="section-kicker">Shipped &amp; next</p><h2>已经能用的，和确实排着的。</h2><p class="section-intro">这一页只写两件事：今天装下去就能用的能力，和我们确实排进计划的事。计划项都来自公开的问题清单，做完就移上来，不承诺时间。</p></div>
-        <div class="use-grid">
+        <div class="use-grid roadmap-grid">
           <article class="card">
             <span class="scenario-tag">NOW / 已经能用</span>
             <h3>当前版本</h3>
