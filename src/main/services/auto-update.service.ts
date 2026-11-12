@@ -8,14 +8,83 @@ import electronUpdater from 'electron-updater'
 import { ElectronHttpExecutor } from 'electron-updater/out/electronHttpExecutor'
 import type { AppUpdater } from 'electron-updater'
 import type { UpdateStatus } from '../../renderer/types/ipc'
+import { downloadWithResume } from './resumable-download'
 
 const { NsisUpdater } = electronUpdater
+
+type UpdaterDownloadOptions = Parameters<ElectronHttpExecutor['download']>[2]
+
+/** 单次尝试里多久没收到数据就断开重连（卡 `0ec0703b`） */
+function stallMsFromEnv(): number {
+  return Number(process.env.DESKPARTNER_UPDATE_STALL_MS) || 30_000
+}
+
+/** 最多重连多少次（每次接着上次的字节下）。10 次 ≈ 慢网络上最多耐心 5–10 分钟 */
+function maxAttemptsFromEnv(): number {
+  return Math.max(1, Number(process.env.DESKPARTNER_UPDATE_MAX_ATTEMPTS) || 10)
+}
 
 function safeAppVersion(): string {
   try {
     return app?.getVersion?.() || '0.0.0'
   } catch {
     return '0.0.0'
+  }
+}
+
+/**
+ * 断点续传版的下载执行器（卡 `0ec0703b`）
+ *
+ * 只换掉 `download()` 一件事：electron-updater 自己的全量下载是
+ * `createWriteStream(destination)`（截断写，无 Range），断一次就从 0 重来。
+ * 取清单、sha512 校验、缓存改名与安装触发仍然走它的流程 —— 我们只保证
+ * 交给它的那个临时文件是完整且正确的。
+ *
+ * 请求仍走 `ElectronHttpExecutor.createRequest`，所以打包版还是 Electron net
+ * （带系统代理与证书），开发/自建源那条路才换成 node http（见 ensureUpdater）。
+ */
+class ResumableHttpExecutor extends ElectronHttpExecutor {
+  stallMs = 30_000
+  maxAttempts = 10
+  /** 半成品目录：必须落在 electron-updater 不会清理的位置（它失败时会清空 pending/） */
+  resumeDir = ''
+  log: (message: string) => void = () => {}
+
+  override async download(
+    url: URL,
+    destination: string,
+    options: UpdaterDownloadOptions
+  ): Promise<string> {
+    const token = options.cancellationToken as unknown as {
+      cancelled?: boolean
+      createPromise?: <T>(
+        callback: (resolve: (value: T) => void, reject: (error: unknown) => void, onCancel: (cb: () => void) => void) => void
+      ) => Promise<T>
+    }
+
+    const run = async (onCancel: (cb: () => void) => void): Promise<string> => {
+      const result = await downloadWithResume({
+        url,
+        destination,
+        resumeDir: this.resumeDir,
+        headers: options.headers as Record<string, string | undefined> | null,
+        sha512: options.sha512 ?? null,
+        createRequest: (requestOptions, callback) =>
+          this.createRequest(requestOptions as never, callback as never) as never,
+        onProgress: options.onProgress,
+        stallMs: this.stallMs,
+        maxAttempts: this.maxAttempts,
+        onCancel,
+        isCancelled: () => Boolean(token?.cancelled),
+        log: this.log
+      })
+      return result.filePath
+    }
+
+    if (typeof token?.createPromise !== 'function') return await run(() => {})
+    return await token.createPromise<string>((resolve, reject, onCancel) => {
+      void run(onCancel).then(resolve, reject)
+    })
   }
 }
 
@@ -32,14 +101,6 @@ export class AutoUpdateService {
 
   private updater: AppUpdater | null = null
   private checkInFlight: Promise<UpdateStatus> | null = null
-
-  /**
-   * 下载最后一次**收到数据**的时刻（卡 `a3b196c7`）
-   *
-   * 判断"卡住了"只能看它：连接建立起不来，或者传到一半断流，electron-updater 那边
-   * 既不报错也不返回，`downloadUpdate()` 的 promise 会一直挂着 —— 界面就只能一直转。
-   */
-  private lastProgressAt = 0
 
   private ensureUpdater(): AppUpdater {
     if (this.updater) return this.updater
@@ -84,7 +145,16 @@ export class AutoUpdateService {
     }
 
     const nsisUpdater = new NsisUpdater(null, appAdapter as never)
-    const httpExec = new ElectronHttpExecutor()
+    const httpExec = new ResumableHttpExecutor()
+    httpExec.stallMs = stallMsFromEnv()
+    httpExec.maxAttempts = maxAttemptsFromEnv()
+    /**
+     * 半成品放 `partials/`，**不放 electron-updater 的 `pending/`**：
+     * 它 `downloadedUpdateHelper.clear()` 时会 `emptyDir(pending)`，
+     * 半成品要放在那里面，"这次没下完、下次接着下"就永远不成立（卡 `0ec0703b`）。
+     */
+    httpExec.resumeDir = path.join(cacheDir, 'partials')
+    httpExec.log = (message: string) => console.warn(message)
     /**
      * 这个替换只装在**开发/自建更新源**那条路上（见下面的条件）。
      *
@@ -155,8 +225,6 @@ export class AutoUpdateService {
     })
 
     nsisUpdater.on('download-progress', (progress) => {
-      // 有进度就说明链路是活的（见 lastProgressAt 的说明）
-      this.lastProgressAt = Date.now()
       this.state = {
         ...this.state,
         status: 'downloading',
@@ -260,19 +328,19 @@ export class AutoUpdateService {
   }
 
   /**
-   * 下载安装包（卡 `a3b196c7`：卡住要能自己报出来）
+   * 下载安装包（卡 `0ec0703b`：断线要能接着下）
    *
-   * ⚠️ 这里**不取消**传输：electron-updater 的 cancellationToken 要从
-   * `builder-util-runtime` 直接引（本仓库没把它列成依赖），为一个"何时放弃"的判断
-   * 引一条新依赖不划算。改用的判据更简单：**一段时间没收到任何数据**就把状态判成失败，
-   * 让用户看见"卡住了"并能重试；底层那条请求继续跑，真恢复了 `update-downloaded`
-   * 会把状态改回「已就绪」，不白丢。
+   * 判"卡住"与"重连"都搬进了执行器（`ResumableHttpExecutor` → `downloadWithResume`），
+   * 这里只做两件事：把状态摆成「下载中」，以及把最终结局说成人话。
+   *
+   * 为什么不再在服务层放一个"多久没数据就判失败"的看门狗：那个判据会把
+   * **正在自动重连**的下载判成失败（卡 `a3b196c7` 当时的做法，只报错不打捞）。
+   * 现在单次尝试的静默期由 `DESKPARTNER_UPDATE_STALL_MS` 管、重连次数由
+   * `DESKPARTNER_UPDATE_MAX_ATTEMPTS` 管，两者都封顶，所以不会出现"永远下载中"。
+   * 半成品留在 `partials/`：这一次没下完，下一次点「立即更新」是接着下，不是从头下。
    */
   async downloadUpdate(): Promise<UpdateStatus> {
     const updater = this.ensureUpdater()
-    const stallMs = Number(process.env.DESKPARTNER_UPDATE_STALL_MS) || 30_000
-    this.lastProgressAt = Date.now()
-    let stallTimer: ReturnType<typeof setInterval> | null = null
     try {
       this.state = {
         ...this.state,
@@ -280,33 +348,11 @@ export class AutoUpdateService {
         progressPercent: 0,
         errorMessage: null
       }
-      const stalled = new Promise<'stalled'>((resolve) => {
-        stallTimer = setInterval(
-          () => {
-            if (Date.now() - this.lastProgressAt >= stallMs) resolve('stalled')
-          },
-          Math.min(5_000, stallMs)
-        )
-      })
-      /**
-       * 这里先挂上 catch 再接进 race：判"卡住"之后底层那条请求还会继续，
-       * 它可能过一会儿带着错误结束 —— 那时 race 早已定局，没人接的 rejection
-       * 会变成 unhandledRejection（主进程里就是一条没人管的报错）。
-       */
-      let downloadError: unknown = null
-      const download = updater.downloadUpdate().catch((err) => {
-        downloadError = err
-        return 'failed' as const
-      })
-      const outcome = await Promise.race([download, stalled])
-      if (outcome === 'failed') throw downloadError ?? new Error('下载失败')
-      if (outcome === 'stalled') {
-        this.state = {
-          ...this.state,
-          status: 'error',
-          progressPercent: null,
-          errorMessage: `下载更新失败：${Math.round(stallMs / 1000)} 秒没有收到任何数据，请检查网络后重试`
-        }
+      await updater.downloadUpdate()
+      // update-downloaded 事件通常已经把状态写好了；没到就自己兜一句，
+      // 免得调用方拿到一个还写着 downloading 的回执
+      if (this.state.status === 'downloading') {
+        this.state = { ...this.state, status: 'downloaded', progressPercent: 100 }
       }
     } catch (err) {
       /**
@@ -318,10 +364,9 @@ export class AutoUpdateService {
       this.state = {
         ...this.state,
         status: 'error',
+        progressPercent: null,
         errorMessage: `下载更新失败：${message}`
       }
-    } finally {
-      if (stallTimer) clearInterval(stallTimer)
     }
     return this.getState()
   }

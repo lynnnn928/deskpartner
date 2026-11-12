@@ -258,13 +258,13 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
   })
 
   /**
-   * 下载卡住要能自己报出来（卡 a3b196c7）
+   * 下载卡住要能自己报出来（卡 a3b196c7），断线要能接着下（卡 0ec0703b）
    *
    * 真实场景：连接建起来、传了一点就断流。electron-updater 那边既不报错也不返回，
-   * downloadUpdate() 的 promise 一直挂着 —— 修之前界面就只能一直"下载中"。
-   * 这里用本地更新源模拟：安装包响应只发 64KB 然后**不结束**。
+   * downloadUpdate() 的 promise 一直挂着。1.0.137 的做法是"一段时间没数据就判失败"，
+   * 1.0.145 起改成"断开重连、从断点接着下"：重连次数用尽才算失败，且半成品留在盘上。
    */
-  it('3b. 下载中途断流：一段时间没有数据就判失败并给出原因（a3b196c7）', async () => {
+  it('3b. 下载中途断流：自动重连到次数用尽才报失败，半成品留着等下次接着下（a3b196c7 / 0ec0703b）', async () => {
     const tmpFeedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dp-update-stall-'))
     const installerName = 'DeskPartner Setup 1.0.199.exe'
     const payload = Buffer.alloc(64 * 1024, 7)
@@ -274,14 +274,12 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
       'files:',
       `  - url: ${installerName}`,
       `    sha512: ${sha512}`,
-      `    size: 8 * 1024 * 1024`,
+      `    size: ${8 * 1024 * 1024}`,
       `path: ${installerName}`,
       `sha512: ${sha512}`,
       `releaseDate: '2026-10-29T09:52:54.270Z'`,
       ''
-    ]
-      .join('\n')
-      .replace('size: 8 * 1024 * 1024', `size: ${8 * 1024 * 1024}`)
+    ].join('\n')
     fs.writeFileSync(path.join(tmpFeedDir, 'latest.yml'), latestYml, 'utf8')
 
     /** 挂住的响应：先发 64KB，然后一直不结束（模拟断流） */
@@ -302,9 +300,11 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
     const addr = server.address() as { port: number }
     const prevFeed = process.env.DESKPARTNER_UPDATE_FEED_URL
     const prevStall = process.env.DESKPARTNER_UPDATE_STALL_MS
+    const prevAttempts = process.env.DESKPARTNER_UPDATE_MAX_ATTEMPTS
     process.env.DESKPARTNER_UPDATE_FEED_URL = `http://127.0.0.1:${addr.port}`
-    // 把"多久没数据算卡住"压到 400ms，用例才跑得快
+    // 把"多久没数据算卡住"压到 400ms、重连 2 次，用例才跑得快
     process.env.DESKPARTNER_UPDATE_STALL_MS = '400'
+    process.env.DESKPARTNER_UPDATE_MAX_ATTEMPTS = '2'
     currentVersionRef.value = '1.0.132'
 
     try {
@@ -315,9 +315,112 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
       const dlRes = await svc.downloadUpdate()
       expect(dlRes.status).toBe('error')
       expect(dlRes.errorMessage ?? '').toContain('下载更新失败')
-      expect(dlRes.errorMessage ?? '').toMatch(/没有收到任何数据/)
+      expect(dlRes.errorMessage ?? '').toMatch(/连续 2 次连接中断/)
+      // 至少试了两次（一次断流 + 一次重连），不是"断了就算
+      expect(hanging.length).toBeGreaterThanOrEqual(2)
+
+      // 半成品留在 electron-updater 不会清理的目录里：下次点「立即更新」是接着下
+      const resumeDir = path.join(os.tmpdir(), 'desk-partner-updater-cache', 'partials')
+      const parts = fs.existsSync(resumeDir)
+        ? fs.readdirSync(resumeDir).filter((name) => name.endsWith('.part'))
+        : []
+      const thisPartial = parts.find((name) => name.includes('1.0.199'))
+      expect(thisPartial, `半成品没留下：${parts.join(', ')}`).toBeTruthy()
+      expect(fs.statSync(path.join(resumeDir, thisPartial as string)).size).toBe(payload.length)
+      // 用例自己扫尾：半成品是该留的，但别留在机器的临时目录里
+      for (const name of parts.filter((name) => name.includes('1.0.199'))) {
+        fs.rmSync(path.join(resumeDir, name), { force: true })
+      }
     } finally {
       for (const res of hanging) res.destroy()
+      if (prevFeed === undefined) delete process.env.DESKPARTNER_UPDATE_FEED_URL
+      else process.env.DESKPARTNER_UPDATE_FEED_URL = prevFeed
+      if (prevStall === undefined) delete process.env.DESKPARTNER_UPDATE_STALL_MS
+      else process.env.DESKPARTNER_UPDATE_STALL_MS = prevStall
+      if (prevAttempts === undefined) delete process.env.DESKPARTNER_UPDATE_MAX_ATTEMPTS
+      else process.env.DESKPARTNER_UPDATE_MAX_ATTEMPTS = prevAttempts
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      fs.rmSync(tmpFeedDir, { recursive: true, force: true })
+    }
+  })
+
+  /**
+   * 断线续传走完整条链路（卡 `0ec0703b`）
+   *
+   * 这是这次的正面判据：第一次响应发一半就被掐断，第二次请求必须带
+   * `Range: bytes=<已下>-`，并且 `downloadUpdate()` 最终回 'downloaded' 100%。
+   * 修之前这里会红：electron-updater 的全量下载是截断写，重试从 0 开始，
+   * 本地服务只切一次就永远下不完。
+   */
+  it('3d. 第一次响应被掐断后按 Range 接着下，最终拿到 downloaded（0ec0703b）', async () => {
+    const tmpFeedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dp-update-resume-'))
+    const installerName = 'DeskPartner Setup 1.0.198.exe'
+    const payload = crypto.randomBytes(192 * 1024)
+    const cutAt = 96 * 1024
+    const sha512 = crypto.createHash('sha512').update(payload).digest('base64')
+    const latestYml = [
+      'version: 1.0.198',
+      'files:',
+      `  - url: ${installerName}`,
+      `    sha512: ${sha512}`,
+      `    size: ${payload.length}`,
+      `path: ${installerName}`,
+      `sha512: ${sha512}`,
+      `releaseDate: '2026-11-11T09:52:54.270Z'`,
+      ''
+    ].join('\n')
+    fs.writeFileSync(path.join(tmpFeedDir, 'latest.yml'), latestYml, 'utf8')
+    fs.writeFileSync(path.join(tmpFeedDir, installerName), payload)
+
+    const ranges: Array<string | undefined> = []
+    let installerHits = 0
+    const server = http.createServer((req, res) => {
+      const reqPath = decodeURIComponent((req.url || '/').split('?')[0])
+      if (reqPath.endsWith('.yml')) {
+        res.writeHead(200, { 'Content-Type': 'text/yaml' })
+        res.end(latestYml)
+        return
+      }
+      installerHits++
+      ranges.push(req.headers.range)
+      const start = req.headers.range
+        ? Number(/bytes=(\d+)-/.exec(req.headers.range)?.[1] ?? 0)
+        : 0
+      if (installerHits === 1) {
+        // 第一次：发一半就掐断（模拟 GitHub 资产链路上的静默断流）
+        res.writeHead(200, { 'Content-Length': String(payload.length) })
+        res.write(payload.subarray(0, cutAt))
+        setTimeout(() => res.destroy(), 20)
+        return
+      }
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${payload.length - 1}/${payload.length}`,
+        'Content-Length': String(payload.length - start)
+      })
+      res.end(payload.subarray(start))
+    })
+
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+    const addr = server.address() as { port: number }
+    const prevFeed = process.env.DESKPARTNER_UPDATE_FEED_URL
+    const prevStall = process.env.DESKPARTNER_UPDATE_STALL_MS
+    process.env.DESKPARTNER_UPDATE_FEED_URL = `http://127.0.0.1:${addr.port}`
+    process.env.DESKPARTNER_UPDATE_STALL_MS = '2000'
+    currentVersionRef.value = '1.0.132'
+
+    try {
+      const svc = new AutoUpdateService()
+      expect((await svc.checkForUpdates()).status).toBe('available')
+
+      const dlRes = await svc.downloadUpdate()
+      expect(dlRes.status).toBe('downloaded')
+      expect(dlRes.progressPercent).toBe(100)
+
+      expect(installerHits).toBeGreaterThanOrEqual(2)
+      expect(ranges[0]).toBeUndefined()
+      const resumedAt = Number(/^bytes=(\d+)-$/.exec(ranges[1] as string)?.[1])
+      expect(resumedAt).toBeGreaterThanOrEqual(cutAt)
+    } finally {
       if (prevFeed === undefined) delete process.env.DESKPARTNER_UPDATE_FEED_URL
       else process.env.DESKPARTNER_UPDATE_FEED_URL = prevFeed
       if (prevStall === undefined) delete process.env.DESKPARTNER_UPDATE_STALL_MS
@@ -327,16 +430,26 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
     }
   })
 
-  it('3c. 检查更新的默认超时是 30 秒（abb86b06：10 秒会把"慢"误判成"坏"）', () => {
+  it('3c. 检查更新的默认超时是 30 秒；断流的判据与重连次数都留在源码里（abb86b06 / 0ec0703b）', () => {
     const svc = fs.readFileSync(
       path.join(process.cwd(), 'src/main/services/auto-update.service.ts'),
       'utf8'
     )
     expect(svc).toMatch(/checkForUpdates\(timeoutMs = 30_000\)/)
     expect(svc, '10 秒的旧值不该再出现').not.toMatch(/timeoutMs = 10_000/)
-    // 下载停滞的判据也要留痕：断流时不能永远"下载中"
+    // 停滞与重连的旋钮留在服务里，交给断点续传执行器
     expect(svc).toMatch(/DESKPARTNER_UPDATE_STALL_MS/)
-    expect(svc).toMatch(/没有收到任何数据/)
+    expect(svc).toMatch(/DESKPARTNER_UPDATE_MAX_ATTEMPTS/)
+    expect(svc).toMatch(/ResumableHttpExecutor/)
+
+    // 续传本体：必须有 Range 请求，且半成品不放在 electron-updater 会清空的 pending/ 里
+    const resume = fs.readFileSync(
+      path.join(process.cwd(), 'src/main/services/resumable-download.ts'),
+      'utf8'
+    )
+    expect(resume).toMatch(/headers\.Range = `bytes=\$\{offset\}-`/)
+    expect(resume).toMatch(/没有等到响应/)
+    expect(svc).toMatch(/new ResumableHttpExecutor\(\)/)
   })
 
   it('4. 开源工程件齐全：LICENSE、package.json 元信息、CI workflow、CONTRIBUTING、SECURITY 与中英 README', () => {
