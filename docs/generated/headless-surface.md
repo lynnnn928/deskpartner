@@ -145,7 +145,7 @@
 | 35 | `agent register` | write | `object` | 直通（`ok=true`） | `id` `displayName` `color` `approved` `rejectedAt` `hasCredential` `createdAt` `lastSeenAt` `lastWriteAt` `lastWriteCmd` `reused` `needsApproval` `nextSteps` `humanNotified` `nextHint` |
 | 36 | `agent credential` | write | `object` | 直通（`ok=true`） | `agentId` `credentialPath` `declaredAs` `otherCredentials` `note` |
 | 37 | `agent revoke` | write | `object` | 直通（`ok=true`） | `agentId` `scope` `revokedGrants` `note` |
-| 38 | `agent purge-credentials` | write | `object` | 直通（`ok=true`） | `agentId` `credentialPath` `removed` `wasDefault` `defaultAfter` `remaining` `note` |
+| 38 | `agent purge-credentials` | write | `object` | 直通（`ok=true`） | `agentId` `credentialPath` `removed` `remaining` `note` |
 
 ## 3. 关口（守卫与门禁）
 

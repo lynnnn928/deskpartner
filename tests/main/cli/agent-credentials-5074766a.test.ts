@@ -12,11 +12,12 @@
  * ## 本文件盯的四件事
  *
  * ① **看得见**：`agent credentials` 列出文件里的每一份，标出「还在不在册」与
- *    「是不是默认」，且**不回 token**（那是能直接冒充身份的私钥）；
+ *    且**不回 token**（那是能直接冒充身份的私钥）；
  * ② **删得掉**：未注册身份 + `--yes` → 文件里消失、份数减一；
  * ③ **删不该删的**：已注册身份一律不受理（提示走 `agent revoke`）；
  *    没带 `--yes` 时**文件一个字节都不动**；
- * ④ **默认身份不留悬空**：删掉的正好是 `default` 时，它自动换到剩下排序第一份；
+ * ④ **文件里没有 `default` 了**（1.0.145，卡 `2b595a5a`）：写出去的一律是 v2 形状，
+ *    读 v1 老文件照样能用（那个字段本来就不参与选身份，不迁移）；
  *    一份都不剩时 `default` 整个去掉（留一个指向不存在身份的 default 比没有更难查）。
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
@@ -73,8 +74,8 @@ let file: string
 /**
  * 造一份"有一份孤儿"的凭据文件
  *
- * 三份：zed（在册、默认）、erin（**孤儿**）、carol（在册）。
- * 默认身份故意设成 zed —— 删孤儿时不该动它。
+ * 三份：zed（在册）、erin（**孤儿**）、carol（在册）。
+ * ⚠️ 故意写成 **v1 形状**（带 `default`）：老文件必须照样读得进，且写回时不再带它。
  */
 function seed() {
   fs.writeFileSync(
@@ -123,7 +124,8 @@ describe('agent credentials：看得见（1.0.116）', () => {
     expect(rows.map((r) => r.agentId)).toEqual(['agent:carol', 'agent:erin', 'agent:zed'])
     expect(rows.find((r) => r.agentId === 'agent:erin')?.registered).toBe(false)
     expect(rows.find((r) => r.agentId === 'agent:zed')?.registered).toBe(true)
-    expect(rows.find((r) => r.agentId === 'agent:zed')?.isDefault).toBe(true)
+    // v2 起没有"默认身份"这个概念，回执里也不该再出现
+    expect(rows.find((r) => r.agentId === 'agent:zed')).not.toHaveProperty('isDefault')
   })
 
   it('meta 里点名孤儿，并给出清理命令', async () => {
@@ -160,8 +162,10 @@ describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）'
 
     const after = readCredentials()
     expect(Object.keys(after.profiles)).toEqual(['agent:carol', 'agent:zed'])
-    // 默认身份没被牵连
-    expect(after.default).toBe('agent:zed')
+    // 写回的是 v2：老文件里的 default 不再出现
+    expect(after.version).toBe(2)
+    expect(after).not.toHaveProperty('default')
+    expect(JSON.parse(rawText())).not.toHaveProperty('default')
   })
 
   it('没带 --yes：报 usage_error，**文件一个字节都不动**', async () => {
@@ -191,23 +195,25 @@ describe('agent purge-credentials：删得掉，也删不该删的（1.0.116）'
     expect(res.message).toContain('agent:erin')
   })
 
-  it('删的是默认身份时，默认自动换人', async () => {
-    // 把孤儿设成默认再删它
-    const cur = JSON.parse(rawText()) as { default: string }
-    cur.default = 'agent:erin'
-    fs.writeFileSync(file, JSON.stringify(cur, null, 2))
+  it('v1 老文件（带 default）读得进；动一次就变成 v2，default 不再出现', async () => {
+    // 本用例的 fixture 就是 v1 形状（`default: agent:zed`）
+    expect(readCredentials().profiles['agent:zed']).toBeTruthy()
 
     const res = await run(['agent', 'purge-credentials', '--id', 'agent:erin', '--yes'])
     expect(res.ok).toBe(true)
     const data = res.data as Record<string, unknown>
-    expect(data.wasDefault).toBe(true)
-    expect(data.defaultAfter).toBe('agent:carol')
-    expect(readCredentials().default).toBe('agent:carol')
+    expect(data).not.toHaveProperty('wasDefault')
+    expect(data).not.toHaveProperty('defaultAfter')
+
+    const written = JSON.parse(rawText()) as Record<string, unknown>
+    expect(written.version).toBe(2)
+    expect(written).not.toHaveProperty('default')
+    expect(Object.keys(written.profiles as object)).toEqual(['agent:carol', 'agent:zed'])
   })
 })
 
 describe('removeCredential：把文件改对（含最后一份的收尾）', () => {
-  it('删掉最后一份 → default 整个去掉，不留悬空值', () => {
+  it('删掉最后一份 → 文件落到 v2 形状（没有 default 字段）', () => {
     // 造一份只有孤儿的文件，且默认身份就是它
     fs.writeFileSync(
       file,
@@ -223,7 +229,7 @@ describe('removeCredential：把文件改对（含最后一份的收尾）', () 
     )
 
     const result = removeCredential('agent:erin')
-    expect(result).toEqual({ removed: true, wasDefault: true, defaultAfter: null, remaining: 0 })
+    expect(result).toEqual({ removed: true, remaining: 0 })
 
     const written = JSON.parse(rawText()) as Record<string, unknown>
     expect(written.profiles).toEqual({})

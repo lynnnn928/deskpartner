@@ -39,10 +39,22 @@ export interface CredentialProfile {
   issuedAt: string
 }
 
+/**
+ * 凭据文件的内容
+ *
+ * ## v1 → v2：删掉 `default`（卡 `2b595a5a`）
+ *
+ * v1 里有一个 `default` 字段（第一次领凭据的身份），从 1.0.37 起**不再参与选身份**
+ * —— `pickCredential` 只在"本机恰好只有一份凭据"时才自动带身份，多份且没声明就返回 null。
+ * 于是它成了一个只写在文件里、行为上不存在的承诺：新 agent 看到"默认身份是 X"，
+ * 以为不声明也能写，实际被按 human 只读拦下：实测本机不带 `DESKPARTNER_AGENT` 跑
+ * `agent whoami` 得到 `actor: human`、`hasCredential: false`、`canWrite: false`，
+ * 与文件里那个名字说的完全是两回事。
+ *
+ * v2 起不再写它；读 v1 时**直接丢掉**（那个值本来就不参与任何判断，不需要迁移）。
+ */
 export interface CredentialFile {
-  version: 1
-  /** 不指定身份时默认用哪个 */
-  default?: string
+  version: 2
   profiles: Record<string, CredentialProfile>
 }
 
@@ -59,28 +71,29 @@ export function hashToken(token: string): string {
 export function readCredentials(): CredentialFile {
   try {
     const raw = fs.readFileSync(credentialsPath(), 'utf8')
-    const parsed = JSON.parse(raw) as CredentialFile
+    const parsed = JSON.parse(raw) as { profiles?: CredentialFile['profiles']; default?: unknown }
     if (!parsed || typeof parsed !== 'object' || !parsed.profiles) {
-      return { version: 1, profiles: {} }
+      return { version: 2, profiles: {} }
     }
-    return { version: 1, default: parsed.default, profiles: parsed.profiles }
+    // v1 里的 `default` 到这里为止：读进来只是为了让老文件继续可用，
+    // 它不参与选身份，也不写回去（下一次落盘就是 v2）
+    return { version: 2, profiles: parsed.profiles }
   } catch {
     // 文件不存在 / 损坏都要当作"没有凭据"，不能让启动器崩在这里
-    return { version: 1, profiles: {} }
+    return { version: 2, profiles: {} }
   }
 }
 
 /**
  * 写入（或覆盖）某个身份的凭据
  *
- * ⚠️ 只在文件里还没有 default 时才把它设为默认 —— 否则后领凭据的 agent
- * 会把先领的顶掉，不指定身份的调用就串到了别人名下（多 agent 并存时的静默错记）。
+ * 不维护任何"默认身份"（v2 起没有这个字段，见 `CredentialFile` 的说明）：
+ * 落盘只记"哪个身份、什么时候签的、token 的哈希"。
  * 多 agent 各自跑的场景请显式 `export DESKPARTNER_AGENT=agent:<id>`。
  */
 export function writeCredential(agentId: string, token: string): void {
   const file = readCredentials()
   file.profiles[agentId] = { token, issuedAt: new Date().toISOString() }
-  if (!file.default || !file.profiles[file.default]) file.default = agentId
   writeCredentialsFile(JSON.stringify(file, null, 2))
 }
 
@@ -136,19 +149,15 @@ function writeCredentialsFile(text: string): void {
  * ## 边界
  *
  * - 只动**这一份文件**，不碰库里的身份（删身份是另一件事，而且不可逆）；
- * - 默认身份被删时**跟着换人**（换到剩下排序第一的），没剩下就清掉 `default` ——
- *   不能留一个指向不存在的身份的 `default`（那种脏数据比没有更难查）；
- * - 文件不存在 / 没有这个身份 → `removed: false`，**不写文件**（不制造空文件）。
+ * - 文件不存在 / 没有这个身份 → `removed: false`，**不写文件**（不制造空文件）；
+ * - v2 起文件里没有 `default` 字段，"删掉默认身份要换人"这件事随之消失
+ *   （卡 `2b595a5a`）—— 删完落盘就是 v2 的形状。
  *
  * 安全语义由命令层守（已注册的身份不受理），这里只负责把文件改对。
  */
 export interface RemoveCredentialResult {
   /** 真的删掉了一条（不存在时是 false —— 调用方据此区分"删了"与"本来就没有"） */
   removed: boolean
-  /** 删掉的正好是文件里的默认身份 */
-  wasDefault: boolean
-  /** 删完之后文件里的默认身份（可能没有） */
-  defaultAfter: string | null
   /** 删完之后文件里还剩几份 */
   remaining: number
 }
@@ -159,15 +168,9 @@ export function removeCredential(agentId: string): RemoveCredentialResult {
   const remainingIds = Object.keys(file.profiles).sort()
   const existed = Boolean(id) && Object.prototype.hasOwnProperty.call(file.profiles, id)
   if (!existed) {
-    return {
-      removed: false,
-      wasDefault: false,
-      defaultAfter: file.default ?? null,
-      remaining: remainingIds.length
-    }
+    return { removed: false, remaining: remainingIds.length }
   }
 
-  const wasDefault = file.default === id
   const profiles: Record<string, CredentialProfile> = {}
   for (const key of remainingIds) {
     if (key === id) continue
@@ -175,21 +178,12 @@ export function removeCredential(agentId: string): RemoveCredentialResult {
   }
   const rest = Object.keys(profiles).sort()
 
-  /**
-   * 默认身份的去处：**换到剩下排序第一的那份**，没有就整个去掉。
-   *
-   * 为什么不"保持原值不动"：`pickCredential` 已经不靠 `default` 猜身份了，
-   * 可界面与 `doctor` 还会读它 —— 指向一个不存在的身份，报出来的就是假话。
-   */
-  const defaultAfter = wasDefault ? (rest[0] ?? null) : (file.default ?? null)
-
-  const next: CredentialFile = { version: 1, profiles }
-  if (defaultAfter) next.default = defaultAfter
+  const next: CredentialFile = { version: 2, profiles }
 
   // 与 `writeCredential` 同一个口径：写完就收 Windows 权限（见那里的说明）
   writeCredentialsFile(JSON.stringify(next, null, 2))
 
-  return { removed: true, wasDefault, defaultAfter, remaining: rest.length }
+  return { removed: true, remaining: rest.length }
 }
 
 /**
@@ -210,8 +204,8 @@ export function removeCredential(agentId: string): RemoveCredentialResult {
  * 实际授给了"这台机器上碰巧持证的那个"。
  *
  * 现在：多份凭据 + 未声明身份 → 不猜，返回 null，由调用方提示声明。
- * `default` 字段保留（文件格式不变、向后兼容），但不再用来猜身份 ——
- * "不指定时随便挑一个"正是要禁掉的那个行为。
+ * 1.0.145（卡 `2b595a5a`）把 v1 里那个既不用、又会误导人的 `default` 字段一并删了 ——
+ * "不指定时随便挑一个"正是要禁掉的那个行为，文件里就不该留着它的影子。
  */
 export function pickCredential(preferredId?: string): {
   agentId: string

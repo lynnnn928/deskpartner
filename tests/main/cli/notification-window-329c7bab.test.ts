@@ -247,16 +247,25 @@ describe('notification list 的读窗口（329c7bab）', () => {
     expect(parseOffset('7', 'x')).toBe(7)
   })
 
-  it('--to-me 与仓储层同一份口径（收件人 + 广播），只是窗口交还给了命令行', async () => {
+  it('--to-me 只回**指名给我**的（1.0.145 起不再算广播），与仓储层同一份口径（497c9949）', async () => {
     const r = await run(['notification', 'list', '--to-me', '--limit', '0'])
     expect(idsOf(r.data)).toEqual(repo.listFor('agent:alice').map((n) => n.id))
+    // 底数：250 条 memo 指名给 alice，200 条 review 是广播 —— 只有前者算"给我的"
+    expect(idsOf(r.data).length, '只回指名的 250 条').toBe(250)
+    expect(
+      idsOf(r.data).every((id) => memoIds.includes(id)),
+      '回来的一条广播都不该有'
+    ).toBe(true)
+    // 广播没有被藏起来：不带 --to-me 就是全部（界面与默认口径都走它）
+    const all = await run(['notification', 'list', '--limit', '0'])
+    expect(idsOf(all.data).length, '默认口径仍是全量 450').toBe(450)
     /**
      * ⚠️ `unreadForMe` 与 `unread`（全局 status）**不是一回事**：
      * 本用例里全局已读打了 300 条，但 `read_by` 一个人都没记过 ——
-     * 所以"我还没看"是 450，"界面铃铛还有几条没看"是 150。两个数并存正是设计。
+     * 所以"我还没看"是 250（指名给我的那批），"界面铃铛还有几条没看"是 150。
      */
     expect(pageOf(r.data).unreadForMe).toBe(repo.unreadCountFor('agent:alice', 'agent:alice'))
-    expect(pageOf(r.data).unreadForMe).toBe(450)
+    expect(pageOf(r.data).unreadForMe).toBe(250)
     expect(pageOf(r.data).unread).toBe(150)
   })
 

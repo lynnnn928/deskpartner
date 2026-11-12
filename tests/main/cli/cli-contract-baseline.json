@@ -2,7 +2,7 @@
   "_note": "命令面契约基线（卡 829ad776）。由 tests/main/cli/cli-contract-baseline-829ad776.test.ts 逐条比对。契约要改就是显式改：跑 `node scripts/update-cli-contract-baseline.mjs`，把这个文件的 diff 带进评审。普通测试运行不会改写它。",
   "schema": {
     "_what": "`dp schema` 的非 TTY 输出：envelope=整份字节；rest=除 commands 之外的部分；entries=逐条命令",
-    "envelope": "090919799f027fb8dd0c6226e80684046181436b820454e2b521a98d5c7c8c7e",
+    "envelope": "a8bbc165a6c01841e99b187093b7f23cb72d11d8af6e973e4d300ca6475061ff",
     "rest": "93ced633bb8676afa6262fac5d84dbee16e39d340a9e08a8b71751b54a1decd4",
     "order": [
       "schema",
@@ -84,7 +84,7 @@
     ],
     "entries": {
       "schema": "fb121b3d8369dc347a86545b80a67a76bfbe3e2880bfa6475b61cb5ddb8bad54",
-      "notification list": "fcc0223f5264d60ec7688f7b5a1e1d3f5d21d3598cdea0c830b7506d82a5383b",
+      "notification list": "931a65427040c8c83f7c9251d6a49677d913a81f1f396133e8c694d14142f93d",
       "todo inbox": "f438f2f283801f6ad42654347f9ab01c354b66f74321c029255744b80b86dd5d",
       "todo comment": "ad05ee1254b3cf9f49fe5ce89f02a99bb84468e86b88aa451d4354579c0c447d",
       "todo reject": "42f108dbfb88dfc1519a0112227568e92042a324b89c8ed7963cd3443ee73c3b",
@@ -154,7 +154,7 @@
       "agent credential": "f7bdb721ee26e300c10ce21315b13313b2546c954f07bd378f30ae04638f5c38",
       "agent grants": "73ae7c23e1d32d50a7470d8c745a48e33ef643a662caaf420f42211d01615a9c",
       "agent revoke": "c76e57ae4c9b79d856827e8a4b7366a0bc199533d5f46f4ac00a3a5c3b24b085",
-      "agent credentials": "b11df842967fec9e6bc1b394ced7ad465528dcd893fad5d3be6b49f1d4f31298",
+      "agent credentials": "16836801b68f7ad75fddb35335d37223b33530e9b855782c2a250ec472d6e0a8",
       "agent purge-credentials": "7c90061fb52b3bf3510dce7d9582261bc13ffa695d269df26100f2da3be0b1d9",
       "doc list": "1aa03b20c8b452c63207fcfd2665ed3e2ab60fdd989bf8d9d17a322b6b6edd0e",
       "doc show": "bde77fd81bc516e1ea4f1f20cc163d81368e2cfc11957b8df8534737a6592999",
@@ -163,7 +163,7 @@
   },
   "help": {
     "_what": "`dp help` 与 `dp help <命令>` 的非 TTY 输出：top=顶层清单；entries=逐条命令",
-    "top": "7bea1dd0c352047110f50b250bca2c5700eb489b4a0ec7714f9833bcdfdcaeed",
+    "top": "4e6d4d67ff49579346658d2642bfc44575a540d89dc9315acfca88099fd6e1cd",
     "order": [
       "schema",
       "notification list",
@@ -244,7 +244,7 @@
     ],
     "entries": {
       "schema": "5008eee3ac0759c4b1a56ba19ed6e7f56596befd96437f6f35dfee4dac2626cd",
-      "notification list": "0e8d939693b6d445cd15b2292dcd95f806442f7b00a9e1c6fed203b18fcc8bda",
+      "notification list": "c869a1d35163b2f721ca0cb3e5f4c2852de2996b1954cd8d42fa2c27a6549201",
       "todo inbox": "64e9276fbb470df8ebb45947a2d77d651afa274c5501bd4fcebe7854eb6a3519",
       "todo comment": "6e3ca9dd4740f1403692ade5fca4d510cbb23b13a0756e5ee9b13772b8e411bb",
       "todo reject": "2414601f9aa61f487838c1d85baab20a2e1767551b6b6bb24007859555d8d0ad",
@@ -314,7 +314,7 @@
       "agent credential": "3283dc878ffc3bd475f6caf6912c3d495eafd4a77d73f887a13dd122cb88ba5d",
       "agent grants": "d35af6e8eee7cfd47ae08fa29780ed8509f0cfb0a18bac4436e8f97870899b46",
       "agent revoke": "94c4e10149c15dfbe167bbc5ac54d78ca6e8ee5aad59fd1f2218ff3ea4b7232f",
-      "agent credentials": "2ea0be83037eea92f368826dcabd76ba313fb58ddf1bf6861cc2f7cf10eac33d",
+      "agent credentials": "8fad70d99656f51e7e75ef84883a094e1b12c34d919f26b790db3591948015ce",
       "agent purge-credentials": "0506eeafbd63fc05c5aba57c5363290837b0cb8181f72a718c192df01944f4e0",
       "doc list": "7a6cf8f760ab8571a5545054fe850ab271c706e766d769ce56b890d7fd33a9c6",
       "doc show": "3aff856e03c59c84c0bf578df544d4e4cb274d8b2ac4671fb52fb9c3e1fe7d3f",
@@ -323,7 +323,7 @@
   },
   "mcp": {
     "_what": "MCP `tools/list` 的结果：list=整份字节；entries=逐个工具（含 inputSchema / annotations）",
-    "list": "eaff2cf6d4a4a4c43f42d40eeb17e3afc63d7e5e6383557c5223ce5d1256ac9b",
+    "list": "eb55afb4d0272e64f8e7d8aab4aa62ab9934cb692640a273cf6f2b6d211e9398",
     "order": [
       "list_notifications",
       "inbox_todos",
@@ -396,7 +396,7 @@
       "next_work"
     ],
     "entries": {
-      "list_notifications": "d632127d8ee07f8271e689947a897fcd599018fce01805d73f0f573df9cebd03",
+      "list_notifications": "77fb806cef87f2ccda9acbae7b76d591d1d66b8516a515e067e639a950ca2c1a",
       "inbox_todos": "930b2a6fcbfef44b0776a443ccd9320694f29775f3d725d14fe4aa7c1c4f3064",
       "comment_todo": "43f199fb106aea2c5bbd40218fe66233624f78dd25d4293a175c9c1f38016f6d",
       "reject_todos": "1d953c6ae1803e9c1ed45e87277903f765ab9cab755b0ee1a60bca31cee49aef",
@@ -460,7 +460,7 @@
       "credential_agents": "deebae2fa5122af392460f5b22d12c038e51529bba991ab0432c7d579adfc738",
       "grants_agents": "80a13421eca031f6a85ce0d32965754b47d38270d07686d2bb977975f4779274",
       "revoke_agents": "3bac669166e98d95e2a9e980e51cc53ffa028585bfbb216e9a81f6135596cdfa",
-      "credentials_agents": "47ebd6aca6d92ee936268bf70c422c495870cbe8a651ce8541d1b5ec3e64e07d",
+      "credentials_agents": "1d692e56e85cf0de9639820aed8f504a539c042a378a2df1872098f4ab45f920",
       "purge_credentials_agents": "58a7f45cd4c95011b296c1289cedaf388377829d994e95547c0eee884e099df6",
       "list_doc": "c704dff55701eeaadd855e921471e42ede52bcc6deb41d8774d880921412f604",
       "show_doc": "9d87deff8b9983ac3da143e191971045ddff781efa373f074279d457f5ed4bb2",

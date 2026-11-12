@@ -638,7 +638,7 @@ export const agentCommands: CommandSpec[] = [
      *
      * ## 判据
      *
-     * 1. 只读：列身份、签发时间、是否还在册、是不是默认 —— **不返回凭据本身**
+     * 1. 只读：列身份、签发时间、是否还在册 —— **不返回凭据本身**
      *    （那份 token 是能直接冒充身份的私钥，打进回执/日志就是泄漏）；
      * 2. `registered: false` 的就是孤儿，与 `agent list` 对得上账；
      * 3. 回执带 `path`：`count: 0` 时人得能自己去看那份文件是不是真的空。
@@ -646,7 +646,7 @@ export const agentCommands: CommandSpec[] = [
     name: 'agent credentials',
     dataShape: 'array',
     readOnly: true,
-    desc: '列出本机凭据文件里的身份（含已不在册的孤儿），标明注册状态与默认身份 —— 不含凭据本身',
+    desc: '列出本机凭据文件里的身份（含已不在册的孤儿），标明注册状态 —— 不含凭据本身',
     args: [],
     run: (ctx) => {
       const file = readCredentials()
@@ -654,8 +654,7 @@ export const agentCommands: CommandSpec[] = [
       const rows = ids.map((id) => ({
         agentId: id,
         issuedAt: file.profiles[id]?.issuedAt ?? null,
-        registered: Boolean(ctx.deps.agentRepo.get(id)),
-        isDefault: file.default === id
+        registered: Boolean(ctx.deps.agentRepo.get(id))
       }))
       const orphans = rows.filter((r) => !r.registered).map((r) => r.agentId)
       return {
@@ -757,9 +756,6 @@ export const agentCommands: CommandSpec[] = [
         agentId: id,
         credentialPath: credentialsPath(),
         removed: result.removed,
-        /** 删掉的若是默认身份，回执要说清它的去向（否则人不知道下一次未声明身份会落到谁） */
-        wasDefault: result.wasDefault,
-        defaultAfter: result.defaultAfter,
         remaining: result.remaining,
         note:
           result.remaining > 0

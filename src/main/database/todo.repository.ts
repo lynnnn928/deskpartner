@@ -1066,6 +1066,13 @@ export class TodoRepository {
           summary: clip(todo?.description ?? '', 120),
           refId: todoId,
           actor,
+          /**
+           * 指名给**主用户**（卡 `497c9949`）
+           *
+           * 进「待确认」= 等人表态，表态的人就是主用户 —— 不能用 `verifier` 字段代替：
+           * 那个字段回答的是"谁判断这件事做完了"，agent 提的提议 verifier 常常就是它自己。
+           */
+          recipient: 'human',
           meta: { from: from ?? null, to }
         })
       } catch (e) {
@@ -1096,6 +1103,9 @@ export class TodoRepository {
           title: `验收未通过，已退回：${todo?.title ?? '一条事项'}`,
           refId: todoId,
           actor: actor ?? null,
+          // 指名给**执行者**（卡 `497c9949`）：被退回的是他，别人看了也只能转发；
+          // 没执行者时留 null（广播）——不猜
+          recipient: todo?.executedBy ?? null,
           meta: { rejected: true, from: 'awaiting_review', to: 'in_progress' }
         })
       } catch (e) {

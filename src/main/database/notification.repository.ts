@@ -59,7 +59,15 @@ export interface AppNotification {
  * `limit` / `offset` 只负责收窗口 —— 见 `NotificationRepository.listPage`。
  */
 export interface NotificationPageQuery {
-  /** 只列"待给我"的：`recipient IS NULL OR recipient = ?`（`--to-me` / `--ack-mine`） */
+  /**
+   * 只列**指名给我**的（`recipient = ?`，`--to-me` / `--ack-mine`）
+   *
+   * ⚠️ 到 1.0.145 之前这里是 `recipient IS NULL OR recipient = ?`（"没指定收件人的也算给我"）。
+   * 错在写入端而不是读取端：写通知的地方大多不填收件人，于是"给我的"等于"给所有人的" ——
+   * 本机实测 245 条里 222 条谁都算我的，未读数对每个身份都一样大（卡 `497c9949`）。
+   * 现在收件人由写入端指名（`decision` → 主用户、退回 → 执行者、memo → 收到的人），
+   * 广播也仍需可查：**不传本参数就是全部**（CLI 的默认口径、界面一直用它）。
+   */
   recipientFor?: string
   /** 类型过滤（`--type`） */
   type?: string
@@ -477,8 +485,8 @@ export class NotificationRepository {
     const where: string[] = [NotificationRepository.LIVE]
     const params: unknown[] = []
     if (query.recipientFor !== undefined) {
-      // `--to-me` / `--ack-mine`：待给我的（没指定收件人的广播也算）
-      where.push('(recipient IS NULL OR recipient = ?)')
+      // `--to-me` / `--ack-mine`：**指名给我的**（广播不再算，卡 `497c9949`）
+      where.push('recipient = ?')
       params.push(query.recipientFor)
     }
     if (query.type) {
@@ -959,19 +967,19 @@ export class NotificationRepository {
   /* ── agent 侧：按收件人定向 + 按人记已读（1.0.68，schema 28）── */
 
   /**
-   * 只看待给某人（或"没指定给谁"）的通知
+   * 只看**指名给某人**的通知（卡 `497c9949` 起不再把广播算进来）
    *
    * ⚠️ **与 `--unread` 正交**："给我的" ≠ "我还没看"。
    * 而此前没有这一层 —— agent 只能每轮全量拉回来自己认哪条是给自己的。
    *
-   * @param actor 谁（传 `null` 看"没指定收件人"的那些）
+   * @param actor 谁。广播（`recipient` 为 null）想看得走不带收件人过滤的读法
    */
   listFor(actor: string | null, opts?: { unreadBy?: string }): AppNotification[] {
     const rows = this.db
       .prepare(
         `SELECT * FROM notifications
           WHERE ${NotificationRepository.LIVE}
-            AND (recipient IS NULL OR recipient = ?)
+            AND recipient = ?
           ORDER BY created_at DESC, rowid DESC`
       )
       .all(actor) as Record<string, unknown>[]

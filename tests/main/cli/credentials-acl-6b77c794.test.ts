@@ -98,7 +98,9 @@ onlyOnWindows('凭据文件的 Windows 权限收口（卡 6b77c794）', () => {
 
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'))
     expect(saved.profiles['agent:a'].token).toBe('tok-2')
-    expect(saved.default).toBe('agent:a')
+    // 1.0.145 起写出去的是 v2（没有 default 字段，卡 `2b595a5a`）
+    expect(saved.version).toBe(2)
+    expect(saved).not.toHaveProperty('default')
   })
 
   it('删除某份凭据后同样只剩自己的授权', () => {

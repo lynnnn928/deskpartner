@@ -241,7 +241,7 @@ export const WRITE_RECEIPT_SHAPES: Record<string, WriteReceiptShapeSpec> = {
   },
   'agent purge-credentials': {
     unattended: 'ok',
-    keys: ['agentId', 'credentialPath', 'removed', 'wasDefault', 'defaultAfter', 'remaining', 'note']
+    keys: ['agentId', 'credentialPath', 'removed', 'remaining', 'note']
   }
 }
 

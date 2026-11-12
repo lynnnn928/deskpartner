@@ -63,14 +63,22 @@ describe('通知定向与按人已读（3c436592 第 2 环）', () => {
     expect(n.actor, 'actor 是谁触发的，不该被收件人顶替').toBe('agent:alice')
   })
 
-  it('`listFor` 只看待给某人的（+ 没指定收件人的广播）', () => {
+  it('`listFor` 只回**指名给我**的：广播不再算给我（1.0.145，卡 `497c9949`）', () => {
     mk({ recipient: 'agent:erin', refId: 'a' })
     mk({ recipient: 'agent:alice', refId: 'b' })
     mk({ recipient: null, refId: 'c' })
     const mine = notif.listFor('agent:erin').map((n) => n.refId)
     expect(mine, '给 alice 的不该出现在 erin 这儿').not.toContain('b')
     expect(mine, '给 erin 的该在').toContain('a')
-    expect(mine, '没指定收件人的广播该在（否则 agent 会漏掉"我不知道给谁"的事）').toContain('c')
+    /**
+     * ⚠️ 这条判据 1.0.145 反过来了（卡 `497c9949`）。
+     *
+     * 旧口径是 `recipient IS NULL OR recipient = ?`：广播也算"给我的"。
+     * 而写通知的地方大多不填收件人 → 实测 245 条里 222 条谁都算我的，
+     * 收件箱于是没有意义（未读数对每个身份都一样大）。
+     * 现在广播要看就走不带收件人过滤的读法（CLI 的默认口径、界面都走它）。
+     */
+    expect(mine, '广播不算给我的').not.toContain('c')
   })
 
   /**
