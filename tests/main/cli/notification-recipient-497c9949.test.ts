@@ -67,7 +67,7 @@ describe('通知收件人：写入端指名（497c9949）', () => {
     // 写命令要求身份已注册（未注册只能读）——把用例要用的三个身份登记上
     const agents = new AgentRepository()
     for (const [id, name] of [
-      ['agent:penguin', '企鹅'],
+      ['agent:dave', '戴夫'],
       ['agent:carol', '卡萝'],
       ['agent:bob', '鲍勃']
     ]) {
@@ -94,13 +94,13 @@ describe('通知收件人：写入端指名（497c9949）', () => {
       },
       meta: { version: '1.0.145', dbPath: ':memory:', schemaVersion: 50, via: 'headless' },
       interactive: true,
-      actor: 'agent:penguin'
+      actor: 'agent:dave'
     } as never
   })
 
-  /** 造一张卡（默认执行者是 agent:penguin），返回 id */
+  /** 造一张卡（默认执行者是 agent:dave），返回 id */
   const makeTodo = async (title: string): Promise<string> => {
-    const created = (await runAs('agent:penguin', [
+    const created = (await runAs('agent:dave', [
       'todo',
       'add',
       '--title',
@@ -108,14 +108,14 @@ describe('通知收件人：写入端指名（497c9949）', () => {
       '--project',
       'P',
       '--executed-by',
-      'agent:penguin'
+      'agent:dave'
     ])) as Receipt
     expect(created.ok, created.message ?? '').toBe(true)
     return (created.data as { id: string }).id
   }
 
   it('1. 「待你拍板」指名主用户：human 的收件箱里有它，agent 的没有', async () => {
-    const created = (await runAs('agent:penguin', [
+    const created = (await runAs('agent:dave', [
       'todo',
       'add',
       '--title',
@@ -142,7 +142,7 @@ describe('通知收件人：写入端指名（497c9949）', () => {
     ])) as Receipt
     expect(idsOf(humanInbox)).toContain(decisions[0].id)
 
-    const agentInbox = (await runAs('agent:penguin', [
+    const agentInbox = (await runAs('agent:dave', [
       'notification',
       'list',
       '--to-me',
@@ -156,7 +156,7 @@ describe('通知收件人：写入端指名（497c9949）', () => {
 
   it('2. 交付待验收仍是广播：谁的 --to-me 里都没有它，但不带 --to-me 看得到', async () => {
     const id = await makeTodo('一件交付')
-    const moved = (await runAs('agent:penguin', [
+    const moved = (await runAs('agent:dave', [
       'todo',
       'update',
       id,
@@ -169,7 +169,7 @@ describe('通知收件人：写入端指名（497c9949）', () => {
     expect(reviews).toHaveLength(1)
     expect(reviews[0].recipient, '流水留广播').toBeNull()
 
-    const mine = (await runAs('agent:penguin', [
+    const mine = (await runAs('agent:dave', [
       'notification',
       'list',
       '--to-me',
@@ -178,7 +178,7 @@ describe('通知收件人：写入端指名（497c9949）', () => {
     ])) as Receipt
     expect(idsOf(mine)).not.toContain(reviews[0].id)
 
-    const all = (await runAs('agent:penguin', [
+    const all = (await runAs('agent:dave', [
       'notification',
       'list',
       '--limit',
@@ -189,7 +189,7 @@ describe('通知收件人：写入端指名（497c9949）', () => {
 
   it('3. 驳回指名执行者：执行者的收件箱里有它，别人的没有', async () => {
     const id = await makeTodo('要被退回的事')
-    await runAs('agent:penguin', ['todo', 'update', id, '--status', 'awaiting_review'])
+    await runAs('agent:dave', ['todo', 'update', id, '--status', 'awaiting_review'])
     // 驳回的权威判据是那条 kind=reject 评论（见 todo.repository 的 isRejection）
     commentRepo.create({ todoId: id, kind: 'reject', body: '结论不对，重做' })
     const rejected = (await runAs('human', [
@@ -203,9 +203,9 @@ describe('通知收件人：写入端指名（497c9949）', () => {
 
     const rejection = allNotifications().find((n) => n.title.includes('退回'))
     expect(rejection, '退回要留一条通知').toBeTruthy()
-    expect(rejection?.recipient, '指名给执行者').toBe('agent:penguin')
+    expect(rejection?.recipient, '指名给执行者').toBe('agent:dave')
 
-    const executorInbox = (await runAs('agent:penguin', [
+    const executorInbox = (await runAs('agent:dave', [
       'notification',
       'list',
       '--to-me',
@@ -225,7 +225,7 @@ describe('通知收件人：写入端指名（497c9949）', () => {
   })
 
   it('4. 备忘（memo）本来就指名：口径没被这次改动带歪', async () => {
-    const added = (await runAs('agent:penguin', [
+    const added = (await runAs('agent:dave', [
       'memo',
       'add',
       '--to',
