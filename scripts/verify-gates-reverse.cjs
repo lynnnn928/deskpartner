@@ -231,13 +231,23 @@ for (const g of GROUPS) {
   for (const [name, rel, from, to, expect] of g.cases) {
     const abs = path.join(ROOT, rel)
     const original = fs.readFileSync(abs, 'utf8')
-    if (!original.includes(from)) {
+    /**
+     * 锚点按 **LF** 比对，写完再还原成这份文件本来的换行
+     *
+     * 同一份源码在本机是 LF、在 CI 的检出里是 CRLF（2026-11-12 实测：多行锚点在
+     * runner 上"锚点失配"→ 这一项判 SKIP → 整轮反向验证以退出码 1 收场）。
+     * 单行锚点一直没暴露这个问题，多行锚点一出现就现形了。
+     */
+    const crlf = original.includes('\r\n')
+    const normalized = crlf ? original.replace(/\r\n/g, '\n') : original
+    if (!normalized.includes(from)) {
       console.log(`⚠️  [锚点失配] ${name}：在 ${rel} 中找不到要替换的锚点片段，跳过（用例锚点已失配，核对闸门与实现是否已同步）`)
       all.push([g.name, name, 'SKIP', expect])
       continue
     }
     // 注入 → 跑 → **无论如何都还原**
-    fs.writeFileSync(abs, original.replace(from, to))
+    const injected = normalized.replace(from, to)
+    fs.writeFileSync(abs, crlf ? injected.replace(/\n/g, '\r\n') : injected)
     let green
     try {
       green = runGate(g.gate)
