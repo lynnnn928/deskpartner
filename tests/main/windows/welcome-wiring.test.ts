@@ -58,9 +58,16 @@ describe('Welcome 引导接线（1.0.64）', () => {
     expect(welcomeTs).toContain('catch')
   })
 
-  it('复制按钮与用户页复用同一条通道（不另造一份说明）', () => {
+  /**
+   * 1.0.146 评审后：Welcome 的复制按钮不再复制整本说明（那是用户页「AI 助手接入」的事），
+   * 改为与快速上手**同源**的 buildMigratePrompt(useCliAccess()) —— 两个入口递出去的
+   * 必须是同一份带本机地址的提示词，否则首启窗口又会退回"找不到命令"。
+   */
+  it('复制按钮与快速上手同源（不各写一份提示词）', () => {
     const welcomeTs = read('src/renderer/windows/Welcome.tsx')
-    expect(welcomeTs).toContain("invoke('cli:agentGuide')")
+    expect(welcomeTs).toContain('buildMigratePrompt(access)')
+    expect(welcomeTs).toContain('useCliAccess()')
+    expect(welcomeTs).not.toContain("invoke('cli:agentGuide')")
   })
 
   it('三步演示使用静态示例，不创建真实 agent、提议或审批记录', () => {
@@ -74,17 +81,44 @@ describe('Welcome 引导接线（1.0.64）', () => {
     expect(welcomeTs).not.toContain("invoke('protocol:propose'")
   })
 
+  /**
+   * 开场指令的顺序：注册 → 等批准 → 读档案/协议 → 提议 → 登记项目。
+   *
+   * 1.0.146 起这份正文不再硬编码在 Welcome 里（旧那份没有本机绝对路径，正是
+   * `25caac02` 的病），改成模板 `buildMigratePrompt`；所以顺序去模板里核 ——
+   * 模板才是唯一出处。
+   */
   it('开场指令先教身份批准、用户档案与协作协议，再接手项目', () => {
     const welcomeTs = read('src/renderer/windows/Welcome.tsx')
-    expect(welcomeTs).toContain('const OPENING_INSTRUCTION')
-    // 1.0.132：开场指令不能再只教 `dp skill` —— 产品不写用户 PATH（`2cc71a13`），
-    // 没接过 DeskPartner 的 agent 敲下去只有 command not found，会据此判定"产品不存在"。
-    expect(welcomeTs).toContain('initialize.instructions')
-    expect(welcomeTs).toContain('resources/cli/deskpartner.cjs')
-    expect(welcomeTs).toContain('DESKPARTNER_CLI')
-    expect(welcomeTs).not.toContain('dp skill')
-    expect(welcomeTs).toContain('「审批」页')
-    expect(welcomeTs).toContain('未经审批不得把建议当成事实')
+    expect(welcomeTs).toContain('buildMigratePrompt(access)')
+    expect(welcomeTs).not.toContain('const OPENING_INSTRUCTION')
+
+    const prompts = read('src/renderer/lib/onboarding-prompts.ts')
+    // 只在「整理迁入」这份模板里查顺序：HARD_RULES 是公共头，也提到过 profile get
+    const migrate = prompts.slice(
+      prompts.indexOf('export function buildMigratePrompt'),
+      prompts.indexOf('export function buildFreshPrompt')
+    )
+    const order = [
+      'agent register → agent credential',
+      '等待主用户在「审批」页批准',
+      'profile get',
+      'profile propose',
+      'protocol propose',
+      '登记到 DeskPartner'
+    ]
+    let last = -1
+    for (const step of order) {
+      const at = migrate.indexOf(step)
+      expect(at, `模板里找不到「${step}」`).toBeGreaterThan(-1)
+      expect(at, `「${step}」出现在上一步之前`).toBeGreaterThan(last)
+      last = at
+    }
+    // 1.0.132：模板不能再只教 `dp skill`（产品不写 PATH），并且要写明"注册 ≠ 获准写入"
+    expect(prompts).toContain('注册成功不等于获准写入')
+    // 注释里会解释当年的写法，剥掉注释再看正文
+    const promptsBody = prompts.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(promptsBody).not.toContain('dp skill')
   })
 
   it('用户页将 agent 修改提议的审批入口统一指向审批页', () => {

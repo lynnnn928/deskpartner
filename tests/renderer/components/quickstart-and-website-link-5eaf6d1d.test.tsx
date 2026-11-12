@@ -137,9 +137,11 @@ describe('快速上手：全宽单页 + 官网 / 在线手册入口（卡 5eaf6d
     expect(queryByRole('navigation', { name: '帮助与产品手册目录' })).toBeNull()
     expect(container.querySelector('.max-w-5xl')).toBeTruthy()
     expect(container.querySelector('.max-w-4xl')).toBeNull()
-    // 保留下来的两块本机交互内容
-    expect(getByText('一张图看懂 DeskPartner 如何协同工作')).toBeTruthy()
-    expect(getByText('三步接入你的 AI 助手')).toBeTruthy()
+    // 2026-11-12 重排：页头一句定位 + 三步（三栏架构图删掉了，它解释的是产品不是下一步）
+    expect(getByText('接入你的 AI 助手')).toBeTruthy()
+    for (const step of ['quickstart-step1', 'quickstart-step2', 'quickstart-step3']) {
+      expect(container.querySelector(`[data-testid="${step}"]`), step).toBeTruthy()
+    }
     // 迁走的那 5 章不再混在本地
     expect(container.textContent ?? '').not.toContain('2. 事项与工作流')
     expect(container.textContent ?? '').not.toContain('6. 数据安全与备份')

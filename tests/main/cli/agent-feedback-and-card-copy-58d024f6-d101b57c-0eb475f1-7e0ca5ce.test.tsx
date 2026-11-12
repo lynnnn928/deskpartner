@@ -248,8 +248,9 @@ describe('看板卡片外侧复制与 Agent 建议卡实现（58d024f6 / d101b57
     })
 
     const { container } = render(<QuickStartView />)
-    expect(container.textContent).toContain('更换过安装目录？')
-    expect(container.textContent).toContain('同目录升级无需重配')
+    // 2026-11-12 重排：排障说明收进折叠项（第一次安装的人不必先读它），内容还在
+    expect(container.textContent).toContain('或者换过安装目录')
+    expect(container.textContent).toContain('同目录升级不用重配')
 
     const readmeZh = fs.readFileSync(path.resolve(process.cwd(), 'README.md'), 'utf8')
     const readmeEn = fs.readFileSync(path.resolve(process.cwd(), 'README.en.md'), 'utf8')

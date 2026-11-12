@@ -130,10 +130,18 @@ describe('三层设计系统：语义角色层与四大交互契约闸门（卡 
     expect(overview).toContain('编辑项目')
     expect(overview).toContain('项目规则与协议')
 
+    /**
+     * 2026-11-12 重排（评审后）：三栏架构图删掉、按"先做什么"排三步。
+     * 原来这里钉的是「一张图看懂…」——那一块正是评审说的"半个屏幕在解释产品，
+     * 真正的第一个动作被压到下半屏"。
+     */
     const quickstart = stripComments(read('src/renderer/components/onboarding/QuickStartView.tsx'))
-    expect(quickstart).toContain('一张图看懂 DeskPartner 如何协同工作')
-    expect(quickstart).toContain('三步接入你的 AI 助手')
-    expect(quickstart).toContain('访问产品官网')
+    expect(quickstart).toContain('接入你的 AI 助手')
+    expect(quickstart).toContain('quickstart-step1')
+    expect(quickstart).toContain('quickstart-step2')
+    expect(quickstart).toContain('quickstart-step3')
+    expect(quickstart).not.toContain('一张图看懂')
+    expect(quickstart).toContain('产品官网')
     expect(quickstart).toContain('查看在线使用手册')
     expect(quickstart, '2~6 章手册已迁到官网，客户端不再有左侧二级章节栏').not.toContain('帮助与产品手册目录')
 
