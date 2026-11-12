@@ -49,6 +49,43 @@ const errText = (err: unknown): string => {
   return raw.replace(/^\[IPC\][^:]*:\s*/, '')
 }
 
+/**
+ * 剪贴板里那份东西在磁盘上的真实路径（卡 `cce88967`）
+ *
+ * 从资源管理器复制来的文件有路径，截图没有（它是内存字节）。渲染层里没有 preload 时
+ * （单测、纯浏览器预览）拿不到，一律退化成空串 —— 分流照旧，只是都走"传字节"那条。
+ */
+const pathForFile = (file: File): string => {
+  try {
+    const api = window.api as { getPathForFile?: (f: File) => string } | undefined
+    return api?.getPathForFile?.(file) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** 剪贴板给的 mime → 扩展名；认不出按 png */
+const PASTE_EXT: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/bmp': '.bmp'
+}
+
+/**
+ * 粘贴图片的默认文件名
+ *
+ * 不叫 `image.png`：一次会话里挂几张截图，`image.png / image(1).png` 互相认不出，
+ * 而时间戳至少对得上"什么时候截的"。扩展名跟着 mime 走 —— 落库时的 kind/mime 由扩展名
+ * 决定，名字说错类型，图就按错的类型存进去。
+ */
+const pastedImageName = (mime: string): string => {
+  const d = new Date()
+  const p = (n: number): string => String(n).padStart(2, '0')
+  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+  return `粘贴图片-${stamp}${PASTE_EXT[mime] ?? '.png'}`
+}
+
 interface TodoAttachmentsProps {
   todoId: string
 }
@@ -92,6 +129,72 @@ export const TodoAttachments: React.FC<TodoAttachmentsProps> = ({ todoId }) => {
       setBusy(false)
     }
   }
+
+  /**
+   * 粘贴进来的东西（卡 `cce88967`）
+   *
+   * 三条分流：资源管理器复制的文件**有真实路径** → 走已有的 `todo:addAttachments`
+   * （不复制字节、保留原文件名）；剪贴板里的图片只有字节 → 走 `todo:addPastedAttachments`；
+   * 其余（纯文字）根本不进这函数 —— 标题框里粘一段说明是另一件事。
+   */
+  const addFromClipboard = async (files: File[]) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const paths: string[] = []
+      const images: Array<{ name: string; bytes: Uint8Array }> = []
+      for (const file of files) {
+        const path = pathForFile(file)
+        if (path) {
+          paths.push(path)
+          continue
+        }
+        if (file.type.startsWith('image/')) {
+          images.push({
+            name: pastedImageName(file.type),
+            bytes: new Uint8Array(await file.arrayBuffer())
+          })
+        }
+      }
+
+      // 两类各自的失败都要说出来：哪一份、为什么
+      const problems: string[] = []
+      if (paths.length) {
+        const res = await invoke('todo:addAttachments', { todoId, paths })
+        problems.push(...res.failed.map((f) => `${baseName(f.path)}：${f.reason}`))
+      }
+      if (images.length) {
+        const res = await invoke('todo:addPastedAttachments', { todoId, files: images })
+        problems.push(...res.failed.map((f) => `${f.name}：${f.reason}`))
+      }
+      if (problems.length) setError(problems.join('；'))
+      await load()
+    } catch (err) {
+      setError(errText(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * 详情开着的时候，Ctrl+V 直接挂附件
+   *
+   * 挂在 window 上而不是某个框上：截图之后人不会先去点附件区那把虚线框 ——
+   * 他要的是"随手一按就挂上"。这个组件只在编辑某条事项时才挂载（见 QuickAddForm），
+   * 所以不会跑到别的页面上去。
+   *
+   * 没有文件就**不拦**：粘一段文字进标题框是常规操作，拦下来才是 bug。
+   */
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? [])
+      if (!files.length) return
+      e.preventDefault()
+      void addFromClipboard(files)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  })
 
   const openExternal = async (item: TodoAttachment) => {
     setError(null)
@@ -156,11 +259,31 @@ export const TodoAttachments: React.FC<TodoAttachmentsProps> = ({ todoId }) => {
         </p>
       )}
 
-      {items.length === 0 ? (
-        <p className="text-caption text-text-secondary/70">
-          还没有附件。截图、日志、产物都可以挂在这里，图片能直接看，文件一点用系统程序打开。
-        </p>
-      ) : (
+      {/*
+        粘贴目标（卡 `cce88967`）
+
+        附件原来的唯一入口是系统文件对话框：想把截图挂上来，得先在别处存成文件、
+        再在对话框里翻到它。这里给一个看得见的落点，告诉人"按 Ctrl+V 就行"。
+      */}
+      <div
+        data-testid="todo-attachment-paste-zone"
+        className={cn(
+          'flex flex-col items-center gap-1 rounded-card border border-dashed border-border/80',
+          'px-3 py-2.5 text-center'
+        )}
+      >
+        <span className="flex items-center gap-1.5 text-caption text-text-secondary">
+          <Icon name="plus" size={11} />
+          Ctrl+V 粘贴图片或文件
+        </span>
+        {items.length === 0 && (
+          <span className="text-caption text-text-secondary/70">
+            还没有附件。截图、日志、产物都可以挂在这里，图片能直接看，文件一点用系统程序打开。
+          </span>
+        )}
+      </div>
+
+      {items.length > 0 && (
         <ul className="flex flex-wrap gap-2">
           {items.map((item) => (
             <li key={item.id} className="w-24 flex flex-col gap-1">

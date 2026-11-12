@@ -247,6 +247,30 @@ export interface AttachmentAddResult {
 }
 
 /**
+ * 粘贴进来的一份东西（卡 `cce88967`）
+ *
+ * 剪贴板里的图片是**内存里的字节**，没有磁盘路径 —— 按路径那条路（`todo:addAttachments`）
+ * 收不了它，所以单开一条通道把它送进主进程。
+ */
+export interface PastedAttachment {
+  /** 显示用名字（图片由界面按「粘贴图片-<时间戳>.png」命名） */
+  name: string
+  /** 文件字节 */
+  bytes: Uint8Array
+}
+
+/**
+ * 一次粘贴添加的结果
+ *
+ * 与 `AttachmentAddResult` 同义，只是标识换成**名字**：粘贴进来的东西没有源路径，
+ * 报错时说"哪一份"只能靠名字。
+ */
+export interface PasteAttachmentResult {
+  added: TodoAttachment[]
+  failed: Array<{ name: string; reason: string }>
+}
+
+/**
  * 一次字段变化（1.0.73，`482e4b03`）
  *
  * 与主进程 `lib/field-changes.ts` 的 `FieldChange` 结构一致

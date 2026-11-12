@@ -7,6 +7,8 @@ import type {
   TodoComment,
   TodoAttachment,
   AttachmentAddResult,
+  PastedAttachment,
+  PasteAttachmentResult,
   CommentKind,
   TimelineEntry,
   ReviewDiffItem,
@@ -143,6 +145,16 @@ export interface IPCChannels {
   'todo:pickAttachments': { input: { todoId: string }; result: AttachmentAddResult | null }
   /** 直接给路径（无对话框）：界面之外（验证、将来的 CLI）走这条 */
   'todo:addAttachments': { input: { todoId: string; paths: string[] }; result: AttachmentAddResult }
+  /**
+   * 粘上来的图片（卡 `cce88967`）
+   *
+   * 剪贴板里的图片只有内存字节、没有磁盘路径，所以单开一条：主进程先把它落成数据目录下
+   * 的临时文件，再走与"选文件"完全同一条入库路径（mime / kind / sha256 只有一份判定）。
+   */
+  'todo:addPastedAttachments': {
+    input: { todoId: string; files: PastedAttachment[] }
+    result: PasteAttachmentResult
+  }
   'todo:openAttachment': { input: { id: string }; result: { opened: string } }
   'todo:removeAttachment': { input: { id: string }; result: void }
 

@@ -27,6 +27,17 @@ export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
 
 export type AttachmentKind = 'image' | 'file'
 
+/**
+ * 超上限时给人的那句话
+ *
+ * 两个入口都要说同一句话：按路径添加（复制前预检）与粘贴字节（落临时文件前预检）。
+ * 措辞写两遍迟早漂，而且"到底算不算超"的判据只有一个 —— 这里就是它。
+ */
+export function attachmentTooLargeReason(bytes: number, name: string): string {
+  const mb = (n: number): string => (n / 1024 / 1024).toFixed(1)
+  return `附件超过 ${mb(MAX_ATTACHMENT_BYTES)} MB 上限（${mb(bytes)} MB）：${name}`
+}
+
 /** 按扩展名认的图片类型 —— 认不出就是普通文件 */
 const IMAGE_MIME: Record<string, string> = {
   '.png': 'image/png',
@@ -157,8 +168,7 @@ export function storeAttachmentFile(opts: {
   }
   if (!stat.isFile()) throw new Error(`只能关联文件，不能关联目录：${srcPath}`)
   if (stat.size > MAX_ATTACHMENT_BYTES) {
-    const mb = (n: number): string => (n / 1024 / 1024).toFixed(1)
-    throw new Error(`附件超过 ${mb(MAX_ATTACHMENT_BYTES)} MB 上限（${mb(stat.size)} MB）：${path.basename(srcPath)}`)
+    throw new Error(attachmentTooLargeReason(stat.size, path.basename(srcPath)))
   }
 
   const id = opts.id ?? randomUUID()

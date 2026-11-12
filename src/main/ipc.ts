@@ -26,6 +26,7 @@ import { buildDescChangeEvent } from './lib/desc-audit'
 // 审计翻译层（1.0.62）：与 CLI 共用同一份判据，界面上也读得出"谁改了什么、删了什么"
 import { buildTodoAudit, mergeTimeline } from './lib/audit-text'
 import { resolveRelPath } from './lib/attachments'
+import { addPastedAttachments } from './lib/pasted-attachments'
 // 「本次变更」聚合（1.0.73，`482e4b03`）：验收时看这一次交付改了什么
 import { buildReviewDiff } from './lib/review-diff'
 import { buildAgentGuideIndex, cliEnvVarAvailable, resolveLauncherPath, resolveMcpPath } from './cli/agent-guide'
@@ -652,6 +653,28 @@ todoRepo.delete(id, 'gui', 'human')
     'todo:addAttachments',
     (_e, { todoId, paths }: { todoId: string; paths: string[] }) =>
       safeHandle(() => addAttachments(todoId, paths))
+  )
+
+  /**
+   * 粘上来的图片（卡 `cce88967`）
+   *
+   * 界面上"截图 → Ctrl+V → 缩略图出现"走的就是这条：剪贴板里的图片是内存字节，
+   * 而入库那条路收的是路径 —— 中间那步（落临时文件、用完即删）在
+   * `lib/pasted-attachments.ts` 里，主进程这一层只负责转交与广播。
+   */
+  ipcMain.handle(
+    'todo:addPastedAttachments',
+    (_e, { todoId, files }: { todoId: string; files: Array<{ name: string; bytes: Uint8Array }> }) =>
+      safeHandle(() => {
+        const res = addPastedAttachments({
+          todoId,
+          files,
+          dataDir: getDataDirPath(),
+          repo: attachmentRepo
+        })
+        if (res.added.length) broadcastDataChanged('todo', getWindows)
+        return res
+      })
   )
 
   /**
