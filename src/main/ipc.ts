@@ -1761,6 +1761,17 @@ todoRepo.delete(id, 'gui', 'human')
   ipcMain.handle('app:info', () =>
     safeHandle(() => ({ version: app.getVersion(), dataDir: getDataDirPath() }))
   )
+  /**
+   * 更新日志原文（应用信息面板）
+   *
+   * CHANGELOG.md 打在包里（package.json 的 files 已列），读它比再维护一份数据结构划算。
+   * 解析（切版本/日期/要点）放渲染层：那里好测，主进程只负责把文件交出去。
+   */
+  ipcMain.handle('app:changelog', () =>
+    safeHandle(() => ({
+      markdown: fs.readFileSync(path.join(app.getAppPath(), 'CHANGELOG.md'), 'utf8')
+    }))
+  )
   ipcMain.handle('app:getUpdateState', () => safeHandle(() => autoUpdateService.getState()))
   ipcMain.handle('app:checkForUpdates', () => safeHandleAsync(() => autoUpdateService.checkForUpdates()))
   ipcMain.handle('app:downloadUpdate', () => safeHandleAsync(() => autoUpdateService.downloadUpdate()))

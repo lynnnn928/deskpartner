@@ -414,6 +414,11 @@ export interface IPCChannels {
   'app:pickDataDir': { input: void; result: { canceled: boolean; targetDir: string | null } }
   'app:changeDataDir': { input: { targetDir?: string } | void; result: { changed: boolean; dataDir: string; previousDir?: string } }
   'app:pickAppIcon': { input: void; result: { canceled: boolean; dataUrl: string | null } }
+  /**
+   * 更新日志原文（卡 `3c503a2d` 之后的「应用信息」）：CHANGELOG.md 随包发布，
+   * 解析留给渲染层 —— 切标题/日期/要点这几步在渲染层更好测。
+   */
+  'app:changelog': { input: void; result: { markdown: string } }
   'app:getUpdateState': { input: void; result: UpdateStatus }
   'app:checkForUpdates': { input: void; result: UpdateStatus }
   'app:downloadUpdate': { input: void; result: UpdateStatus }

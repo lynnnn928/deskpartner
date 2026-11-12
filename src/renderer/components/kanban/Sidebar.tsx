@@ -18,6 +18,7 @@ import type { UpdateStatus } from '../../types/ipc'
 import { buildProjectPrompt } from '../../lib/onboarding-prompts'
 import { useCliAccess } from '../../lib/use-cli-access'
 import partnerBadge from '../../assets/partner-badge.svg'
+import { AppInfoDialog } from '../appinfo/AppInfoDialog'
 
 const PROJECT_COLOR_PRESETS = [
   '#5388F6',
@@ -86,6 +87,8 @@ export const Sidebar: React.FC = () => {
   const [selectedPromptAgent, setSelectedPromptAgent] = useState<string>('')
   const [agentPromptCopied, setAgentPromptCopied] = useState(false)
   const [updateState, setUpdateState] = useState<UpdateStatus | null>(null)
+  /** 应用信息面板：入口在侧栏底部，有新版本时带一个圆点 */
+  const [appInfoOpen, setAppInfoOpen] = useState(false)
   /**
    * 轮询判断"忙不忙"看的当前状态（卡 `abb86b06`）
    *
@@ -97,6 +100,12 @@ export const Sidebar: React.FC = () => {
   useEffect(() => {
     statusRef.current = updateState?.status ?? null
   }, [updateState?.status])
+
+  /** 有新版本（或在下载/已就绪）时，入口上挂一个圆点 —— 不打扰，但看得见 */
+  const hasUpdateHint =
+    updateState?.status === 'available' ||
+    updateState?.status === 'downloading' ||
+    updateState?.status === 'downloaded'
   /** 侧栏这边发起的下载：下完就自动重启安装（卡 `99870984`），不必再等用户去设置页点第二次 */
   const autoInstallAfterDownloadRef = useRef(false)
 
@@ -398,7 +407,19 @@ export const Sidebar: React.FC = () => {
           </button>
           {railButton('help', '快速上手', mainView === 'quickstart', () => nav('quickstart'))}
           {railButton('settings', '设置', mainView === 'settings', () => nav('settings'))}
+          <button
+            type="button"
+            onClick={() => setAppInfoOpen(true)}
+            title={`应用信息${hasUpdateHint ? '（有新版本）' : ''}`}
+            aria-label="应用信息"
+            data-testid="sidebar-app-info-btn"
+            className="relative w-9 h-9 flex items-center justify-center rounded-button text-text-secondary hover:bg-black/5 hover:text-text-primary transition-colors"
+          >
+            <Icon name="info" size={15} />
+            {hasUpdateHint && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent" />}
+          </button>
         </div>
+        <AppInfoDialog open={appInfoOpen} onClose={() => setAppInfoOpen(false)} />
       </aside>
     )
   }
@@ -594,6 +615,14 @@ export const Sidebar: React.FC = () => {
           title="设置"
         >
           <Icon name="settings" size={14} />
+        </button>
+        <button
+          type="button" onClick={() => setAppInfoOpen(true)}
+          className="relative shrink-0 w-7 h-7 flex items-center justify-center rounded-button transition-colors text-text-secondary hover:bg-black/5 hover:text-text-primary"
+          title="应用信息"
+        >
+          <Icon name="info" size={14} />
+          {hasUpdateHint && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />}
         </button>
       </div>
       {creating && (
@@ -885,6 +914,7 @@ export const Sidebar: React.FC = () => {
           </div>
         </Dialog>
       )}
+      <AppInfoDialog open={appInfoOpen} onClose={() => setAppInfoOpen(false)} />
     </aside>
   )
 }
