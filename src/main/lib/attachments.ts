@@ -22,8 +22,12 @@ export const ATTACHMENTS_DIR = 'attachments'
  * 上限是为了两件事：预览要把图片读成 `data:` URL 进渲染进程，几十 MB 的图会卡住界面；
  * 数据目录整体备份（用户手动拷走）时也不该被单个附件拖住。超限**明确报错**，
  * 不做静默截断 —— 截断后的附件是"看起来存上了、打开是坏的"，比拒绝更糟。
+ *
+ * 数字本身住 `src/renderer/lib/constants.ts`（渲染层在"选完/粘完"就要用它，
+ * 而那边引不动这个文件）——这里 import 进来再转出，原有引用处不用改。
  */
-export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_TOTAL_BYTES } from '../../renderer/lib/constants'
+export { MAX_ATTACHMENT_BYTES }
 
 export type AttachmentKind = 'image' | 'file'
 
@@ -36,6 +40,24 @@ export type AttachmentKind = 'image' | 'file'
 export function attachmentTooLargeReason(bytes: number, name: string): string {
   const mb = (n: number): string => (n / 1024 / 1024).toFixed(1)
   return `附件超过 ${mb(MAX_ATTACHMENT_BYTES)} MB 上限（${mb(bytes)} MB）：${name}`
+}
+
+/**
+ * 这条事项的附件**总量**超标时给人的那句话（卡 `fc11793f`）
+ *
+ * 与单份那句分开说：一个是"这份太大"，一个是"这条卡装不下了"，处置也不一样
+ * （后者得先去详情里删掉几份旧的）。措辞与渲染层 `totalTooLargeReason` 同一个意思。
+ */
+export function attachmentTotalTooLargeReason(
+  usedBytes: number,
+  incomingBytes: number,
+  name: string
+): string {
+  const mb = (n: number): string => (n / 1024 / 1024).toFixed(1)
+  return (
+    `附件总量超过 ${mb(MAX_ATTACHMENT_TOTAL_BYTES)} MB 上限` +
+    `（这条事项已有 ${mb(usedBytes)} MB，加这一份会到 ${mb(usedBytes + incomingBytes)} MB）：${name}`
+  )
 }
 
 /** 按扩展名认的图片类型 —— 认不出就是普通文件 */
@@ -157,6 +179,13 @@ export function storeAttachmentFile(opts: {
   srcPath: string
   /** 可注入，测试里定 id；正常走随机 */
   id?: string
+  /**
+   * 这条事项**已经占用**的字节数（卡 `fc11793f`）
+   *
+   * 传了才判总量：仓储知道"已用多少"（`AttachmentRepository.add` 取好递进来），
+   * 文件层只答"加上这一份会不会超"。不传 = 只判单份（老的调用方与单测不受影响）。
+   */
+  usedBytes?: number
 }): AttachmentFileMeta {
   const { dataDir, todoId, srcPath } = opts
   const src = path.resolve(srcPath)
@@ -169,6 +198,17 @@ export function storeAttachmentFile(opts: {
   if (!stat.isFile()) throw new Error(`只能关联文件，不能关联目录：${srcPath}`)
   if (stat.size > MAX_ATTACHMENT_BYTES) {
     throw new Error(attachmentTooLargeReason(stat.size, path.basename(srcPath)))
+  }
+  /**
+   * 总量也在复制**之前**判：复制完再拒等于白写几十 MB（与单份同一个理由）
+   */
+  if (
+    opts.usedBytes !== undefined &&
+    opts.usedBytes + stat.size > MAX_ATTACHMENT_TOTAL_BYTES
+  ) {
+    throw new Error(
+      attachmentTotalTooLargeReason(opts.usedBytes, stat.size, path.basename(srcPath))
+    )
   }
 
   const id = opts.id ?? randomUUID()

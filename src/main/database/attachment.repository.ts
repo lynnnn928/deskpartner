@@ -118,10 +118,16 @@ export class AttachmentRepository {
     const added: TodoAttachment[] = []
     const failed: Array<{ path: string; reason: string }> = []
 
+    /**
+     * 这条事项当前已占用的字节数（卡 `fc11793f`）：总量上限要在**复制之前**判，
+     * 所以先取一次，再随每一份成功挂上的累加 —— 否则同一批里前几份就能把它撑破。
+     */
+    let usedBytes = this.totalBytes(todoId)
+
     for (const src of paths) {
       let meta
       try {
-        meta = storeAttachmentFile({ dataDir, todoId, srcPath: src })
+        meta = storeAttachmentFile({ dataDir, todoId, srcPath: src, usedBytes })
       } catch (err) {
         failed.push({ path: src, reason: err instanceof Error ? err.message : String(err) })
         continue
@@ -155,6 +161,7 @@ export class AttachmentRepository {
             )
           return { seq, now }
         })()
+        usedBytes += meta.bytes
         added.push({
           id: meta.id,
           todoId,

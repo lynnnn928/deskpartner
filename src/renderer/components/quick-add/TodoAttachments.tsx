@@ -4,6 +4,8 @@ import { Dialog } from '../ui/Dialog'
 import { Icon } from '../ui/Icon'
 import { invoke } from '../../lib/ipc-client'
 import { cn } from '../../lib/utils'
+// 收东西进来的分流 / 命名 / 大小文案（卡 `fc11793f`）：新建卡片上那份清单用的是同一套
+import { baseName, formatSize, intakeFiles } from '../../lib/attachment-intake'
 import type { TodoAttachment } from '../../types/todo'
 
 /**
@@ -29,61 +31,14 @@ import type { TodoAttachment } from '../../types/todo'
  * 其余文件点一下交给系统默认程序（和「打开文档目录」同一条路）。
  */
 
-/** 文件大小文案：够看就行，不追求精确 */
-const formatSize = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
 /** 非图片附件在格子里显示的短标签（PDF / ZIP / LOG…） */
 const extLabel = (item: TodoAttachment): string =>
   (item.ext.replace('.', '') || '文件').toUpperCase().slice(0, 4)
-
-/** 失败信息里只报文件名，整条路径太长会把这一行撑爆 */
-const baseName = (p: string): string => p.split(/[\\/]/).pop() || p
 
 const errText = (err: unknown): string => {
   const raw = err instanceof Error ? err.message : String(err)
   // IPCError 的前缀是通道名，对用户没有意义
   return raw.replace(/^\[IPC\][^:]*:\s*/, '')
-}
-
-/**
- * 剪贴板里那份东西在磁盘上的真实路径（卡 `cce88967`）
- *
- * 从资源管理器复制来的文件有路径，截图没有（它是内存字节）。渲染层里没有 preload 时
- * （单测、纯浏览器预览）拿不到，一律退化成空串 —— 分流照旧，只是都走"传字节"那条。
- */
-const pathForFile = (file: File): string => {
-  try {
-    const api = window.api as { getPathForFile?: (f: File) => string } | undefined
-    return api?.getPathForFile?.(file) ?? ''
-  } catch {
-    return ''
-  }
-}
-
-/** 剪贴板给的 mime → 扩展名；认不出按 png */
-const PASTE_EXT: Record<string, string> = {
-  'image/jpeg': '.jpg',
-  'image/gif': '.gif',
-  'image/webp': '.webp',
-  'image/bmp': '.bmp'
-}
-
-/**
- * 粘贴图片的默认文件名
- *
- * 不叫 `image.png`：一次会话里挂几张截图，`image.png / image(1).png` 互相认不出，
- * 而时间戳至少对得上"什么时候截的"。扩展名跟着 mime 走 —— 落库时的 kind/mime 由扩展名
- * 决定，名字说错类型，图就按错的类型存进去。
- */
-const pastedImageName = (mime: string): string => {
-  const d = new Date()
-  const p = (n: number): string => String(n).padStart(2, '0')
-  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
-  return `粘贴图片-${stamp}${PASTE_EXT[mime] ?? '.png'}`
 }
 
 interface TodoAttachmentsProps {
@@ -141,24 +96,15 @@ export const TodoAttachments: React.FC<TodoAttachmentsProps> = ({ todoId }) => {
     setBusy(true)
     setError(null)
     try {
-      const paths: string[] = []
-      const images: Array<{ name: string; bytes: Uint8Array }> = []
-      for (const file of files) {
-        const path = pathForFile(file)
-        if (path) {
-          paths.push(path)
-          continue
-        }
-        if (file.type.startsWith('image/')) {
-          images.push({
-            name: pastedImageName(file.type),
-            bytes: new Uint8Array(await file.arrayBuffer())
-          })
-        }
-      }
+      // 分流（有路径的 / 只有字节的）与命名都在共用层：别在这里再写一遍
+      const { items, problems: intakeProblems } = await intakeFiles(files)
+      const paths = items.filter((i) => i.kind === 'path').map((i) => i.path)
+      const images = items
+        .filter((i) => i.kind === 'bytes')
+        .map((i) => ({ name: i.name, bytes: i.bytes }))
 
       // 两类各自的失败都要说出来：哪一份、为什么
-      const problems: string[] = []
+      const problems: string[] = [...intakeProblems]
       if (paths.length) {
         const res = await invoke('todo:addAttachments', { todoId, paths })
         problems.push(...res.failed.map((f) => `${baseName(f.path)}：${f.reason}`))

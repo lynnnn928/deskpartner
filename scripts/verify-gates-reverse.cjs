@@ -127,6 +127,78 @@ const GROUPS = [
       ]
     ]
   }
+,
+  {
+    name: '新建事项的待挂附件（new-todo-attachments-fc11793f.test.tsx）',
+    gate: 'tests/renderer/components/new-todo-attachments-fc11793f.test.tsx',
+    cases: [
+      [
+        '① 选文件那条通道偷偷改成"挑完就挂"（新建时没有 id 可挂）',
+        'src/main/ipc.ts',
+        "ipcMain.handle('todo:pickFiles'",
+        "ipcMain.handle('todo:pickFiles', () => addAttachments('x', [])) || ipcMain.handle('todo:pickFiles'",
+        'red'
+      ],
+      [
+        '② 附件没挂上也照关卡片（"哪一份没挂上"随窗口一起没了）',
+        'src/renderer/components/quick-add/QuickAddForm.tsx',
+        'if (!failed.length) closeDetail()',
+        'closeDetail()',
+        'red'
+      ],
+      [
+        '③ 提交顺序反过来（先挂附件再建事项）',
+        'src/renderer/components/quick-add/QuickAddForm.tsx',
+        'const created = await createTodo(',
+        'await attachPending(createdId!, pendingAttachments); const created = await createTodo(',
+        'red'
+      ],
+      [
+        '④ 新建时又把附件区收起来（要人先点一下才看得见）',
+        'src/renderer/components/quick-add/QuickAddForm.tsx',
+        '        {!editingTodoId && (\n          <PendingAttachments',
+        '        {!editingTodoId && false && (\n          <PendingAttachments',
+        'red'
+      ],
+      [
+        '⑤ 收东西时不带已用体积（总量上限那半边判据失效）',
+        'src/renderer/components/quick-add/QuickAddForm.tsx',
+        'intakeFiles(files, { usedBytes: attachedBytes })',
+        'intakeFiles(files)',
+        'red'
+      ],
+      [
+        '⑥ 挑了没挂的那条路不按余量筛（对话框选的一批能直接撑破上限）',
+        'src/renderer/components/quick-add/QuickAddForm.tsx',
+        'fitPickedFiles(picked, attachedBytes)',
+        'fitPickedFiles(picked)',
+        'red'
+      ],
+      [
+        /**
+         * ⑦⑧ 打的是主进程那半边（总量上限的权威判据）。
+         *
+         * 这两条**挂在渲染层的闸门上**跑，而不是新开一个跑 `attachment.repository.test.ts`
+         * 的条目：那个文件要加载 better-sqlite3，只有 Node 22（ABI 127）跑得起来，
+         * 而这个脚本用 `process.execPath` 起 vitest —— 本机裸 `node` 是 24，
+         * 一挂上去基线就是红的（2026-11-12 实测）。行为层那两条真跑用例在
+         * `run-tests` 里（那边按 Node 22 起 vitest），这里管的是"闸门认不认得出"。
+         */
+        '⑦ 仓储不把已用体积累加下去（同一批里前几份就能撑破上限）',
+        'src/main/database/attachment.repository.ts',
+        'usedBytes += meta.bytes',
+        'usedBytes += 0',
+        'red'
+      ],
+      [
+        '⑧ 文件层不判总量（单份之外再没有上限）',
+        'src/main/lib/attachments.ts',
+        'attachmentTotalTooLargeReason(opts.usedBytes, stat.size, path.basename(srcPath))',
+        'attachmentTooLargeReason(stat.size, path.basename(srcPath))',
+        'red'
+      ]
+    ]
+  }
 ]
 
 function runGate(gate) {

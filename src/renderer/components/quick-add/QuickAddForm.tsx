@@ -13,6 +13,15 @@ import { TypePicker } from './TypePicker'
 import { VersionPicker } from './VersionPicker'
 import { useQuickAddRoute } from './useQuickAddRoute'
 import { EmptyValidator } from './EmptyValidator'
+// 新建时的待挂清单（卡 `fc11793f`）：事项还没有 id，先留在这张表单上、保存时一起挂
+import { PendingAttachments } from './PendingAttachments'
+import {
+  baseName,
+  fitPickedFiles,
+  intakeFiles,
+  pendingTotalBytes,
+  type PendingAttachment
+} from '../../lib/attachment-intake'
 import { CommentThread } from './CommentThread'
 import { TodoAttachments } from './TodoAttachments'
 // 「改动详情」（1.0.73 起叫「本次变更」，1.0.142 改名，卡 `35fa2cbc`）：验收时看这一次交付改了什么
@@ -156,6 +165,31 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   const [dueAt, setDueAt] = useState<string | null>(null)
   /** 解决于版本（v24）；只在编辑模式可改，见 VersionPicker 的注释 */
   const [fixedInVersion, setFixedInVersion] = useState<string | null>(null)
+
+  // ── 新建时的待挂附件（卡 `fc11793f`）──
+  /**
+   * 附件挂在**事项 id** 上，而新增这一条还没有 id —— 所以它们先留在这张表单上，
+   * 提交时先建事项、再逐个挂。这份清单**不进草稿**（文件字节不进 sessionStorage），
+   * 窗口重载就没了，界面上也照实写"保存时一起挂上"。
+   */
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [attachmentProblem, setAttachmentProblem] = useState<string | null>(null)
+  const [attachmentBusy, setAttachmentBusy] = useState(false)
+  /**
+   * 这张卡上已经占了多少（卡 `fc11793f` 的总量上限）
+   *
+   * 权威判据在主进程（复制之前，带着仓储算出的已用体积再判一次）；这里先算一遍只是
+   * 为了"选完/粘完当场就说清哪一份进不了清单"，不然要等提交之后才知道。
+   */
+  const attachedBytes = pendingTotalBytes(pendingAttachments)
+  /**
+   * 事项已建好、但附件没全挂上（卡 `fc11793f`）
+   *
+   * 建完就关掉卡片的话，"哪一份没挂上"这条信息会随窗口一起消失（窗口只是 hide，
+   * toast 也跟着没）—— 那就成了静默丢失。所以这种时候不关卡片：留在这一屏上，
+   * 清单里只剩没挂上的那几份，底部换成「再试一次挂上 / 关闭」。
+   */
+  const [orphan, setOrphan] = useState<{ todoId: string; short: string; failures: string[] } | null>(null)
   /**
    * 当前版本号：给「标为 <当前版本>」这个快捷按钮用。
    *
@@ -468,6 +502,113 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
     return () => window.removeEventListener('blur', handleBlur)
   }, [embedded])
 
+  /**
+   * 收下这一批东西（选文件 / 粘贴都走它）
+   *
+   * 超限与空内容在**收的时候就拦**（判据与主进程同一份常量、同一个已用体积），
+   * 不然要等整张卡填完、提交之后才知道某一份太大 —— 而那时事项已经建好了。
+   */
+  const takeAttachments = async (files: File[]) => {
+    if (!files.length) return
+    setAttachmentBusy(true)
+    try {
+      const { items, problems } = await intakeFiles(files, { usedBytes: attachedBytes })
+      if (items.length) setPendingAttachments((prev) => [...prev, ...items])
+      setAttachmentProblem(problems.length ? problems.join('；') : null)
+    } finally {
+      setAttachmentBusy(false)
+    }
+  }
+
+  /** 「图片 / 文件」按钮：走那条**不落库**的通道，选完只把实况拿回来 */
+  const pickAttachments = async () => {
+    setAttachmentBusy(true)
+    setAttachmentProblem(null)
+    try {
+      const picked = await invoke('todo:pickFiles')
+      if (!picked) return
+      const { items, problems } = fitPickedFiles(picked, attachedBytes)
+      if (items.length) setPendingAttachments((prev) => [...prev, ...items])
+      if (problems.length) setAttachmentProblem(problems.join('；'))
+    } catch (err) {
+      setAttachmentProblem(err instanceof Error ? err.message : String(err))
+    } finally {
+      setAttachmentBusy(false)
+    }
+  }
+
+  /**
+   * 把清单挂到某条事项上（卡 `fc11793f`）
+   *
+   * **一份一次调用**：这样"哪一份成了、哪一份没成"是确定的 —— 批量送进去只拿到
+   * 一份总的失败清单，重试时就得整批重挂，已经挂上的会变成两份。
+   * 两条通道（给路径 / 传字节）与详情里用的是同一对，不另写入库逻辑。
+   */
+  const attachPending = async (
+    todoId: string,
+    items: PendingAttachment[]
+  ): Promise<{ failed: Array<{ item: PendingAttachment; reason: string }> }> => {
+    const failed: Array<{ item: PendingAttachment; reason: string }> = []
+    for (const item of items) {
+      try {
+        if (item.kind === 'path') {
+          const res = await invoke('todo:addAttachments', { todoId, paths: [item.path] })
+          for (const bad of res.failed) {
+            failed.push({ item, reason: `${baseName(bad.path)}：${bad.reason}` })
+          }
+        } else {
+          const res = await invoke('todo:addPastedAttachments', {
+            todoId,
+            files: [{ name: item.name, bytes: item.bytes }]
+          })
+          for (const bad of res.failed) failed.push({ item, reason: bad.reason })
+        }
+      } catch (err) {
+        failed.push({ item, reason: err instanceof Error ? err.message : String(err) })
+      }
+    }
+    return { failed }
+  }
+
+  /**
+   * 新建时按 Ctrl+V 直接挂附件（卡 `fc11793f`）
+   *
+   * 编辑模式下这块由附件区自己听（那份清单直接落库）；新增模式里没有事项可挂，
+   * 所以由表单收下来。没有文件就**不拦** —— 往标题框里粘一段字是常规操作。
+   */
+  useEffect(() => {
+    if (editingTodoId) return
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? [])
+      if (!files.length) return
+      e.preventDefault()
+      void takeAttachments(files)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTodoId])
+
+  /** 事项已建好、附件没挂上时的重试：只重挂清单里剩下那几份 */
+  const retryOrphanAttachments = async () => {
+    if (!orphan) return
+    setAttachmentBusy(true)
+    setAttachmentProblem(null)
+    try {
+      const { failed } = await attachPending(orphan.todoId, pendingAttachments)
+      setPendingAttachments(failed.map((f) => f.item))
+      if (failed.length) {
+        setOrphan({ ...orphan, failures: failed.map((f) => f.reason) })
+        return
+      }
+      setOrphan(null)
+      setPendingAttachments([])
+      closeDetail()
+    } finally {
+      setAttachmentBusy(false)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       setEmptyError(true)
@@ -497,6 +638,8 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
       : {}
 
     try {
+      /** 新建时的 id（挂附件要用）：update 那条路不产生它 */
+      let createdId: string | null = null
       if (editingTodoId) {
         await updateTodo({
           id: editingTodoId,
@@ -521,7 +664,13 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
           ...detail
         })
       } else {
-        await createTodo({
+        /**
+         * 新建：**先建事项、再挂附件**（卡 `fc11793f`）
+         *
+         * 附件挂在事项 id 上，没有 id 就挂不上；反过来的顺序做不到，所以这里
+         * 只有这一种可能。挂失败的那些留在清单里，卡片不关（见 orphan 的说明）。
+         */
+        const created = await createTodo({
           title: title.trim(),
           categoryIds,
           projectId,
@@ -534,7 +683,25 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
           ...(initialStatus ? { status: initialStatus } : {}),
           ...detail
         })
+        createdId = created.id
       }
+
+      // 建好了才挂得上：逐个挂，失败的原样留在清单里
+      const pending = pendingAttachments
+      const { failed } =
+        pending.length && createdId
+          ? await attachPending(createdId, pending)
+          : { failed: [] as Array<{ item: PendingAttachment; reason: string }> }
+      if (failed.length && createdId) {
+        setPendingAttachments(failed.map((x) => x.item))
+        setAttachmentProblem(null)
+        setOrphan({ todoId: createdId, short: shortId(createdId), failures: failed.map((x) => x.reason) })
+      } else {
+        setPendingAttachments([])
+        setAttachmentProblem(null)
+        setOrphan(null)
+      }
+
       // 关窗前记下"这次记在哪一摊"，下一次速记直接落这儿
       writeLastProjectId(projectId)
       /**
@@ -547,7 +714,10 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
       setRestoredDraft(false)
       // 关闭窗口。用 IPC 而不是 window.close()：
       // 主进程现在是隐藏复用这个窗口，销毁掉就失去复用的意义了
-      closeDetail()
+      //
+      // 例外：附件没挂上时**不关**（卡 `fc11793f`）—— 窗口一 hide，那句"哪一份没挂上"
+      // 就跟着消失了，等于让人以为都挂上了。留在这一屏上让她看一眼、能重试一次。
+      if (!failed.length) closeDetail()
       if (editingTodoId) {
         /**
          * 编辑保存后**不重置表单**（卡 6a595ad0）
@@ -674,6 +844,13 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
       fixedInVersion: null
     })
     setRestoredDraft(false)
+    /**
+     * 回到"刚打开这张卡片"的样子（卡 `fc11793f`）
+     *
+     * 只清上一轮留下的错误文字：清单本身**不清**（那是"待挂的东西"，不在草稿里，
+     * 清它要调用方明说）。
+     */
+    setAttachmentProblem(null)
   }
 
   /**
@@ -684,6 +861,15 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
    */
   useEffect(() => {
     if (!editingTodoId) resetForm()
+    /**
+     * 切换模式时把待挂清单也收掉（卡 `fc11793f`）
+     *
+     * 它属于"上一次速记"：换了一条事项再回到新增，清单里还留着上一轮挑的文件
+     * 只会让人误挂。窗口重载同理（那是另一条路，本来就没了）。
+     */
+    setPendingAttachments([])
+    setAttachmentProblem(null)
+    setOrphan(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingTodoId])
 
@@ -1146,6 +1332,24 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
           </div>
         )}
 
+        {/*
+          新建时的待挂附件（卡 `fc11793f`）
+
+          附件挂在事项 id 上，而这一条还没建 —— 所以这里存在的是**待挂清单**，
+          文案也照实写"保存时一起挂上"，别让人以为已经挂好了。
+          **默认就在**：截图出来要马上粘，多一次"先点开"就是多一步（主用户 2026-11-12）。
+        */}
+        {!editingTodoId && (
+          <PendingAttachments
+            items={pendingAttachments}
+            problem={attachmentProblem}
+            busy={attachmentBusy}
+            onPick={() => void pickAttachments()}
+            onRemove={(index) => setPendingAttachments((prev) => prev.filter((_, i) => i !== index))}
+            hint={orphan ? '这些还没挂上' : undefined}
+          />
+        )}
+
         {/* 速记新增模式下的按需展开入口（保持新建弹窗短小轻快） */}
         {!editingTodoId && (!showDetail || !showOptions) && (
           <div className="flex items-center gap-3 pt-1 border-t border-border/50">
@@ -1249,6 +1453,26 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
 
       </div>
 
+      {/*
+        事项已建好、但附件没挂上（卡 `fc11793f`）
+
+        刻意放在滚动层外面、紧贴操作栏：它是"已经发生的事"，滚上去就看不见的提示
+        等于没有。清单里留下的正是没挂上的那几份，底部那颗按钮只重挂它们。
+      */}
+      {orphan && (
+        <div
+          data-testid="orphan-attachments"
+          className="shrink-0 rounded-button border border-danger/30 bg-danger/5 px-3 py-2 text-caption leading-relaxed text-text-secondary"
+        >
+          <span className="text-text-primary">
+            事项已建好（#{orphan.short}），但这 {orphan.failures.length} 份附件没挂上：
+          </span>
+          {orphan.failures.join('；')}
+          <br />
+          清单里留下的就是没挂上的那几份；先关掉、之后在详情里补也一样。
+        </div>
+      )}
+
       {/* ── 五、底部常驻操作栏 ── */}
       {/*
         与卡片头部同一质感（卡 `35fa2cbc`）
@@ -1270,8 +1494,37 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
             : undefined
         }
       >
-        <Button variant="ghost" onClick={handleCancel}>取消</Button>
-        <Button variant="primary" onClick={handleSubmit}>提交保存</Button>
+        {orphan ? (
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setOrphan(null)
+                setPendingAttachments([])
+                closeDetail()
+              }}
+            >
+              关闭
+            </Button>
+            <Button
+              variant="primary"
+              data-testid="orphan-retry"
+              disabled={attachmentBusy}
+              onClick={() => void retryOrphanAttachments()}
+            >
+              {attachmentBusy ? '处理中…' : '再试一次挂上'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={handleCancel}>
+              取消
+            </Button>
+            <Button variant="primary" onClick={handleSubmit}>
+              提交保存
+            </Button>
+          </>
+        )}
       </div>
     </div>
   )

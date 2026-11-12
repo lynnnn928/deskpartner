@@ -8,6 +8,7 @@ import type {
   TodoAttachment,
   AttachmentAddResult,
   PastedAttachment,
+  PickedFile,
   PasteAttachmentResult,
   CommentKind,
   TimelineEntry,
@@ -141,6 +142,13 @@ export interface IPCChannels {
     input: { id: string }
     result: { dataUrl: string | null; name: string }
   }
+  /**
+   * 只挑文件、回实况，**不落库**（卡 `fc11793f`）
+   *
+   * `todo:pickAttachments` 是"选完立刻挂到某条事项上"；新建卡片上那条还没有 id，
+   * 所以拆出这条无副作用的：当场说清"哪一份能挂、哪一份不行"，挂的动作等建好再做。
+   */
+  'todo:pickFiles': { input: void; result: PickedFile[] | null }
   /** 开系统文件对话框选择（取消返回 null）：选中的文件复制进数据目录并落库 */
   'todo:pickAttachments': { input: { todoId: string }; result: AttachmentAddResult | null }
   /** 直接给路径（无对话框）：界面之外（验证、将来的 CLI）走这条 */

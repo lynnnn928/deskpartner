@@ -247,6 +247,19 @@ export interface AttachmentAddResult {
 }
 
 /**
+ * 挑文件时每一份的实况（卡 `fc11793f`）
+ *
+ * 只报事实、**不落库**：新建卡片上的那一条还没有 id，挂的动作等事项建好再做。
+ * `problem` 是一句能直接给人看的话（超上限 / 读不到 / 是目录），null 表示可以挂。
+ */
+export interface PickedFile {
+  path: string
+  name: string
+  size: number
+  problem: string | null
+}
+
+/**
  * 粘贴进来的一份东西（卡 `cce88967`）
  *
  * 剪贴板里的图片是**内存里的字节**，没有磁盘路径 —— 按路径那条路（`todo:addAttachments`）

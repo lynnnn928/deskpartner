@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { ipcMain, BrowserWindow, app, dialog, shell, nativeImage, type IpcMainInvokeEvent } from 'electron'
 import { getDataDirPath, migrateDataDirectory } from './database/index'
 import { TodoRepository } from './database/todo.repository'
@@ -25,7 +26,7 @@ import { buildExecReceipt } from './lib/exec-receipt'
 import { buildDescChangeEvent } from './lib/desc-audit'
 // 审计翻译层（1.0.62）：与 CLI 共用同一份判据，界面上也读得出"谁改了什么、删了什么"
 import { buildTodoAudit, mergeTimeline } from './lib/audit-text'
-import { resolveRelPath } from './lib/attachments'
+import { MAX_ATTACHMENT_BYTES, attachmentTooLargeReason, resolveRelPath } from './lib/attachments'
 import { addPastedAttachments } from './lib/pasted-attachments'
 // 「本次变更」聚合（1.0.73，`482e4b03`）：验收时看这一次交付改了什么
 import { buildReviewDiff } from './lib/review-diff'
@@ -630,22 +631,58 @@ todoRepo.delete(id, 'gui', 'human')
     return res
   }
 
+  /** 附件对话框的筛选条件：两条通道共用一份，别各写各的（卡 `fc11793f`） */
+  const attachmentDialogOpts = (): Electron.OpenDialogOptions => ({
+    title: '选择要关联到这条事项的图片或文件（可多选）',
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'] },
+      { name: '所有文件', extensions: ['*'] }
+    ]
+  })
+
   ipcMain.handle('todo:pickAttachments', (e, { todoId }: { todoId: string }) =>
     safeHandleAsync(async () => {
       const ownerWin = BrowserWindow.fromWebContents(e.sender)
-      const dialogOpts: Electron.OpenDialogOptions = {
-        title: '选择要关联到这条事项的图片或文件（可多选）',
-        properties: ['openFile', 'multiSelections'],
-        filters: [
-          { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'] },
-          { name: '所有文件', extensions: ['*'] }
-        ]
-      }
+      const dialogOpts = attachmentDialogOpts()
       const picked = ownerWin
         ? await dialog.showOpenDialog(ownerWin, dialogOpts)
         : await dialog.showOpenDialog(dialogOpts)
       if (picked.canceled || !picked.filePaths.length) return null
       return addAttachments(todoId, picked.filePaths)
+    })
+  )
+
+  /**
+   * 只挑文件、回实况（卡 `fc11793f`）：选完**不挂**，把路径与"能不能挂"交给调用方
+   *
+   * 为什么要拆这条：新建卡片上的那一条还没有 id，而 `todo:pickAttachments` 是
+   * "选完立刻挂"。上限在这里就判一次 —— 与其让人填完整张卡、提交后才发现某份太大，
+   * 不如选完当场说清；真正的把关仍在 `storeAttachmentFile` 里（权威），两处同一句话。
+   */
+  ipcMain.handle('todo:pickFiles', (e) =>
+    safeHandleAsync(async () => {
+      const ownerWin = BrowserWindow.fromWebContents(e.sender)
+      const dialogOpts = attachmentDialogOpts()
+      const picked = ownerWin
+        ? await dialog.showOpenDialog(ownerWin, dialogOpts)
+        : await dialog.showOpenDialog(dialogOpts)
+      if (picked.canceled || !picked.filePaths.length) return null
+      return picked.filePaths.map((p) => {
+        const name = path.basename(p)
+        try {
+          const stat = fs.statSync(p)
+          if (!stat.isFile()) {
+            return { path: p, name, size: stat.size, problem: `只能关联文件，不能关联目录：${name}` }
+          }
+          if (stat.size > MAX_ATTACHMENT_BYTES) {
+            return { path: p, name, size: stat.size, problem: attachmentTooLargeReason(stat.size, name) }
+          }
+          return { path: p, name, size: stat.size, problem: null }
+        } catch {
+          return { path: p, name, size: 0, problem: `附件不存在或读不到：${name}` }
+        }
+      })
     })
   )
 
