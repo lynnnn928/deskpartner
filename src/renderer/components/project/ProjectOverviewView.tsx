@@ -445,7 +445,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({ projec
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => void invoke('window:showQuickAdd', { todoId: item.id })}
+                  onClick={() => useUIStore.getState().openTodoDetail(item.id)}
                   className="flex items-center gap-3 rounded-button border border-border/70 bg-surface-subtle px-3.5 py-2.5 text-left hover:bg-bg-card hover:border-border transition-colors cursor-pointer"
                 >
                   <div className="w-20 shrink-0">

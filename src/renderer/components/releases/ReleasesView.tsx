@@ -340,7 +340,7 @@ export const ReleasesView: React.FC<{ projectId?: string | null; onOpenItems?: (
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => void invoke('window:showQuickAdd', { todoId: t.id })}
+                      onClick={() => useUIStore.getState().openTodoDetail(t.id)}
                       className="w-full flex items-center gap-3 rounded-button border border-border/70 bg-surface-subtle px-3.5 py-2.5 text-left hover:bg-bg-card hover:border-border transition-colors cursor-pointer"
                     >
                       <div className="w-20 shrink-0">

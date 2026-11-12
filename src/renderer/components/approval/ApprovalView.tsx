@@ -984,7 +984,7 @@ export const ApprovalView: React.FC = () => {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => void invoke('window:showQuickAdd', { todoId: targetTodo.id })}
+                                  onClick={() => useUIStore.getState().openTodoDetail(targetTodo.id)}
                                 >
                                   打开事项详情
                                 </Button>

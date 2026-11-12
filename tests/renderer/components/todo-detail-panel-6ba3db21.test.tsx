@@ -319,14 +319,14 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
     )
   })
 
-  it('源码闸门：看板内双击改为就地展开，其他入口仍走窗口', () => {
+  it('源码闸门：看板内双击改为就地展开（其他页面见 615dd2d9）', () => {
     const board = read('src/renderer/components/kanban/KanbanBoard.tsx')
     const handleEdit = board.slice(board.indexOf('const handleEdit'), board.indexOf('const handleEdit') + 320)
     expect(handleEdit).toContain('openTodoDetail')
     expect(handleEdit, '看板内不该再开独立窗口').not.toContain("invoke('window:showQuickAdd'")
 
-    // 其他页面的入口这一期刻意保留：至少通知页还开着窗口，别一起被改掉
-    expect(read('src/renderer/components/notification/NotificationsView.tsx')).toContain(
+    // 其他页面在卡 615dd2d9 里也改成窗口级右栏了：这里反过来钉住别再退回去
+    expect(read('src/renderer/components/notification/NotificationsView.tsx')).not.toContain(
       'window:showQuickAdd'
     )
 

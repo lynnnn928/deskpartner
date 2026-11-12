@@ -6,6 +6,7 @@ import { ApprovalView } from '../../../../src/renderer/components/approval/Appro
 import { useSettingsStore } from '../../../../src/renderer/stores/settings.store'
 import { useTodoStore } from '../../../../src/renderer/stores/todo.store'
 import { useProjectStore } from '../../../../src/renderer/stores/project.store'
+import { useUIStore } from '../../../../src/renderer/stores/ui.store'
 
 const invokeMock = vi.fn()
 
@@ -205,11 +206,10 @@ describe('ApprovalView 视觉与交互收口（6 项用户反馈验证）', () =
     fireEvent.click(getByText('查看详情'))
     expect(getByText('这是待删除事项的详细描述内容')).toBeTruthy()
 
-    // 点击「打开事项详情」唤起右侧详情抽屉
+    // 点击「打开事项详情」：就地展开右栏（卡 615dd2d9），不再开独立贴右窗口
     fireEvent.click(getByText('打开事项详情'))
-    expect(invokeMock).toHaveBeenCalledWith('window:showQuickAdd', {
-      todoId: 'd40438f0-6f72-421c-a427-fad7c044b365'
-    })
+    expect(useUIStore.getState().selectedTodoId).toBe('d40438f0-6f72-421c-a427-fad7c044b365')
+    expect(invokeMock).not.toHaveBeenCalledWith('window:showQuickAdd', expect.anything())
   })
 
   it('3. 审批记录表格具备 7 列纯文字表头（申请类型独立成列），且使用自定义浮层菜单替代原生 <select>', async () => {

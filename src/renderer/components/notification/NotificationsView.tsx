@@ -283,13 +283,21 @@ export const NotificationsView: React.FC<{ projectId?: string; compact?: boolean
       return
     }
     switch (n.type) {
+      /**
+       * 就地展开右栏（卡 `615dd2d9`）
+       *
+       * 右栏是**窗口级**的：`windows/Kanban.tsx` 的 `kanban-content` 右侧那一块，
+       * 对窗口里所有页面都生效。所以这页不用自己的容器 —— 打开选中项，页面自然让位。
+       * 原来这里开一个独立贴右窗口：同一条事项，从看板点开是右栏、从通知点开是另一个
+       * 窗口，两套外壳、两套排版。
+       */
       case 'reminder':
       case 'review':
-        if (n.refId) invoke('window:showQuickAdd', { todoId: n.refId, projectId: n.projectId ?? undefined })
+        if (n.refId) useUIStore.getState().openTodoDetail(n.refId)
         break
       case 'decision':
-        setMainView('board')
-        if (n.refId) invoke('window:showQuickAdd', { todoId: n.refId, projectId: n.projectId ?? undefined })
+        // 不切看板：待拍板要看的就是详情里的内容，切页只会把刚点的那一行带走
+        if (n.refId) useUIStore.getState().openTodoDetail(n.refId)
         break
       case 'grant':
         if (n.refId) setFocusGrantId(n.refId)

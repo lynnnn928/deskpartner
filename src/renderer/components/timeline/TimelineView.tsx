@@ -87,9 +87,9 @@ const TimelineRow: React.FC<{
          *
          * 走 IPC 让主进程开窗口 —— 弹窗是另一个 BrowserWindow，
          * zustand store 不跨窗口，直接调 store 只会改到当前窗口的状态。
-         * 与看板卡片双击同一个入口。
+         * 与看板卡片双击同一个入口：就地展开右栏（卡 `615dd2d9`）。
          */
-        onClick={() => invoke('window:showQuickAdd', { todoId: todo.id })}
+        onClick={() => useUIStore.getState().openTodoDetail(todo.id)}
         title="点击查看详情"
       >
         {/*

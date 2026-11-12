@@ -623,7 +623,7 @@ export const ProjectDocsView: React.FC<ProjectDocsViewProps> = ({ projectId }) =
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => void invoke('window:showQuickAdd', { todoId: t.id, projectId })}
+                        onClick={() => useUIStore.getState().openTodoDetail(t.id)}
                         className="w-full py-2 px-2 text-left hover:bg-surface-subtle rounded-input transition-colors flex items-center justify-between gap-3 cursor-pointer"
                       >
                         <div className="flex items-center gap-2 min-w-0">
