@@ -25,6 +25,7 @@ import { assignmentTargetOf } from '../../database/todo.repository'
 import { CLOSURE_SECTION } from '../../database/closure-structure'
 import { buildTodoAudit } from '../../lib/audit-text'
 import { formatBytes } from '../../lib/attachments'
+import { isTextContent, readTextView } from '../../lib/attachment-content'
 import { FILTER_STATUSES, LIMIT_ZERO_DOC, LIST_DESC_PREVIEW_CHARS, OPEN_STATUSES, PRIORITIES, STATUSES, TODO_LIST_DEFAULT_LIMIT, TYPES, isDescriptionTruncated, parseLimit, parseOffset, summarizeDescription, takeLimit, todosForExecutor } from '../command-text'
 import { AWAITING_REVIEW_COMMENT_HINT, AWAITING_REVIEW_HINT, DESC_SHRINK_HINT, DONE_HINT, actorOf, assertCreatedByNotImpersonating, assertNoLauncherOnlyFlags, assertRegisteredActor, assertValidTitle, commentDeleteRisk, missingClosure, parseTime, proposedDescNotice, resolveActor, resolveCreatedBy, resolveProjectForWrite, riskOf, strValue } from '../command-core'
 import type { CliContext, CommandSpec } from '../command-core'
@@ -2718,6 +2719,7 @@ export const todoCommands: CommandSpec[] = [
           bytes: a.bytes,
           sha256: a.sha256,
           relPath: a.relPath,
+          absPath: ctx.deps.attachmentRepo.absolutePath(a),
           createdBy: a.createdBy,
           createdAt: a.createdAt
         })),
@@ -2793,6 +2795,89 @@ export const todoCommands: CommandSpec[] = [
         createdBy: a.createdBy,
         createdAt: a.createdAt,
         message: `已把 ${a.name}（${formatBytes(a.bytes)}）挂到这条事项上`
+      }
+    }
+  },
+  {
+    /**
+     * agent 读附件内容（卡 `89f3b3bc`，2026-11-12 补）
+     *
+     * 主用户的原话：「bug 截图挂到事项上，你就能直接去看，那你不读，我附上去干嘛？」
+     * 于是这一档从"我的建议：不做"翻成"要做"（归属写错过一次，已在卡上更正）。
+     * 口径见卡上的评论：
+     * 一次读一份；文本给正文（超 64K 字符截断并说明还剩多少）；图片给本机绝对路径
+     * （MCP 通道把它当图片内容块返回，模型看到的是像素，不是 base64 字符串）；
+     * 其它二进制只给路径 —— 硬塞进上下文是纯噪声。
+     */
+    name: 'todo attachment',
+    dataShape: 'object',
+    readOnly: true,
+    desc:
+      '读一条事项上某一份附件的内容（文本给正文；图片给可直接打开的本机路径，MCP 通道直接返回图片；其它二进制只给路径）',
+    args: [
+      {
+        flag: '--seq',
+        type: 'string',
+        required: true,
+        desc: '附件序号（`todo attachments` 回执里每条的 seq）'
+      }
+    ],
+    positional: { name: 'id', required: true, desc: '待办 ID（支持前缀）' },
+    run: (ctx, flags, positional) => {
+      const input = positional[0]
+      if (!input) throw new UsageError('缺少待办 id')
+      const seqRaw = strValue(flags['--seq'])
+      if (!seqRaw) throw new UsageError('缺少 --seq（附件序号，见 todo attachments）')
+      const seq = Number(seqRaw)
+      if (!Number.isInteger(seq) || seq <= 0) throw new UsageError(`--seq 要是正整数：${seqRaw}`)
+      const id = ctx.deps.todoRepo.resolveId(input)
+      const todo = ctx.deps.todoRepo.getById(id)
+      if (!todo) throw new NotFoundError(`待办不存在: ${id}`)
+      const items = ctx.deps.attachmentRepo.list(id)
+      const a = items.find((x) => x.seq === seq)
+      if (!a) {
+        throw new UsageError(
+          items.length
+            ? `这条事项上没有第 ${seq} 份附件（现有 ${items.map((x) => x.seq).join(', ')}）`
+            : '这条事项上没有附件'
+        )
+      }
+      const absPath = ctx.deps.attachmentRepo.absolutePath(a)
+      const base = {
+        todoId: id,
+        id: a.id,
+        seq: a.seq,
+        name: a.name,
+        kind: a.kind,
+        mime: a.mime,
+        bytes: a.bytes,
+        absPath
+      }
+      if (a.kind === 'image') {
+        return {
+          ...base,
+          view: 'image',
+          message: `这是图片 ${a.name}（${formatBytes(a.bytes)}）：CLI 侧直接打开 absPath；MCP 通道把它作为图片返回`
+        }
+      }
+      if (isTextContent(a.ext, a.mime)) {
+        const v = readTextView(absPath)
+        return {
+          ...base,
+          view: 'text',
+          text: v.text,
+          chars: v.chars,
+          totalChars: v.totalChars,
+          truncated: v.truncated,
+          message: v.truncated
+            ? `正文共 ${v.totalChars} 字符，只给了前 ${v.chars}（截断）—— 要全文自己打开 absPath`
+            : `正文 ${v.totalChars} 字符`
+        }
+      }
+      return {
+        ...base,
+        view: 'binary',
+        message: `这类内容不读文本（${a.mime}）：只给路径，用系统工具打开`
       }
     }
   },

@@ -255,6 +255,20 @@ const GROUPS = [
         'const items = ctx.deps.attachmentRepo.list(id)',
         'const items: never[] = []',
         'red'
+      ],
+      [
+        '③ 读内容那条悄悄变成要授权的写档（读一张截图也要人点头）',
+        'src/main/cli/commands/todo.ts',
+        "    name: 'todo attachment',\n    dataShape: 'object',\n    readOnly: true,",
+        "    name: 'todo attachment',\n    dataShape: 'object',",
+        'red'
+      ],
+      [
+        '④ MCP 不再把图片读成内容块（模型只拿到路径，看不见图）',
+        'src/cli/mcp-server.ts',
+        'const image = inlineImageOf(result)',
+        'const image = null',
+        'red'
       ]
     ]
   }

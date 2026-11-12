@@ -47,6 +47,7 @@
  *   - 读默认有界（brief + limit）、埋点带 `surface`、补 `create_project`。
  */
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import {
   buildToolRoutes,
   DEFAULT_ROW_LIMIT,
@@ -569,6 +570,43 @@ interface InvokeResult {
 }
 
 /**
+ * 内联进 MCP 图片块的体积上限（5 MB，base64 之后约 6.7 MB）
+ *
+ * 再大就不是"看一眼截图"了：base64 把阅读额度按 4/3 吃掉，宿主上下文会被
+ * 一张图撑爆。超了不内联，退回文本回执（里面带 absPath，调用方自己决定）。
+ */
+const MAX_INLINE_IMAGE_BYTES = 5 * 1024 * 1024
+
+/**
+ * 回执是一份图片附件时，把文件读成 MCP 的 `image` 内容块（卡 `89f3b3bc`）
+ *
+ * 为什么非要这一条：MCP 客户端只把 `image` 块送进模型视觉。
+ * 回执里放一段 base64 **文本**，模型只能"念"它、看不见像素 ——
+ * 那样主用户挂上来的 bug 截图就白挂了（她的原话：那你不读，我附上去干嘛）。
+ *
+ * 判据挂在回执自己声明的字段上（`view === 'image'` + `absPath`），
+ * 不按工具名特判 —— 将来再有"吐图片"的命令，这层不用改。
+ */
+function inlineImageOf(
+  result: InvokeResult
+): { type: 'image'; data: string; mimeType: string } | null {
+  if (!result.ok || !result.data || typeof result.data !== 'object') return null
+  const d = result.data as Record<string, unknown>
+  if (d.view !== 'image' || typeof d.absPath !== 'string') return null
+  try {
+    const bytes = fs.readFileSync(d.absPath)
+    if (bytes.length > MAX_INLINE_IMAGE_BYTES) return null
+    return {
+      type: 'image',
+      data: bytes.toString('base64'),
+      mimeType: typeof d.mime === 'string' ? d.mime : 'image/png'
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
  * 子进程环境：把 actor 落成 `DESKPARTNER_AGENT`、并**恒定**声明 `DESKPARTNER_SURFACE=mcp`（1.0.63）。
  *
  * 单独抽出来是为了**可测**：actor → env 这一跳没有 argv 可断言，
@@ -1013,6 +1051,18 @@ export function registerTools(
           }
           return {
             content: [{ type: 'text' as const, text: JSON.stringify(envelope, null, 2) }],
+            isError: false
+          }
+        }
+
+        /**
+         * 图片附件（卡 `89f3b3bc`）：图片块在前、文字回执在后 ——
+         * 模型先看图，再读到"这是哪一份、多大、谁挂的"。
+         */
+        const image = inlineImageOf(result)
+        if (image) {
+          return {
+            content: [image, { type: 'text' as const, text: JSON.stringify(result, null, 2) }],
             isError: false
           }
         }

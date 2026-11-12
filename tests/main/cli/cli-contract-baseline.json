@@ -2,7 +2,7 @@
   "_note": "命令面契约基线（卡 829ad776）。由 tests/main/cli/cli-contract-baseline-829ad776.test.ts 逐条比对。契约要改就是显式改：跑 `node scripts/update-cli-contract-baseline.mjs`，把这个文件的 diff 带进评审。普通测试运行不会改写它。",
   "schema": {
     "_what": "`dp schema` 的非 TTY 输出：envelope=整份字节；rest=除 commands 之外的部分；entries=逐条命令",
-    "envelope": "e3a4d019c7729d4ee84d30d5c88d5ff70d1fb22b10949476b8bb8ece5f337bf1",
+    "envelope": "f16be7c1fae4f3fa35b6084b57604582939a5003f26b72399a25251e0b6cf74c",
     "rest": "93ced633bb8676afa6262fac5d84dbee16e39d340a9e08a8b71751b54a1decd4",
     "order": [
       "schema",
@@ -25,6 +25,7 @@
       "todo history",
       "todo attachments",
       "todo attach",
+      "todo attachment",
       "todo children",
       "telemetry stats",
       "telemetry export",
@@ -105,6 +106,7 @@
       "todo history": "9eea795d0eff739e4921cc6ec750f682cd318ac67460e3909ff8b8ac9d577c25",
       "todo attachments": "b95b9e097d9cb2acdb0188cd2da6a029825e8707515b6f7a0c29e25f90d6c81b",
       "todo attach": "d453bf15ef6d8e1be680b4c222fb9a1916e2f5722b97577baab96c389537658b",
+      "todo attachment": "761b8bf8dcb3d8d8e023a5b476fbedfbb7701c46f9fced217ba6b8b123c7e203",
       "todo children": "8e8d19bccc3f9f7ca6d6a2f6474bcef417c87c73cc51bd320d17737abd267b5d",
       "telemetry stats": "7863257a0f56d08af6ba15b980df9bfa87b5a6dcd1527238783ddf645788a102",
       "telemetry export": "8a272afb2d3cfbaace94a476d59892ff60fa5ab8e609711ea3cddadc6df34309",
@@ -167,7 +169,7 @@
   },
   "help": {
     "_what": "`dp help` 与 `dp help <命令>` 的非 TTY 输出：top=顶层清单；entries=逐条命令",
-    "top": "2c93c67b97434154c865360a43f70a90169543be7c4c139905b996175ea63a38",
+    "top": "48462379f55bcace69167a96df15c03b89f37c24d8e009821ad81e87b01e2b89",
     "order": [
       "schema",
       "notification list",
@@ -189,6 +191,7 @@
       "todo history",
       "todo attachments",
       "todo attach",
+      "todo attachment",
       "todo children",
       "telemetry stats",
       "telemetry export",
@@ -269,6 +272,7 @@
       "todo history": "371f052cd0ce42a30c0f751abdaf81173b8179e13989a6d30a5cf83819abbcb3",
       "todo attachments": "189f444b0d8c05ba8b12411c95cf851e8945befd6d19f7ac2e41050a6d18f407",
       "todo attach": "ed21b3d1e92c2042dacb2214e92cb556c204c6dbc98f0a3003b761e424dfedc1",
+      "todo attachment": "8dabd99c56196c4c661a9ac4bc7df8497004422e042d0fafa429175fa6e35448",
       "todo children": "87ed035c040859d3c1f2042b72aa9f75c50b20428ea9eb77c50ab8f935a56091",
       "telemetry stats": "47e8545e2a0c10972bcff4b39bc960f65484b6c5069accde0b77641c0be14acf",
       "telemetry export": "56de6c0d421bbab23d405a1527b7a3b23be2b260357a013194a9cd3eedfaf851",
@@ -331,7 +335,7 @@
   },
   "mcp": {
     "_what": "MCP `tools/list` 的结果：list=整份字节；entries=逐个工具（含 inputSchema / annotations）",
-    "list": "d380a5fc1dda723d5879d5c8402c230f887352dd299e2324180d782a938311c4",
+    "list": "492aebdf3b951e56d8993bde150d26d7421cff84bed692d1ba7edb0163acdb08",
     "order": [
       "list_notifications",
       "inbox_todos",
@@ -351,6 +355,7 @@
       "history_todos",
       "attachments_todos",
       "attach_todos",
+      "attachment_todos",
       "children_todos",
       "stats_telemetry",
       "export_telemetry",
@@ -424,6 +429,7 @@
       "history_todos": "f16f482a96560c72b08992e36d77266a924f594ff817b804ae3a1f44e70631da",
       "attachments_todos": "37b5147e01febed6d1841f3af96239df8fba4e1bd09408fe6e2874c8e6768ed2",
       "attach_todos": "39ebb3854a3b61487b140a9af6eff118b49fefab2d3dbcba4852690e893ca064",
+      "attachment_todos": "994c14abc680069e890344156031590f0fe170af88ca6ee72258238e6a40a157",
       "children_todos": "b0dd5fc0e7a16d91b9abcd0c5882c6500e616896fee0abf40039376033b7931a",
       "stats_telemetry": "aaf608e8558d62584c51c9410da9dc676f6186eef4af6b575169de12fa47c7b4",
       "export_telemetry": "34647a2a6e5b0954204056d9a141bbdfe2ad651212603257b7039b3d60c212d2",

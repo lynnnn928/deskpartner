@@ -377,7 +377,10 @@ export interface CliDeps {
    * 到这一版为止 agent 侧只有**读元数据 + 按路径挂一份**：把字节交给模型那一档
    * 明确不做（附件是**复制**进数据目录的，等于允许把本机任意可读文件固化进看板）。
    */
-  attachmentRepo: Pick<AttachmentRepository, 'list' | 'find' | 'add' | 'totalBytes'>
+  attachmentRepo: Pick<
+    AttachmentRepository,
+    'list' | 'find' | 'add' | 'totalBytes' | 'absolutePath'
+  >
   /** R2-3：让 agent 能读/改界面参数（改前过 `commands/ui.ts` 里的 UI_WHITELIST） */
   settingsRepo: Pick<
     SettingsRepository,

@@ -159,6 +159,16 @@ function seed() {
   const memo = memoRepo.create({ text: '原始备忘', author: 'human' } as never)
   releaseRepo.create({ projectId: proj.id, version: '0.0.1', summary: '探针版本' } as never)
   projectRepo.saveHandoff(proj.id, '初始接手说明')
+  /**
+   * `todo attachment`（卡 `89f3b3bc` 的读内容）要有一份真附件才跑得动。
+   * 在夹具里直接挂上，**不靠**"命令表里 `todo attach` 恰好排在它前面" ——
+   * 闸门的成立条件不该是另一条命令的副作用。
+   */
+  new AttachmentRepository().add({
+    todoId: todo.id,
+    paths: [path.join(os.tmpdir(), 'dp-receipt-probe-attach.txt')],
+    actor: 'human'
+  })
   ids = {
     todo: todo.id,
     reviewTodo: reviewTodo.id,
@@ -237,7 +247,9 @@ const EXTRA: Record<string, Record<string, string>> = {
   /** 未注册的探针身份：清理只受理不在册的那些 */
   'agent purge-credentials': { '--id': 'agent:probe-orphan' },
   /** 挂附件要一个**真的**文件（给一句话会以 usage_error 收场） */
-  'todo attach': { '--path': path.join(os.tmpdir(), 'dp-receipt-probe-attach.txt') }
+  'todo attach': { '--path': path.join(os.tmpdir(), 'dp-receipt-probe-attach.txt') },
+  /** 读内容要一个真序号：夹具里那条事项已经挂着第 1 份（见 seed） */
+  'todo attachment': { '--seq': '1' }
   // project rm 的 '--to' 随 1.0.111 的口径一起移除（卡 c177e466），此处不再需要补参数
 }
 

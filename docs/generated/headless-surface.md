@@ -10,9 +10,9 @@
 
 | 项 | 数量 |
 |---|---:|
-| CLI 命令 | **78** |
-| MCP 工具（命令表 − 排除表 7 条） | **71** |
-| 读档（免身份，可自由重试） | 39 |
+| CLI 命令 | **79** |
+| MCP 工具（命令表 − 排除表 7 条） | **72** |
+| 读档（免身份，可自由重试） | 40 |
 | 写档（需已批准 + 有效凭据） | 31 |
 | 配置档（仅本次会话有效） | 2 |
 | 删除档（一次性授权，用掉即止） | 6 |
@@ -45,64 +45,65 @@
 | 18 | `todo history` | read | json | `object` | `history_todos` | `id`（必填） | — |
 | 19 | `todo attachments` | read | json | `object` | `attachments_todos` | `id`（必填） | — |
 | 20 | `todo attach` | write | json | `object` | `attach_todos` | `id`（必填） | `--path` |
-| 21 | `todo children` | read | json | `object` | `children_todos` | `id`（必填） | — |
-| 22 | `telemetry stats` | read | json | `object` | `stats_telemetry` | — | — |
-| 23 | `telemetry export` | read | ndjson | 无信封（NDJSON 逐行） | `export_telemetry` | — | — |
-| 24 | `telemetry clear` | destructive | json | `object` | 不暴露（排除表） | — | — |
-| 25 | `protocol get` | read | json | `object` | `get_protocol` | — | — |
-| 26 | `profile get` | read | json | `object` | `get_profile` | — | — |
-| 27 | `profile propose` | write | json | `object` | `propose_profile` | — | `--block` `--body` |
-| 28 | `profile proposals` | read | json | `array` | `list_profile_proposals` | — | — |
-| 29 | `protocol propose` | write | json | `object` | `propose_protocol` | — | `--block` `--body` |
-| 30 | `protocol proposals` | read | json | `array` | `list_protocol_proposals` | — | — |
-| 31 | `rules get` | read | json | `object` | `get_rules` | — | — |
-| 32 | `rules propose` | write | json | `object` | `propose_rules` | — | `--rule` `--enforcement` |
-| 33 | `rules proposals` | read | json | `array` | `list_rule_proposals` | — | — |
-| 34 | `project handoff-propose` | write | json | `object` | `propose_handoff` | `id`（必填） | — |
-| 35 | `project handoff-proposals` | read | json | `array` | `list_handoff_proposals` | — | — |
-| 36 | `project handoff-update` | write | json | `object` | `update_handoff` | `id`（必填） | — |
-| 37 | `skill` | read | text | 无信封（正文） | `get_guide` | `topic`（可选） | — |
-| 38 | `todo set-owner` | write | json | `object` | `set_owner_todos` | `id`（必填） | `--owner` |
-| 39 | `project add` | write | json | `object` | `create_project` | — | `--name` |
-| 40 | `project list` | read | json | `array` | `list_projects` | — | — |
-| 41 | `project get` | read | json | `object` | `get_project` | `id`（必填） | — |
-| 42 | `project search` | read | json | `array` | `search_project` | `id`（必填） | `--query` |
-| 43 | `project handoff-history` | read | json | `object` | `list_handoff_revisions` | `id`（必填） | — |
-| 44 | `project handoff-revision` | read | json | `object` | `get_handoff_revision` | `id`（必填） | `--revision` |
-| 45 | `project handoff-rollback` | write | json | `object` | `rollback_handoff` | `id`（必填） | `--revision` |
-| 46 | `project archive` | write | json | `object` | `archive_projects` | `id`（必填） | — |
-| 47 | `project unarchive` | write | json | `object` | `unarchive_projects` | `id`（必填） | — |
-| 48 | `project rm` | destructive | json | `object` | `rm_projects` | `id`（必填） | — |
-| 49 | `release add` | write | json | `object` | `add_release` | — | `--version` `--project` |
-| 50 | `release list` | read | json | `array` | `list_release` | — | — |
-| 51 | `release show` | read | json | `object` | `show_release` | `version`（必填） | `--project` |
-| 52 | `release audit` | read | json | `object` | `audit_release` | — | `--project` |
-| 53 | `release update` | write | json | `object` | `update_release` | `version`（必填） | `--project` |
-| 54 | `release rm` | destructive | json | `object` | `rm_release` | `version`（必填） | `--project` |
-| 55 | `memo add` | write | json | `object` | `add_memos` | — | `--text` |
-| 56 | `memo list` | read | json | `array` | `list_memos` | — | — |
-| 57 | `memo ack` | write | json | `object` | `ack_memos` | `id`（必填） | — |
-| 58 | `memo rm` | destructive | json | `object` | `rm_memos` | `id`（必填） | — |
-| 59 | `category list` | read | json | `array` | `list_categories` | — | — |
-| 60 | `category add` | write | json | `object` | `add_categories` | — | `--name` |
-| 61 | `category rm` | destructive | json | `object` | `rm_categories` | `id`（必填） | — |
-| 62 | `category merge` | write | json | `object` | `merge_categories` | `ids`（可选） | — |
-| 63 | `batch` | write | json | `object` | `batch` | — | — |
-| 64 | `ui get` | read | json | `object` | 不暴露（排除表） | — | — |
-| 65 | `ui set` | config | json | `object` | 不暴露（排除表） | — | `--key` `--value` |
-| 66 | `ui reset` | config | json | `object` | 不暴露（排除表） | — | — |
-| 67 | `help` | read | json | `object` | 不暴露（排除表） | `command`（可选） | — |
-| 68 | `agent register` | write | json | `object` | `register_agents` | — | `--id` `--name` |
-| 69 | `agent list` | read | json | `array` | `list_agents` | — | — |
-| 70 | `agent whoami` | read | json | `object` | `whoami_agents` | `id`（可选） | — |
-| 71 | `agent credential` | write | json | `object` | `credential_agents` | — | `--id` |
-| 72 | `agent grants` | read | json | `object` | `grants_agents` | — | — |
-| 73 | `agent revoke` | write | json | `object` | `revoke_agents` | — | `--id` |
-| 74 | `agent credentials` | read | json | `array` | `credentials_agents` | — | — |
-| 75 | `agent purge-credentials` | write | json | `object` | `purge_credentials_agents` | — | `--id` |
-| 76 | `doc list` | read | json | `array` | `list_doc` | — | — |
-| 77 | `doc show` | read | json | `object` | `show_doc` | `name`（必填） | — |
-| 78 | `work next` | read | json | `object` | `next_work` | — | — |
+| 21 | `todo attachment` | read | json | `object` | `attachment_todos` | `id`（必填） | `--seq` |
+| 22 | `todo children` | read | json | `object` | `children_todos` | `id`（必填） | — |
+| 23 | `telemetry stats` | read | json | `object` | `stats_telemetry` | — | — |
+| 24 | `telemetry export` | read | ndjson | 无信封（NDJSON 逐行） | `export_telemetry` | — | — |
+| 25 | `telemetry clear` | destructive | json | `object` | 不暴露（排除表） | — | — |
+| 26 | `protocol get` | read | json | `object` | `get_protocol` | — | — |
+| 27 | `profile get` | read | json | `object` | `get_profile` | — | — |
+| 28 | `profile propose` | write | json | `object` | `propose_profile` | — | `--block` `--body` |
+| 29 | `profile proposals` | read | json | `array` | `list_profile_proposals` | — | — |
+| 30 | `protocol propose` | write | json | `object` | `propose_protocol` | — | `--block` `--body` |
+| 31 | `protocol proposals` | read | json | `array` | `list_protocol_proposals` | — | — |
+| 32 | `rules get` | read | json | `object` | `get_rules` | — | — |
+| 33 | `rules propose` | write | json | `object` | `propose_rules` | — | `--rule` `--enforcement` |
+| 34 | `rules proposals` | read | json | `array` | `list_rule_proposals` | — | — |
+| 35 | `project handoff-propose` | write | json | `object` | `propose_handoff` | `id`（必填） | — |
+| 36 | `project handoff-proposals` | read | json | `array` | `list_handoff_proposals` | — | — |
+| 37 | `project handoff-update` | write | json | `object` | `update_handoff` | `id`（必填） | — |
+| 38 | `skill` | read | text | 无信封（正文） | `get_guide` | `topic`（可选） | — |
+| 39 | `todo set-owner` | write | json | `object` | `set_owner_todos` | `id`（必填） | `--owner` |
+| 40 | `project add` | write | json | `object` | `create_project` | — | `--name` |
+| 41 | `project list` | read | json | `array` | `list_projects` | — | — |
+| 42 | `project get` | read | json | `object` | `get_project` | `id`（必填） | — |
+| 43 | `project search` | read | json | `array` | `search_project` | `id`（必填） | `--query` |
+| 44 | `project handoff-history` | read | json | `object` | `list_handoff_revisions` | `id`（必填） | — |
+| 45 | `project handoff-revision` | read | json | `object` | `get_handoff_revision` | `id`（必填） | `--revision` |
+| 46 | `project handoff-rollback` | write | json | `object` | `rollback_handoff` | `id`（必填） | `--revision` |
+| 47 | `project archive` | write | json | `object` | `archive_projects` | `id`（必填） | — |
+| 48 | `project unarchive` | write | json | `object` | `unarchive_projects` | `id`（必填） | — |
+| 49 | `project rm` | destructive | json | `object` | `rm_projects` | `id`（必填） | — |
+| 50 | `release add` | write | json | `object` | `add_release` | — | `--version` `--project` |
+| 51 | `release list` | read | json | `array` | `list_release` | — | — |
+| 52 | `release show` | read | json | `object` | `show_release` | `version`（必填） | `--project` |
+| 53 | `release audit` | read | json | `object` | `audit_release` | — | `--project` |
+| 54 | `release update` | write | json | `object` | `update_release` | `version`（必填） | `--project` |
+| 55 | `release rm` | destructive | json | `object` | `rm_release` | `version`（必填） | `--project` |
+| 56 | `memo add` | write | json | `object` | `add_memos` | — | `--text` |
+| 57 | `memo list` | read | json | `array` | `list_memos` | — | — |
+| 58 | `memo ack` | write | json | `object` | `ack_memos` | `id`（必填） | — |
+| 59 | `memo rm` | destructive | json | `object` | `rm_memos` | `id`（必填） | — |
+| 60 | `category list` | read | json | `array` | `list_categories` | — | — |
+| 61 | `category add` | write | json | `object` | `add_categories` | — | `--name` |
+| 62 | `category rm` | destructive | json | `object` | `rm_categories` | `id`（必填） | — |
+| 63 | `category merge` | write | json | `object` | `merge_categories` | `ids`（可选） | — |
+| 64 | `batch` | write | json | `object` | `batch` | — | — |
+| 65 | `ui get` | read | json | `object` | 不暴露（排除表） | — | — |
+| 66 | `ui set` | config | json | `object` | 不暴露（排除表） | — | `--key` `--value` |
+| 67 | `ui reset` | config | json | `object` | 不暴露（排除表） | — | — |
+| 68 | `help` | read | json | `object` | 不暴露（排除表） | `command`（可选） | — |
+| 69 | `agent register` | write | json | `object` | `register_agents` | — | `--id` `--name` |
+| 70 | `agent list` | read | json | `array` | `list_agents` | — | — |
+| 71 | `agent whoami` | read | json | `object` | `whoami_agents` | `id`（可选） | — |
+| 72 | `agent credential` | write | json | `object` | `credential_agents` | — | `--id` |
+| 73 | `agent grants` | read | json | `object` | `grants_agents` | — | — |
+| 74 | `agent revoke` | write | json | `object` | `revoke_agents` | — | `--id` |
+| 75 | `agent credentials` | read | json | `array` | `credentials_agents` | — | — |
+| 76 | `agent purge-credentials` | write | json | `object` | `purge_credentials_agents` | — | `--id` |
+| 77 | `doc list` | read | json | `array` | `list_doc` | — | — |
+| 78 | `doc show` | read | json | `object` | `show_doc` | `name`（必填） | — |
+| 79 | `work next` | read | json | `object` | `next_work` | — | — |
 
 ## 2b. 写入型命令回执形状（39 条，卡 cd5f3832）
 

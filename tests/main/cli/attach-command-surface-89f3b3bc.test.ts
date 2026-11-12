@@ -23,8 +23,10 @@ describe('agent 用附件的命令面（卡 89f3b3bc）', () => {
     const b = todo.indexOf(end, a + 1)
     return todo.slice(a, b)
   }
-  const attach = sliceFrom("name: 'todo attach',", "name: 'todo set-owner'")
+  const attach = sliceFrom("name: 'todo attach',", "name: 'todo attachment',")
   const list = sliceFrom("name: 'todo attachments',", "name: 'todo attach',")
+  /** 读内容那条（2026-11-12 主用户要回来的：挂上截图 agent 就得能看） */
+  const readOne = sliceFrom("name: 'todo attachment',", "name: 'todo children',")
 
   it('挂附件是**日常写入**档（2026-11-12 主用户拍板：凭身份直通，不逐条审批）', () => {
     expect(attach).toContain("risk: 'write'")
@@ -61,6 +63,35 @@ describe('agent 用附件的命令面（卡 89f3b3bc）', () => {
     const inv = read('src/main/cli/surface-inventory.ts')
     expect(inv).toContain("'todo attach': {")
     expect(inv).toContain("'createdBy'")
+  })
+
+  it('读内容是只读档，且靠仓储给的绝对路径（不自己拼路径、不把 base64 塞进回执）', () => {
+    expect(readOne).toContain('readOnly: true')
+    expect(readOne).not.toContain("risk: '")
+    expect(readOne).toContain('ctx.deps.attachmentRepo.absolutePath(a)')
+    // 三种内容各自的口径都在（文本 / 图片 / 其它二进制）
+    expect(readOne).toContain("view: 'text'")
+    expect(readOne).toContain("view: 'image'")
+    expect(readOne).toContain("view: 'binary'")
+    // 文本走同一个截断口径；回执里不许出现 base64 —— 那既撑大输出，模型也看不见像素
+    expect(readOne).toContain('readTextView(absPath)')
+    expect(readOne).not.toContain('base64')
+    expect(readOne).not.toContain('dataUrl')
+  })
+
+  it('MCP 通道把图片回执变成 image 内容块（不然模型只能念 base64、看不见图）', () => {
+    const mcp = read('src/cli/mcp-server.ts')
+    expect(mcp).toContain('inlineImageOf(result)')
+    expect(mcp).toContain("d.view !== 'image'")
+    expect(mcp).toContain("type: 'image'")
+    // 超 5 MB 不内联：base64 会把宿主上下文撑爆
+    expect(mcp).toMatch(/MAX_INLINE_IMAGE_BYTES = \d+ \* 1024 \* 1024/)
+  })
+
+  it('文本截断上限只有一处定义（两份口径迟早漂）', () => {
+    const lib = read('src/main/lib/attachment-content.ts')
+    expect(lib).toMatch(/export const MAX_TEXT_CHARS = \d+/)
+    expect(lib).toContain('full.slice(0, MAX_TEXT_CHARS)')
   })
 
   it('两条真跑闸门的夹具都给了**真的** --path（否则命令在 fixture 上跑不动）', () => {

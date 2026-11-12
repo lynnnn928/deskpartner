@@ -5,6 +5,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   removeAttachmentDir,
   removeAttachmentFile,
+  resolveRelPath,
   storeAttachmentFile,
   type AttachmentKind
 } from '../lib/attachments'
@@ -207,6 +208,17 @@ export class AttachmentRepository {
     tx()
     removeAttachmentDir(getDataDirPath(), todoId)
     return rows.length
+  }
+
+  /**
+   * 附件的本机绝对路径（卡 `89f3b3bc`，1.0.146 补的读内容）
+   *
+   * 库里存相对路径是为了数据目录整体搬家不破；出去给调用方（agent 读内容、
+   * MCP 取图片）时再拼回绝对路径。转换只此一处 —— 与界面里的
+   * `resolveRelPath(…) + nativeImage` 同一条防线（`../` 穿越在这里被拒）。
+   */
+  absolutePath(a: TodoAttachment): string {
+    return resolveRelPath(getDataDirPath(), a.relPath)
   }
 
   /** 这张事项的附件总体积（界面上用来提示"附件占了多少"） */
