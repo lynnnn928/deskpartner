@@ -168,13 +168,3 @@ ${buildAccessBlock(access)}
 ${HARD_RULES}`
 }
 
-/** 推荐给新手的 agent 产品清单（PRD v1.2 用户拍板）。
- * 官方链接、费用和能力标签在逐项核对前明确标为「待核对」，不凭印象写入。
- */
-export const RECOMMENDED_AGENTS = [
-  { name: '豆包', note: '字节跳动 AI 助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' },
-  { name: 'Alice', note: '桌面 AI 工作助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' },
-  { name: 'Bob', note: '阿里云 AI 办公助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' },
-  { name: 'zcode', note: '编程与通用 AI 助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' },
-  { name: 'Carol', note: '中文 AI 工作助手', link: '', cost: '待核对', install: '待核对', capabilities: '待核对', verification: '待核对' }
-] as const
