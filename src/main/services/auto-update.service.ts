@@ -162,14 +162,17 @@ export class AutoUpdateService {
      * Releases 资产名与客户端请求名对不上（GitHub 把空格存成点号，
      * electron-updater 又把 url 里的空格换成连字符，见
      * `GitHubProvider.resolveFiles` 的 `p.replace(/ /g, "-")`），
-     * 但**发布出去的正式版走不到这个分支**：`app.isPackaged` 为真且没设
-     * `DESKPARTNER_UPDATE_FEED_URL` 时用的是 electron-updater 默认的
-     * ElectronHttpExecutor（走 Electron net，带证书与代理），我们换不进去。
-     * 在这里改写路径只会"本地测试过、正式版照旧 404"。
+     * 但**发布出去的正式版不该走这个分支**：`app.isPackaged` 为真且没设
+     * `DESKPARTNER_UPDATE_FEED_URL` 时要走 Electron net（带证书与系统代理），
+     * 换成 node http 会把代理和证书一起丢掉。在这里改写路径只会"本地测试过、
+     * 正式版照旧 404"。
      *
      * 真正的修法在源头：`scripts/lib/latest-yml.mjs` 让清单里的 url 就是
      * GitHub 上那个**不带空格**的资产名（`DeskPartner.Setup.x.y.z.exe`）——
      * 两个方向的替换在它身上都是恒等变换，新老客户端的地址都对得上。
+     *
+     * ⚠️ 续传那层（`ResumableHttpExecutor`，卡 `0ec0703b`）不受这个条件影响：
+     * 它替换的是 `download()`，两种传输都走它，也照旧用 `createRequest`。
      */
     if (feedOverride || !app?.isPackaged) {
       httpExec.createRequest = (reqOpts: Record<string, unknown>, cb: (res: unknown) => void) => {
