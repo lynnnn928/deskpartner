@@ -1,5 +1,9 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import { QuickAddForm } from '../components/quick-add/QuickAddForm'
+import {
+  TodoDetailShell,
+  DETAIL_DRAG_HANDLE_CLASS
+} from '../components/quick-add/TodoDetailShell'
 import { useQuickAddRoute } from '../components/quick-add/useQuickAddRoute'
 import { invoke } from '../lib/ipc-client'
 
@@ -122,7 +126,12 @@ const QuickAdd: React.FC = () => {
     return (
       <div className="w-screen h-screen flex justify-end overflow-hidden">
         {/*
-          不透明底色（bg-bg-primary），不是 frosted-glass —— 两个原因：
+          详情抽屉：外壳与看板里的右栏是**同一份**（卡 `1d3d7006`）
+
+          标题条、关闭方式（关闭纽 / Esc）、未保存提醒、卡片外观都交给 `TodoDetailShell`，
+          这里只剩这个窗口自己的事：宽度要同步给主进程（它才知道窗口该多大）。
+
+          底色不透明（走外壳里的 bg-bg-card），不是 frosted-glass —— 两个原因：
 
           1. 30 版实测 bug：这里写的类名是 frost-glass（少个 ed），样式根本不存在，
              抽屉等于完全透明，看板卡片整个透出来，字都读不清。
@@ -130,12 +139,13 @@ const QuickAdd: React.FC = () => {
              叠在看板窗口上面，CSS 的 backdrop-filter 只能模糊本页面内的内容，
              隔着窗口模糊不到看板 —— 玻璃只剩一层半透明白，底下的看板照样透出来。
              详情抽屉是拿来"读"的，不该有任何透明度（用户 2026-09-20 明确口径）。
-
-          window-frame 提供边框；底色走 --color-bg-primary，跟随主题换色。
         */}
-        <div
-          className="h-full flex flex-col min-h-0 overflow-hidden rounded-l-card border-l border-y border-border shadow-float bg-bg-primary relative"
+        <TodoDetailShell
+          todoId={todoId}
+          onClose={() => void invoke('window:hideQuickAdd')}
           style={{ width }}
+          className="h-full"
+          testId="todo-detail-drawer"
         >
           {/*
             拖动把手：贴着抽屉左缘的一条竖带。
@@ -151,13 +161,9 @@ const QuickAdd: React.FC = () => {
               setWidth(480)
               syncWidth(480)
             }}
-            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10
-              bg-transparent hover:bg-accent/20 transition-colors"
+            className={DETAIL_DRAG_HANDLE_CLASS}
           />
-          <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">
-            <QuickAddForm />
-          </div>
-        </div>
+        </TodoDetailShell>
       </div>
     )
   }

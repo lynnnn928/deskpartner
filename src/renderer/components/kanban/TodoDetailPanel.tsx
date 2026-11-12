@@ -1,10 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { QuickAddForm } from '../quick-add/QuickAddForm'
-import { Icon } from '../ui/Icon'
-import { Button } from '../ui/Button'
-import { Dialog } from '../ui/Dialog'
-import { clearQuickAddDraftForTodo } from '../../lib/unsaved-drafts'
-import { cn } from '../../lib/utils'
+import React, { useEffect, useRef, useState } from 'react'
+import { TodoDetailShell, DETAIL_DRAG_HANDLE_CLASS } from '../quick-add/TodoDetailShell'
 
 /**
  * 事项详情右栏（卡 `6ba3db21`）
@@ -19,6 +14,12 @@ import { cn } from '../../lib/utils'
  *
  * 通知、审批、版本、时间线、项目概览等入口**仍然**开独立窗口。那些页面没有"看着列表
  * 改这一条"的用法，先别为了统一而统一 —— 等这条站稳再收口。
+ *
+ * ## 外壳已经统一，只差位置（卡 `1d3d7006`）
+ *
+ * 标题条、关闭方式、未保存提醒、卡片外观都在 `TodoDetailShell` 里，独立窗口用的是
+ * 同一份 —— 两块形态不该像两个产品。这里只剩"右栏"这一侧自己的事：宽度可拖、注意力
+ * 回到哪张卡片上。
  *
  * ## 宽度为什么可拖
  *
@@ -53,10 +54,6 @@ export interface TodoDetailPanelProps {
 export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClose, onOpenTodo }) => {
   const [width, setWidth] = useState(readWidth)
   const dragRef = useRef(0)
-  /** 表单里有没有未保存的改动 —— 关右栏要不要先问一句，全看它 */
-  const [dirty, setDirty] = useState(false)
-  /** 「放弃未保存的修改？」开着的时候，关右栏先落到这个框上 */
-  const [confirmOpen, setConfirmOpen] = useState(false)
 
   /**
    * 打开前焦点在哪 + 当前看的是哪一条
@@ -72,20 +69,6 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
   useEffect(() => {
     todoIdRef.current = todoId
   }, [todoId])
-  /**
-   * 换了一条事项 = 换了一次编辑（卡 `82e4b1f6`）
-   *
-   * 详情里点父/子事项是**就地**换 id，面板不卸载。表单那边因此必须重挂
-   * （下面的 `key={todoId}`）：窗口形态换一条本来就是整页重载，内嵌形态得同义，
-   * 否则"有改动就不重填"的守卫会让新一条顶着上一条的内容，保存就写错了条目。
-   *
-   * 换完之后"有没有未保存的改动"要重新算 —— 旧那条的脏状态不属于新这条，
-   * 留着会让关右栏时白弹一次确认框。
-   */
-  useEffect(() => {
-    setDirty(false)
-    setConfirmOpen(false)
-  }, [todoId])
   useEffect(() => {
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     return () => {
@@ -98,43 +81,6 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
       target?.focus({ preventScroll: true })
     }
   }, [])
-
-  /**
-   * 请求关闭：有未保存的改动先问一句
-   *
-   * 关闭按钮、Esc、表单里的「取消」都汇到这里 —— 三条路各写一遍"脏了就拦"，
-   * 迟早漏一条，而漏掉的那条就是丢改动的那条。
-   */
-  const requestClose = useCallback(() => {
-    if (dirty) {
-      setConfirmOpen(true)
-      return
-    }
-    onClose()
-  }, [dirty, onClose])
-
-  /**
-   * Esc 关右栏
-   *
-   * 为什么在面板这一层听，而不是只靠表单里的 onKeyDown：
-   * 表单的键盘处理挂在它自己的容器上，焦点落在右栏空白处（或刚点过滚动条）时收不到。
-   * 右栏是这一层的"可关闭容器"，Esc 在这里兜底最稳；表单里那一份照旧 ——
-   * 两处都走 requestClose，重复触发只是多弹一次同一个确认框（幂等）。
-   *
-   * 确认框开着时 Esc 只关框（=「继续编辑」），不会连右栏一起关掉。
-   */
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (confirmOpen) {
-        setConfirmOpen(false)
-        return
-      }
-      requestClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [confirmOpen, requestClose])
 
   /**
    * 拖动左缘调宽
@@ -166,96 +112,24 @@ export const TodoDetailPanel: React.FC<TodoDetailPanelProps> = ({ todoId, onClos
   }
 
   return (
-    <>
-      <aside
-        data-testid="todo-detail-panel"
-        style={{ width }}
-        className="relative shrink-0 min-h-0 flex flex-col my-3 mr-3 rounded-card border border-border bg-bg-card shadow-card overflow-hidden"
-      >
-        <div
-          onPointerDown={startDrag}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="拖动调整详情宽度"
-          title="拖动调整宽度"
-          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 bg-transparent hover:bg-accent/20 transition-colors"
-        />
-        <div className="shrink-0 flex items-center justify-between pl-3 pr-2 py-1.5 border-b border-border">
-          <span className="text-caption text-text-secondary">事项详情</span>
-          <button
-            type="button"
-            onClick={requestClose}
-            data-testid="todo-detail-close"
-            aria-label="关闭详情"
-            title="关闭（Esc）"
-            className={cn(
-              'w-6 h-6 flex items-center justify-center rounded-button transition-colors',
-              'text-text-secondary hover:bg-black/5 hover:text-text-primary'
-            )}
-          >
-            <Icon name="x" size={13} />
-          </button>
-        </div>
-        {/* 滚动由表单自己那层负责：底部操作栏要留在滚动层外面，才能整条铺到卡片边缘 */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          <QuickAddForm
-            key={todoId}
-            embeddedTodoId={todoId}
-            onClose={onClose}
-            onOpenTodo={onOpenTodo}
-            onRequestClose={requestClose}
-            onDirtyChange={setDirty}
-          />
-        </div>
-      </aside>
-      {/*
-        放弃未保存的修改（卡 `6ba3db21`）
-        
-        右栏一关，表单里那段没提交的东西就没了 —— 而「关详情」这个动作本身
-        读不出这个代价。所以只在真的改过（dirty）时才多这一步：干净的右栏
-        关起来不该被拦。
-      */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-        <div className="flex w-full flex-col gap-3" role="alertdialog" aria-labelledby="discard-draft-title">
-          <h3 id="discard-draft-title" className="text-body font-medium text-text-primary">
-            放弃未保存的修改？
-          </h3>
-          <p className="text-label leading-relaxed text-text-secondary">
-            这条事项的改动还没保存，关掉右栏后就没有了。
-          </p>
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              autoFocus
-              data-testid="todo-detail-keep-editing"
-              onClick={() => setConfirmOpen(false)}
-            >
-              继续编辑
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              data-testid="todo-detail-discard"
-              onClick={() => {
-                /**
-                 * 「放弃修改」必须真的丢（卡 `77aedd14`）
-                 *
-                 * 表单在"有改动"时每次渲染都往 sessionStorage 写一份草稿；
-                 * 只关面板、不清草稿，下次打开同一条会把原文原样恢复出来 ——
-                 * 那和这个按钮说的话正相反，等于给了一个假确认。
-                 */
-                clearQuickAddDraftForTodo(todoId)
-                setConfirmOpen(false)
-                setDirty(false)
-                onClose()
-              }}
-            >
-              放弃修改
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-    </>
+    <TodoDetailShell
+      todoId={todoId}
+      embeddedTodoId={todoId}
+      onClose={onClose}
+      onOpenTodo={onOpenTodo}
+      testId="todo-detail-panel"
+      // 自留边距：右栏是内容区里的一张卡片，不是贴窗口边缘的整列面板（卡 `35fa2cbc`）
+      className="my-3 mr-3"
+      style={{ width }}
+    >
+      <div
+        onPointerDown={startDrag}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="拖动调整详情宽度"
+        title="拖动调整宽度"
+        className={DETAIL_DRAG_HANDLE_CLASS}
+      />
+    </TodoDetailShell>
   )
 }

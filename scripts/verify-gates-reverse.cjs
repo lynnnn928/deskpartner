@@ -92,6 +92,40 @@ const GROUPS = [
         'green'
       ]
     ]
+  },
+  {
+    name: '详情两块外壳（quick-add-detail-shell-1d3d7006.test.tsx）',
+    gate: 'tests/renderer/windows/quick-add-detail-shell-1d3d7006.test.tsx',
+    cases: [
+      [
+        '① 抽屉又自己画一枚关闭纽（两枚 ✕ 叠回去，卡 35fa2cbc 的老毛病）',
+        'src/renderer/windows/QuickAdd.tsx',
+        '        <TodoDetailShell',
+        '        <div data-testid="todo-detail-close" />\n        <TodoDetailShell',
+        'red'
+      ],
+      [
+        '② 外壳忘了告诉表单"外层有标题条"（表单那枚 ✕ 又叠回来）',
+        'src/renderer/components/quick-add/TodoDetailShell.tsx',
+        '            hostChrome',
+        '',
+        'red'
+      ],
+      [
+        '③「放弃修改」不再让表单重挂（独立窗口里那段字下次打开还在）',
+        'src/renderer/components/quick-add/TodoDetailShell.tsx',
+        '                setResetSeq((n) => n + 1)',
+        '',
+        'red'
+      ],
+      [
+        '④ 注释里提到关闭纽的 testid（不该被判违规 —— 剥注释后应仍绿）',
+        'src/renderer/windows/QuickAdd.tsx',
+        '        <TodoDetailShell',
+        '        {/* 关闭纽的 testid 是 todo-detail-close，画在共用外壳里 */}\n        <TodoDetailShell',
+        'green'
+      ]
+    ]
   }
 ]
 

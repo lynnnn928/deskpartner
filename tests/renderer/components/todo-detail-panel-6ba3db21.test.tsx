@@ -303,9 +303,9 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
     ).toBeNull()
   })
 
-  it('源码闸门：右栏里的表单按 todoId 重挂（内嵌切换 = 窗口形态的整页重载）', () => {
-    const panel = read('src/renderer/components/kanban/TodoDetailPanel.tsx')
-    expect(panel).toContain('key={todoId}')
+  it('源码闸门：详情里的表单按 todoId 重挂（内嵌切换 = 窗口形态的整页重载）', () => {
+    const shell = read('src/renderer/components/quick-add/TodoDetailShell.tsx')
+    expect(shell, '换一条 / 放弃修改都靠换 key 重挂').toContain('key={`${todoId}#${resetSeq}`}')
   })
 
   it('源码闸门：右栏跟着背后那块看板收（卡 5fe4aaad）', () => {
@@ -343,13 +343,15 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
    * 用户看到的是"两个关闭按钮"，以为是排版坏了。表单那枚必须按 embedded 隐掉，
    * 窗口形态（没有外层）仍然要留着。
    */
-  it('源码闸门：表单自带的 ✕ 只在窗口形态出现，内嵌右栏不再叠一枚（35fa2cbc）', () => {
+  it('源码闸门：表单自带的 ✕ 只在外层没有标题条时出现（35fa2cbc / 1d3d7006）', () => {
     const form = read('src/renderer/components/quick-add/QuickAddForm.tsx')
     const closeAt = form.indexOf('aria-label="关闭"')
-    expect(closeAt, '窗口形态那枚关闭按钮不该被删掉').toBeGreaterThan(0)
-    const guardAt = form.lastIndexOf('{!embedded && (', closeAt)
-    expect(guardAt, '表单那枚 ✕ 必须挂在 !embedded 上').toBeGreaterThan(0)
+    expect(closeAt, '新增卡片那枚关闭按钮不该被删掉').toBeGreaterThan(0)
+    const guardAt = form.lastIndexOf('{!props.hostChrome && (', closeAt)
+    expect(guardAt, '表单那枚 ✕ 必须挂在"外层没有标题条"上').toBeGreaterThan(0)
     expect(closeAt - guardAt, '守卫要挨着按钮，别离得太远').toBeLessThan(400)
+    // 两种形态的标题条都画在共用外壳里，所以两处都会把这枚隐掉
+    expect(read('src/renderer/components/quick-add/TodoDetailShell.tsx')).toContain('hostChrome')
   })
 
   it('源码闸门：内嵌模式下不许保留「窗口失焦就关闭」那段', () => {
@@ -433,7 +435,11 @@ describe('事项详情内嵌右栏（卡 6ba3db21）', () => {
     expect(panelAt, '右栏排在内容区容器收尾之后 —— 等于又挂回窗口根部').toBeLessThan(end)
 
     const panel = read('src/renderer/components/kanban/TodoDetailPanel.tsx')
-    expect(panel, '右栏要自留边距、自己是一张圆角卡片').toContain('my-3 mr-3 rounded-card')
+    expect(panel, '右栏要自留边距、是内容区里的一张卡片').toContain('my-3 mr-3')
     expect(panel, '不该再是贴窗口边缘的整列面板').not.toContain('flex flex-col border-l border-border')
+    // 圆角与边框来自共用外壳（卡 1d3d7006）：两种形态长一个样，别各自拼一份
+    const shell = read('src/renderer/components/quick-add/TodoDetailShell.tsx')
+    expect(shell, '卡片外观落在共用外壳里').toContain('rounded-card')
+    expect(panel, '右栏不再自己拼卡片外观').not.toContain('rounded-card')
   })
 })

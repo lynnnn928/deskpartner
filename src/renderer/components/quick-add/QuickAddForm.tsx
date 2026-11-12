@@ -58,13 +58,21 @@ export interface QuickAddFormProps {
   /**
    * 用户想关（Esc / 取消按钮）—— 与 `onClose` 的区别是**外层还有权拦一下**。
    *
-   * 右栏有未保存的改动时要先问一句"放弃吗"，而"改没改"只有表单知道；
-   * 所以表单只上报"有人想关"，决定权交给右栏 —— 反过来（表单自己弹确认框）
-   * 会让窗口形态与内嵌形态的关闭语义分叉。
+   * 有未保存的改动时要先问一句"放弃吗"，而"改没改"只有表单知道；所以表单只上报
+   * "有人想关"，决定权交给外层。两种形态的外壳是同一份（`TodoDetailShell`，卡
+   * `1d3d7006`）—— 反过来（表单自己弹确认框）就得写两遍，迟早分叉。
    */
   onRequestClose?: () => void
   /** 脏状态上报：有没有未保存的改动（关闭确认框据此决定拦不拦） */
   onDirtyChange?: (dirty: boolean) => void
+  /**
+   * 外层已经画了标题条与关闭纽（右栏、独立窗口的外壳都是）
+   *
+   * 表单顶部那枚 ✕ 与外层的关闭纽一上一下叠在右上角，用户看到的是"两个关闭按钮"，
+   * 还以为是排版坏了（卡 `35fa2cbc` 在右栏里踩过）。**新增**那种没有外壳的居中小
+   * 卡片仍要留着它 —— 那是那一屏唯一的关闭入口。
+   */
+  hostChrome?: boolean
 }
 
 /** 弹窗内边距档位 */
@@ -564,10 +572,11 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   /**
    * 用户主动要关（Esc / 取消）
    *
-   * 内嵌时先问外层（右栏可能因为"有未保存改动"而拦一下）；独立窗口没有这层，直接关。
+   * 两种形态都先问外层：右栏与独立窗口的外壳都会因为"有未保存改动"拦一下
+   * （同一份 `TodoDetailShell`，卡 `1d3d7006`）。没有外层的新增卡片才直接关。
    */
   const requestClose = () => {
-    if (embedded && props.onRequestClose) {
+    if (props.onRequestClose) {
       props.onRequestClose()
       return
     }
@@ -845,11 +854,11 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
         </div>
 
         {/*
-          内嵌右栏里不画这个 ✕（卡 `35fa2cbc`）：右栏自己顶部已经有一枚「关闭详情」，
-          两枚 ✕ 一上一下叠在右上角 —— 用户看到的是"两个关闭按钮"，还以为是排版坏了。
-          窗口形态没有外层，这枚必须留着。
+          外层画了标题条就不画这个 ✕（卡 `35fa2cbc` / `1d3d7006`）：右栏与独立窗口的
+          外壳顶部都有一枚「关闭详情」，两枚 ✕ 一上一下叠在右上角 —— 用户看到的是
+          "两个关闭按钮"，还以为是排版坏了。新增那种居中小卡片没有外层，这枚必须留着。
         */}
-        {!embedded && (
+        {!props.hostChrome && (
           <button
             onClick={handleCancel}
             className="h-6 w-6 flex items-center justify-center rounded-button text-text-secondary hover:bg-surface-muted hover:text-text-primary transition-colors shrink-0"
