@@ -27,7 +27,7 @@ const row = (over: Record<string, unknown>) => ({
   title: '待验收：详情外壳再统一一批',
   summary: '跑完了，等你验',
   refId: 'todo-1',
-  actor: 'agent:penguin',
+  actor: 'agent:alice',
   recipient: null,
   status: 'unread',
   readBy: null,
@@ -60,7 +60,7 @@ function setupInbox(rows: ReturnType<typeof row>[]) {
 beforeEach(() => {
   invokeMock.mockReset()
   useUIStore.setState({ selectedTodoId: null, mainView: 'notifications' })
-  useSettingsStore.setState({ settings: { humanName: '木木' } as never })
+  useSettingsStore.setState({ settings: { humanName: 'Alex' } as never })
 })
 
 describe('页面里点事项就展开右栏（卡 615dd2d9）', () => {
