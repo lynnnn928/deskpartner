@@ -34,26 +34,30 @@ function make(over: {
 }
 
 describe('compareForPanel', () => {
-  it('按记录时间正序：先记的排在前面', () => {
+  /**
+   * 方向是 2026-11-12 主用户改的（卡 `4ad4f68d`）：面板答的是"我最近记了什么"，
+   * 先记的在前意味着刚记的那条要滚到底才看得见。
+   */
+  it('按记录时间倒序：最新记的排在前面', () => {
     const older = make({ id: 'old', createdAt: '2026-09-01T00:00:00.000Z' })
     const newer = make({ id: 'new', createdAt: '2026-09-10T00:00:00.000Z' })
-    const sorted = [newer, older].sort(compareForPanel)
-    expect(sorted.map((t) => t.id)).toEqual(['old', 'new'])
+    const sorted = [older, newer].sort(compareForPanel)
+    expect(sorted.map((t) => t.id)).toEqual(['new', 'old'])
   })
 
   /**
    * 这条锁的是"不按归属者排序"。
    * 若人的事无条件排在前面，人机共享就退化成"人的事优先"。
    */
-  it('不按归属者排序：AI 先记的排在人后记的前面', () => {
+  it('不按归属者排序：AI 先记的仍排在人的后面（顺序只由时间定）', () => {
     const agentFirst = make({
       id: 'agent',
       createdBy: 'agent:alice',
       createdAt: '2026-09-01T00:00:00.000Z'
     })
     const humanLater = make({ id: 'human', createdBy: 'human', createdAt: '2026-09-09T00:00:00.000Z' })
-    const sorted = [humanLater, agentFirst].sort(compareForPanel)
-    expect(sorted.map((t) => t.id)).toEqual(['agent', 'human'])
+    const sorted = [agentFirst, humanLater].sort(compareForPanel)
+    expect(sorted.map((t) => t.id)).toEqual(['human', 'agent'])
   })
 
   /**
@@ -67,8 +71,8 @@ describe('compareForPanel', () => {
       priority: 'urgent',
       createdAt: '2026-09-05T00:00:00.000Z'
     })
-    const sorted = [urgent, low].sort(compareForPanel)
-    expect(sorted.map((t) => t.id)).toEqual(['low', 'urgent'])
+    const sorted = [low, urgent].sort(compareForPanel)
+    expect(sorted.map((t) => t.id)).toEqual(['urgent', 'low'])
   })
 
   it('排序是稳定的：条件相同的两条保持原次序', () => {

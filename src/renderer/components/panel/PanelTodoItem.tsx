@@ -70,6 +70,7 @@ export const PanelTodoItem: React.FC<PanelTodoItemProps> = ({ todo, onToggle, on
         className="flex-1 min-w-0 text-left flex items-center gap-1.5"
       >
         <span
+          data-testid="panel-todo-title"
           className={cn(
             'text-content leading-snug truncate',
             isDone && 'line-through text-text-done'

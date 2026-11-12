@@ -198,6 +198,40 @@ const GROUPS = [
         'red'
       ]
     ]
+  },
+  {
+    name: '悬浮球面板：项目即视图 / 最新在前 / 完整登记（panel-project-view-4ad4f68d.test.tsx）',
+    gate: 'tests/renderer/components/panel-project-view-4ad4f68d.test.tsx',
+    cases: [
+      [
+        '① 排序又翻回正序（最新记的沉到底）',
+        'src/renderer/lib/panel-sort.ts',
+        'return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf()',
+        'return dayjs(a.createdAt).valueOf() - dayjs(b.createdAt).valueOf()',
+        'red'
+      ],
+      [
+        '② 项目切换只管新增归属、不过滤清单（按钮写着 A、列表里全是 B）',
+        'src/renderer/components/panel/PanelContent.tsx',
+        '.filter((t) =>\n        currentView.unassigned ? !t.projectId : t.projectId === currentView.id\n      )',
+        '.filter((t) => !!t)',
+        'red'
+      ],
+      [
+        '③ 面板不把那一句交接出去（点了「完整登记」，字没了）',
+        'src/renderer/components/panel/PanelContent.tsx',
+        'stageQuickAddTitle(draft)',
+        'void draft',
+        'red'
+      ],
+      [
+        '④ 完整卡片不取交接来的那一句（卡片开着、标题是空的）',
+        'src/renderer/components/quick-add/QuickAddForm.tsx',
+        'const stagedTitle = takeStagedQuickAddTitle()',
+        "const stagedTitle = ''",
+        'red'
+      ]
+    ]
   }
 ]
 

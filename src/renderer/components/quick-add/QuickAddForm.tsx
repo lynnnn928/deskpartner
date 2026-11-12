@@ -22,6 +22,8 @@ import {
   pendingTotalBytes,
   type PendingAttachment
 } from '../../lib/attachment-intake'
+// 悬浮球面板「完整登记」交接过来的那一句（卡 `4ad4f68d`）
+import { takeStagedQuickAddTitle } from '../../lib/quick-add-handoff'
 import { CommentThread } from './CommentThread'
 import { TodoAttachments } from './TodoAttachments'
 // 「改动详情」（1.0.73 起叫「本次变更」，1.0.142 改名，卡 `35fa2cbc`）：验收时看这一次交付改了什么
@@ -803,7 +805,14 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
     const nextCategoryIds = categories[0] ? [categories[0].id] : []
     // 项目不清空：速记是连着记一串，下一次大概率还是同一个项目
     const nextProjectId = pickInitialProject(projects, routeParams.projectId)
-    setTitle('')
+    /**
+     * 悬浮球面板「完整登记」带过来的那一句（卡 `4ad4f68d`）
+     *
+     * 一次性：取过就清，所以只有"刚被面板叫起来"这一次会填上；用户后来自己改空
+     * 也不会被它顶回来。写进 baseline，否则一打开就是"有未保存的修改"。
+     */
+    const stagedTitle = takeStagedQuickAddTitle()
+    setTitle(stagedTitle)
     setRemindAt(null)
     setCategoryIds(nextCategoryIds)
     setProjectId(nextProjectId)
@@ -827,7 +836,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
      * 因为 resetForm 本来就不动它（新增不看这个状态，它只服务于编辑模式那一行按钮）。
      */
     setBaseline({
-      title: '',
+      title: stagedTitle,
       remindAt: null,
       categoryIds: nextCategoryIds,
       showOptions: false,
