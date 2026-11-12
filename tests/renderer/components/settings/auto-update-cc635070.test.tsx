@@ -11,7 +11,7 @@
  *    下载失败与检查失败分开说、以及"清单里的资产名不带空格"这条防 404 的判据。
  */
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, waitFor } from '@testing-library/react'
 import http from 'node:http'
 import crypto from 'node:crypto'
@@ -55,6 +55,33 @@ import {
   verifyLatestYml
 } from '../../../../scripts/lib/latest-yml.mjs'
 
+/**
+ * 每个用例一份自己的更新缓存目录
+ *
+ * 默认那个 `%TEMP%/desk-partner-updater-cache` 是**机器全局**的：直接用它，
+ * 测试就会把假安装包与 `update-info.json` 写进真实应用的更新缓存里（2026-11-12
+ * 实际发生过），断言也只能靠"扫目录找哪个像"。指到自己的临时目录后，
+ * 「半成品落在哪」这类断言可以精确写；目录在 afterEach 里统一清掉。
+ */
+const isolatedCaches: Array<{ dir: string; prev: string | undefined }> = []
+
+function isolateUpdateCache(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dp-update-cache-'))
+  isolatedCaches.push({ dir, prev: process.env.DESKPARTNER_UPDATE_CACHE_DIR })
+  process.env.DESKPARTNER_UPDATE_CACHE_DIR = dir
+  return dir
+}
+
+afterEach(() => {
+  while (isolatedCaches.length > 0) {
+    const entry = isolatedCaches.pop()
+    if (!entry) break
+    if (entry.prev === undefined) delete process.env.DESKPARTNER_UPDATE_CACHE_DIR
+    else process.env.DESKPARTNER_UPDATE_CACHE_DIR = entry.prev
+    fs.rmSync(entry.dir, { recursive: true, force: true })
+  }
+})
+
 /** 更新状态的最小构造：只写这条用例真正关心的字段 */
 const updateStatus = (patch: Record<string, unknown>) => ({
   status: 'available',
@@ -66,7 +93,6 @@ const updateStatus = (patch: Record<string, unknown>) => ({
   checkedAt: '2026-10-29T10:00:00.000Z',
   ...patch
 })
-
 describe('自动更新：设置开关、界面交互与 electron-updater 升级链路（cc635070）', () => {
   beforeEach(() => {
     memDb.exec('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
@@ -235,6 +261,7 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
     const addr = server.address() as { port: number }
     const feedUrl = `http://127.0.0.1:${addr.port}`
     const prevFeed = process.env.DESKPARTNER_UPDATE_FEED_URL
+    const cacheDir = isolateUpdateCache()
     process.env.DESKPARTNER_UPDATE_FEED_URL = feedUrl
     currentVersionRef.value = '1.0.132'
 
@@ -299,6 +326,7 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
     const addr = server.address() as { port: number }
     const prevFeed = process.env.DESKPARTNER_UPDATE_FEED_URL
+    const cacheDir = isolateUpdateCache()
     const prevStall = process.env.DESKPARTNER_UPDATE_STALL_MS
     const prevAttempts = process.env.DESKPARTNER_UPDATE_MAX_ATTEMPTS
     process.env.DESKPARTNER_UPDATE_FEED_URL = `http://127.0.0.1:${addr.port}`
@@ -320,17 +348,11 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
       expect(hanging.length).toBeGreaterThanOrEqual(2)
 
       // 半成品留在 electron-updater 不会清理的目录里：下次点「立即更新」是接着下
-      const resumeDir = path.join(os.tmpdir(), 'desk-partner-updater-cache', 'partials')
-      const parts = fs.existsSync(resumeDir)
-        ? fs.readdirSync(resumeDir).filter((name) => name.endsWith('.part'))
-        : []
+      const resumeDir = path.join(cacheDir, 'partials')
+      const parts = fs.readdirSync(resumeDir).filter((name) => name.endsWith('.part'))
       const thisPartial = parts.find((name) => name.includes('1.0.199'))
       expect(thisPartial, `半成品没留下：${parts.join(', ')}`).toBeTruthy()
       expect(fs.statSync(path.join(resumeDir, thisPartial as string)).size).toBe(payload.length)
-      // 用例自己扫尾：半成品是该留的，但别留在机器的临时目录里
-      for (const name of parts.filter((name) => name.includes('1.0.199'))) {
-        fs.rmSync(path.join(resumeDir, name), { force: true })
-      }
     } finally {
       for (const res of hanging) res.destroy()
       if (prevFeed === undefined) delete process.env.DESKPARTNER_UPDATE_FEED_URL
@@ -403,6 +425,7 @@ describe('自动更新：设置开关、界面交互与 electron-updater 升级�
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
     const addr = server.address() as { port: number }
     const prevFeed = process.env.DESKPARTNER_UPDATE_FEED_URL
+    const cacheDir = isolateUpdateCache()
     const prevStall = process.env.DESKPARTNER_UPDATE_STALL_MS
     process.env.DESKPARTNER_UPDATE_FEED_URL = `http://127.0.0.1:${addr.port}`
     process.env.DESKPARTNER_UPDATE_STALL_MS = '2000'

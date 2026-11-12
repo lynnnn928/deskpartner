@@ -110,7 +110,17 @@ export class AutoUpdateService {
       ? { provider: 'generic' as const, url: feedOverride }
       : { provider: 'github' as const, owner: 'lynnnn928', repo: 'deskpartner' }
 
-    const cacheDir = path.join(os.tmpdir(), 'desk-partner-updater-cache')
+    /**
+     * 更新缓存根目录（默认 `%TEMP%/desk-partner-updater-cache`）
+     *
+     * ⚠️ 这是**机器全局**的位置，不是每个库一份。用例要是直接用它，就会把测试的
+     * 下载残留（`pending/` 的假安装包 + `update-info.json`）写进真实应用的缓存里 ——
+     * 2026-11-12 实际发生过一次。所以留一个可覆盖的口：用例把它指到自己的临时目录
+     * （`DESKPARTNER_UPDATE_CACHE_DIR`），顺带让"半成品落在哪"这条断言可以精确断言。
+     */
+    const cacheDir =
+      process.env.DESKPARTNER_UPDATE_CACHE_DIR?.trim() ||
+      path.join(os.tmpdir(), 'desk-partner-updater-cache')
     const defaultCfg = path.join(process.resourcesPath || process.cwd(), 'app-update.yml')
     let cfgPath = defaultCfg
     if (!fs.existsSync(cfgPath)) {
