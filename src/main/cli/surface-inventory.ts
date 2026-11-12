@@ -46,7 +46,7 @@ export interface WriteReceiptShapeSpec {
 }
 
 /**
- * 38 条非只读命令（write / config / destructive）的实测回执形状表（卡 `cd5f3832`）。
+ * 39 条非只读命令（write / config / destructive）的实测回执形状表（卡 `cd5f3832`）。
  *
  * 由 `tests/main/cli/write-receipt-shapes-cd5f3832.test.ts` 在隔离夹具上逐条真跑校核：
  * - 漏登记或多余登记 = 红；
@@ -76,6 +76,13 @@ export const WRITE_RECEIPT_SHAPES: Record<string, WriteReceiptShapeSpec> = {
   'todo add': {
     unattended: 'ok',
     keys: ['id', 'title']
+  },
+  'todo attach': {
+    unattended: 'ok',
+    keys: [
+      'todoId', 'id', 'seq', 'name', 'kind', 'mime',
+      'bytes', 'sha256', 'relPath', 'createdBy', 'createdAt', 'message'
+    ]
   },
   'todo update': {
     unattended: 'ok',

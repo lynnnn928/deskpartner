@@ -70,7 +70,16 @@ fs.writeFileSync(
     2
   )
 )
-vi.mock('../../../src/main/database/index', () => ({ getDatabase: () => db }))
+/**
+ * 附件是**复制**进数据目录的（`todo attach` 那条要真写一次盘）——
+ * 指到临时目录，别碰真实数据目录
+ */
+const ATTACH_PROBE_DIR = path.join(os.tmpdir(), 'dp-receipt-probe-data')
+
+vi.mock('../../../src/main/database/index', () => ({
+  getDatabase: () => db,
+  getDataDirPath: () => ATTACH_PROBE_DIR
+}))
 
 /**
  * ⚠️ 必须拦掉"写真实凭据文件"（`commands.test.ts` 里的同一处坑）：
@@ -95,6 +104,7 @@ const { ReminderReceiptRepository } = await import('../../../src/main/database/r
 const { RulesRepository } = await import('../../../src/main/database/rules.repository')
 const { ProtocolRepository } = await import('../../../src/main/database/protocol.repository')
 const { ProfileRepository } = await import('../../../src/main/database/profile.repository')
+const { AttachmentRepository } = await import('../../../src/main/database/attachment.repository')
 
 const todoRepo = new TodoRepository()
 const categoryRepo = new CategoryRepository()
@@ -225,7 +235,9 @@ const EXTRA: Record<string, Record<string, string>> = {
   'protocol propose': { '--block': 'roles' },
   'release add': { '--version': '0.0.2' },
   /** 未注册的探针身份：清理只受理不在册的那些 */
-  'agent purge-credentials': { '--id': 'agent:probe-orphan' }
+  'agent purge-credentials': { '--id': 'agent:probe-orphan' },
+  /** 挂附件要一个**真的**文件（给一句话会以 usage_error 收场） */
+  'todo attach': { '--path': path.join(os.tmpdir(), 'dp-receipt-probe-attach.txt') }
   // project rm 的 '--to' 随 1.0.111 的口径一起移除（卡 c177e466），此处不再需要补参数
 }
 
@@ -280,6 +292,7 @@ function ctxOf(): CliContext {
       releaseRepo,
       /* 卡 69788c32：命令层要读哪个仓储由 deps 决定 —— 缺一个，跑到那条命令就炸 */
       commentRepo: new CommentRepository(),
+      attachmentRepo: new AttachmentRepository(),
       notificationRepo: new NotificationRepository(),
       reminderReceiptRepo: new ReminderReceiptRepository(),
       rulesRepo: new RulesRepository(),
@@ -333,6 +346,8 @@ describe('回执 data 的形状要在契约里声明（07a244d9）', () => {
     db.pragma('foreign_keys = OFF')
     agentRepo.register({ id: 'agent:probe', displayName: '探针身份' } as never)
     agentRepo.setApproved('agent:probe', true)
+    fs.mkdirSync(ATTACH_PROBE_DIR, { recursive: true })
+    fs.writeFileSync(path.join(os.tmpdir(), 'dp-receipt-probe-attach.txt'), '探针附件')
   })
 
   beforeEach(() => seed())

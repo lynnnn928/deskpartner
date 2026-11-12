@@ -1446,6 +1446,7 @@ todoRepo.delete(id, 'gui', 'human')
               projectRepo,
               releaseRepo,
               memoRepo,
+              attachmentRepo,
               settingsRepo,
               agentRepo,
               /**

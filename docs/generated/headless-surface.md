@@ -10,10 +10,10 @@
 
 | 项 | 数量 |
 |---|---:|
-| CLI 命令 | **76** |
-| MCP 工具（命令表 − 排除表 7 条） | **69** |
-| 读档（免身份，可自由重试） | 38 |
-| 写档（需已批准 + 有效凭据） | 30 |
+| CLI 命令 | **78** |
+| MCP 工具（命令表 − 排除表 7 条） | **71** |
+| 读档（免身份，可自由重试） | 39 |
+| 写档（需已批准 + 有效凭据） | 31 |
 | 配置档（仅本次会话有效） | 2 |
 | 删除档（一次性授权，用掉即止） | 6 |
 | 关口 | **15** |
@@ -43,66 +43,68 @@
 | 16 | `todo rm` | destructive | json | `object` | `rm_todos` | `id`（必填） | — |
 | 17 | `todo get` | read | json | `object` | `get_todo` | `id`（必填） | — |
 | 18 | `todo history` | read | json | `object` | `history_todos` | `id`（必填） | — |
-| 19 | `todo children` | read | json | `object` | `children_todos` | `id`（必填） | — |
-| 20 | `telemetry stats` | read | json | `object` | `stats_telemetry` | — | — |
-| 21 | `telemetry export` | read | ndjson | 无信封（NDJSON 逐行） | `export_telemetry` | — | — |
-| 22 | `telemetry clear` | destructive | json | `object` | 不暴露（排除表） | — | — |
-| 23 | `protocol get` | read | json | `object` | `get_protocol` | — | — |
-| 24 | `profile get` | read | json | `object` | `get_profile` | — | — |
-| 25 | `profile propose` | write | json | `object` | `propose_profile` | — | `--block` `--body` |
-| 26 | `profile proposals` | read | json | `array` | `list_profile_proposals` | — | — |
-| 27 | `protocol propose` | write | json | `object` | `propose_protocol` | — | `--block` `--body` |
-| 28 | `protocol proposals` | read | json | `array` | `list_protocol_proposals` | — | — |
-| 29 | `rules get` | read | json | `object` | `get_rules` | — | — |
-| 30 | `rules propose` | write | json | `object` | `propose_rules` | — | `--rule` `--enforcement` |
-| 31 | `rules proposals` | read | json | `array` | `list_rule_proposals` | — | — |
-| 32 | `project handoff-propose` | write | json | `object` | `propose_handoff` | `id`（必填） | — |
-| 33 | `project handoff-proposals` | read | json | `array` | `list_handoff_proposals` | — | — |
-| 34 | `project handoff-update` | write | json | `object` | `update_handoff` | `id`（必填） | — |
-| 35 | `skill` | read | text | 无信封（正文） | `get_guide` | `topic`（可选） | — |
-| 36 | `todo set-owner` | write | json | `object` | `set_owner_todos` | `id`（必填） | `--owner` |
-| 37 | `project add` | write | json | `object` | `create_project` | — | `--name` |
-| 38 | `project list` | read | json | `array` | `list_projects` | — | — |
-| 39 | `project get` | read | json | `object` | `get_project` | `id`（必填） | — |
-| 40 | `project search` | read | json | `array` | `search_project` | `id`（必填） | `--query` |
-| 41 | `project handoff-history` | read | json | `object` | `list_handoff_revisions` | `id`（必填） | — |
-| 42 | `project handoff-revision` | read | json | `object` | `get_handoff_revision` | `id`（必填） | `--revision` |
-| 43 | `project handoff-rollback` | write | json | `object` | `rollback_handoff` | `id`（必填） | `--revision` |
-| 44 | `project archive` | write | json | `object` | `archive_projects` | `id`（必填） | — |
-| 45 | `project unarchive` | write | json | `object` | `unarchive_projects` | `id`（必填） | — |
-| 46 | `project rm` | destructive | json | `object` | `rm_projects` | `id`（必填） | — |
-| 47 | `release add` | write | json | `object` | `add_release` | — | `--version` `--project` |
-| 48 | `release list` | read | json | `array` | `list_release` | — | — |
-| 49 | `release show` | read | json | `object` | `show_release` | `version`（必填） | `--project` |
-| 50 | `release audit` | read | json | `object` | `audit_release` | — | `--project` |
-| 51 | `release update` | write | json | `object` | `update_release` | `version`（必填） | `--project` |
-| 52 | `release rm` | destructive | json | `object` | `rm_release` | `version`（必填） | `--project` |
-| 53 | `memo add` | write | json | `object` | `add_memos` | — | `--text` |
-| 54 | `memo list` | read | json | `array` | `list_memos` | — | — |
-| 55 | `memo ack` | write | json | `object` | `ack_memos` | `id`（必填） | — |
-| 56 | `memo rm` | destructive | json | `object` | `rm_memos` | `id`（必填） | — |
-| 57 | `category list` | read | json | `array` | `list_categories` | — | — |
-| 58 | `category add` | write | json | `object` | `add_categories` | — | `--name` |
-| 59 | `category rm` | destructive | json | `object` | `rm_categories` | `id`（必填） | — |
-| 60 | `category merge` | write | json | `object` | `merge_categories` | `ids`（可选） | — |
-| 61 | `batch` | write | json | `object` | `batch` | — | — |
-| 62 | `ui get` | read | json | `object` | 不暴露（排除表） | — | — |
-| 63 | `ui set` | config | json | `object` | 不暴露（排除表） | — | `--key` `--value` |
-| 64 | `ui reset` | config | json | `object` | 不暴露（排除表） | — | — |
-| 65 | `help` | read | json | `object` | 不暴露（排除表） | `command`（可选） | — |
-| 66 | `agent register` | write | json | `object` | `register_agents` | — | `--id` `--name` |
-| 67 | `agent list` | read | json | `array` | `list_agents` | — | — |
-| 68 | `agent whoami` | read | json | `object` | `whoami_agents` | `id`（可选） | — |
-| 69 | `agent credential` | write | json | `object` | `credential_agents` | — | `--id` |
-| 70 | `agent grants` | read | json | `object` | `grants_agents` | — | — |
-| 71 | `agent revoke` | write | json | `object` | `revoke_agents` | — | `--id` |
-| 72 | `agent credentials` | read | json | `array` | `credentials_agents` | — | — |
-| 73 | `agent purge-credentials` | write | json | `object` | `purge_credentials_agents` | — | `--id` |
-| 74 | `doc list` | read | json | `array` | `list_doc` | — | — |
-| 75 | `doc show` | read | json | `object` | `show_doc` | `name`（必填） | — |
-| 76 | `work next` | read | json | `object` | `next_work` | — | — |
+| 19 | `todo attachments` | read | json | `object` | `attachments_todos` | `id`（必填） | — |
+| 20 | `todo attach` | write | json | `object` | `attach_todos` | `id`（必填） | `--path` |
+| 21 | `todo children` | read | json | `object` | `children_todos` | `id`（必填） | — |
+| 22 | `telemetry stats` | read | json | `object` | `stats_telemetry` | — | — |
+| 23 | `telemetry export` | read | ndjson | 无信封（NDJSON 逐行） | `export_telemetry` | — | — |
+| 24 | `telemetry clear` | destructive | json | `object` | 不暴露（排除表） | — | — |
+| 25 | `protocol get` | read | json | `object` | `get_protocol` | — | — |
+| 26 | `profile get` | read | json | `object` | `get_profile` | — | — |
+| 27 | `profile propose` | write | json | `object` | `propose_profile` | — | `--block` `--body` |
+| 28 | `profile proposals` | read | json | `array` | `list_profile_proposals` | — | — |
+| 29 | `protocol propose` | write | json | `object` | `propose_protocol` | — | `--block` `--body` |
+| 30 | `protocol proposals` | read | json | `array` | `list_protocol_proposals` | — | — |
+| 31 | `rules get` | read | json | `object` | `get_rules` | — | — |
+| 32 | `rules propose` | write | json | `object` | `propose_rules` | — | `--rule` `--enforcement` |
+| 33 | `rules proposals` | read | json | `array` | `list_rule_proposals` | — | — |
+| 34 | `project handoff-propose` | write | json | `object` | `propose_handoff` | `id`（必填） | — |
+| 35 | `project handoff-proposals` | read | json | `array` | `list_handoff_proposals` | — | — |
+| 36 | `project handoff-update` | write | json | `object` | `update_handoff` | `id`（必填） | — |
+| 37 | `skill` | read | text | 无信封（正文） | `get_guide` | `topic`（可选） | — |
+| 38 | `todo set-owner` | write | json | `object` | `set_owner_todos` | `id`（必填） | `--owner` |
+| 39 | `project add` | write | json | `object` | `create_project` | — | `--name` |
+| 40 | `project list` | read | json | `array` | `list_projects` | — | — |
+| 41 | `project get` | read | json | `object` | `get_project` | `id`（必填） | — |
+| 42 | `project search` | read | json | `array` | `search_project` | `id`（必填） | `--query` |
+| 43 | `project handoff-history` | read | json | `object` | `list_handoff_revisions` | `id`（必填） | — |
+| 44 | `project handoff-revision` | read | json | `object` | `get_handoff_revision` | `id`（必填） | `--revision` |
+| 45 | `project handoff-rollback` | write | json | `object` | `rollback_handoff` | `id`（必填） | `--revision` |
+| 46 | `project archive` | write | json | `object` | `archive_projects` | `id`（必填） | — |
+| 47 | `project unarchive` | write | json | `object` | `unarchive_projects` | `id`（必填） | — |
+| 48 | `project rm` | destructive | json | `object` | `rm_projects` | `id`（必填） | — |
+| 49 | `release add` | write | json | `object` | `add_release` | — | `--version` `--project` |
+| 50 | `release list` | read | json | `array` | `list_release` | — | — |
+| 51 | `release show` | read | json | `object` | `show_release` | `version`（必填） | `--project` |
+| 52 | `release audit` | read | json | `object` | `audit_release` | — | `--project` |
+| 53 | `release update` | write | json | `object` | `update_release` | `version`（必填） | `--project` |
+| 54 | `release rm` | destructive | json | `object` | `rm_release` | `version`（必填） | `--project` |
+| 55 | `memo add` | write | json | `object` | `add_memos` | — | `--text` |
+| 56 | `memo list` | read | json | `array` | `list_memos` | — | — |
+| 57 | `memo ack` | write | json | `object` | `ack_memos` | `id`（必填） | — |
+| 58 | `memo rm` | destructive | json | `object` | `rm_memos` | `id`（必填） | — |
+| 59 | `category list` | read | json | `array` | `list_categories` | — | — |
+| 60 | `category add` | write | json | `object` | `add_categories` | — | `--name` |
+| 61 | `category rm` | destructive | json | `object` | `rm_categories` | `id`（必填） | — |
+| 62 | `category merge` | write | json | `object` | `merge_categories` | `ids`（可选） | — |
+| 63 | `batch` | write | json | `object` | `batch` | — | — |
+| 64 | `ui get` | read | json | `object` | 不暴露（排除表） | — | — |
+| 65 | `ui set` | config | json | `object` | 不暴露（排除表） | — | `--key` `--value` |
+| 66 | `ui reset` | config | json | `object` | 不暴露（排除表） | — | — |
+| 67 | `help` | read | json | `object` | 不暴露（排除表） | `command`（可选） | — |
+| 68 | `agent register` | write | json | `object` | `register_agents` | — | `--id` `--name` |
+| 69 | `agent list` | read | json | `array` | `list_agents` | — | — |
+| 70 | `agent whoami` | read | json | `object` | `whoami_agents` | `id`（可选） | — |
+| 71 | `agent credential` | write | json | `object` | `credential_agents` | — | `--id` |
+| 72 | `agent grants` | read | json | `object` | `grants_agents` | — | — |
+| 73 | `agent revoke` | write | json | `object` | `revoke_agents` | — | `--id` |
+| 74 | `agent credentials` | read | json | `array` | `credentials_agents` | — | — |
+| 75 | `agent purge-credentials` | write | json | `object` | `purge_credentials_agents` | — | `--id` |
+| 76 | `doc list` | read | json | `array` | `list_doc` | — | — |
+| 77 | `doc show` | read | json | `object` | `show_doc` | `name`（必填） | — |
+| 78 | `work next` | read | json | `object` | `next_work` | — | — |
 
-## 2b. 写入型命令回执形状（38 条，卡 cd5f3832）
+## 2b. 写入型命令回执形状（39 条，卡 cd5f3832）
 
 判据：在隔离夹具中以已批准身份（`agent:probe`，`approved=1`，`interactive=false`）逐条实跑；`destructive` 与 `config` 等无人值守不可达的命令明确标「**需人工授权，形状未知**」及返回的错误信封，同时附人工授权放行后的真实顶层键（由 `tests/main/cli/write-receipt-shapes-cd5f3832.test.ts` 双路径锁死）。
 
@@ -118,34 +120,35 @@
 | 8 | `todo pin` | write | `object` | 直通（`ok=true`） | `id` `title` `isPinned` |
 | 9 | `todo unpin` | write | `object` | 直通（`ok=true`） | `id` `title` `isPinned` |
 | 10 | `todo rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：id deleted）；授权后顶层键：`id` `deleted` |
-| 11 | `telemetry clear` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：removed）；授权后顶层键：`removed` |
-| 12 | `profile propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` `diffSummary` |
-| 13 | `protocol propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` `diffSummary` |
-| 14 | `rules propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `category` `ruleKey` `proposedEnforcement` `originalEnforcement` `baseUpdatedAt` `decidedEnforcement` `proposer` `status` `decidedBy` `decidedAt` `createdAt` |
-| 15 | `project handoff-propose` | write | `object` | 直通（`ok=true`） | `project` `proposal` |
-| 16 | `project handoff-update` | write | `object` | **需人工授权，形状未知**（`approval_required`） | 默认权限矩阵要求 Agent 走提议（错误信封 code=approval_required, exitCode=4，请用 project handoff-propose；授权直写后键：project changed revision）；授权后顶层键：`project` `changed` `revision` |
-| 17 | `todo set-owner` | write | `object` | 直通（`ok=true`） | `id` `title` `createdBy` |
-| 18 | `project add` | write | `object` | 直通（`ok=true`） | `id` `name` `color` `archived` `sortOrder` `createdAt` `handoffMarkdown` `notice`（同名项目复用时返回 id name docsDir(可选) reused） |
-| 19 | `project handoff-rollback` | write | `object` | 直通（`ok=true`） | `project` `changed` `revision` |
-| 20 | `project archive` | write | `object` | 直通（`ok=true`） | `id` `name` `archived` `message` |
-| 21 | `project unarchive` | write | `object` | 直通（`ok=true`） | `id` `name` `archived` `message` |
-| 22 | `project rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted projectName removed message）；授权后顶层键：`deleted` `projectName` `removed` `message` |
-| 23 | `release add` | write | `object` | 直通（`ok=true`） | `version` `projectId` `shippedAt` `highlights` `tested` `linkedTodos` `note` |
-| 24 | `release update` | write | `object` | 直通（`ok=true`） | `version` `projectId` `shippedAt` `summary` `highlights` `tested` `linkedTodos` |
-| 25 | `release rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted orphanTodos）；授权后顶层键：`deleted` `orphanTodos` |
-| 26 | `memo add` | write | `object` | 直通（`ok=true`） | `id` `author` `recipient` `text`（传 --reply-to 追加同线程回复时返回 id replyTo replyId author recipient text replies） |
-| 27 | `memo ack` | write | `object` | 直通（`ok=true`） | `id` `status` `readAt` |
-| 28 | `memo rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted ok）；授权后顶层键：`deleted` `ok` |
-| 29 | `category add` | write | `object` | 直通（`ok=true`） | `id` `name` |
-| 30 | `category rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted affectedTodos）；授权后顶层键：`deleted` `affectedTodos` |
-| 31 | `category merge` | write | `object` | **需人工授权，形状未知**（`grant_required`） | 源分类非空时需人工授权，形状未知（code=grant_required, exitCode=4）；源分类为空（0 条待办）或人工授权后键：merged into movedTodos；授权后顶层键：`merged` `into` `movedTodos` |
-| 32 | `batch` | write | `object` | 直通（`ok=true`） | `total` `failed` `allFailed` `results` |
-| 33 | `ui set` | config | `object` | **需人工授权，形状未知**（`grant_required`） | 配置档需人工会话授权，形状未知（无人值守默认 code=grant_required, exitCode=4；会话授权后键：key before after changed note）；授权后顶层键：`key` `before` `after` `changed` `note` |
-| 34 | `ui reset` | config | `object` | **需人工授权，形状未知**（`grant_required`） | 配置档需人工会话授权，形状未知（无人值守默认 code=grant_required, exitCode=4；会话授权后键：reset affected settings）；授权后顶层键：`reset` `affected` `settings` |
-| 35 | `agent register` | write | `object` | 直通（`ok=true`） | `id` `displayName` `color` `approved` `rejectedAt` `hasCredential` `createdAt` `lastSeenAt` `lastWriteAt` `lastWriteCmd` `reused` `needsApproval` `nextSteps` `humanNotified` `nextHint` |
-| 36 | `agent credential` | write | `object` | 直通（`ok=true`） | `agentId` `credentialPath` `declaredAs` `otherCredentials` `note` |
-| 37 | `agent revoke` | write | `object` | 直通（`ok=true`） | `agentId` `scope` `revokedGrants` `note` |
-| 38 | `agent purge-credentials` | write | `object` | 直通（`ok=true`） | `agentId` `credentialPath` `removed` `remaining` `note` |
+| 11 | `todo attach` | write | `object` | 直通（`ok=true`） | `todoId` `id` `seq` `name` `kind` `mime` `bytes` `sha256` `relPath` `createdBy` `createdAt` `message` |
+| 12 | `telemetry clear` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：removed）；授权后顶层键：`removed` |
+| 13 | `profile propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` `diffSummary` |
+| 14 | `protocol propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `blockKey` `body` `originalBody` `baseUpdatedAt` `decidedBody` `proposer` `status` `decidedBy` `decidedAt` `createdAt` `diffSummary` |
+| 15 | `rules propose` | write | `object` | 直通（`ok=true`） | `id` `scope` `projectId` `category` `ruleKey` `proposedEnforcement` `originalEnforcement` `baseUpdatedAt` `decidedEnforcement` `proposer` `status` `decidedBy` `decidedAt` `createdAt` |
+| 16 | `project handoff-propose` | write | `object` | 直通（`ok=true`） | `project` `proposal` |
+| 17 | `project handoff-update` | write | `object` | **需人工授权，形状未知**（`approval_required`） | 默认权限矩阵要求 Agent 走提议（错误信封 code=approval_required, exitCode=4，请用 project handoff-propose；授权直写后键：project changed revision）；授权后顶层键：`project` `changed` `revision` |
+| 18 | `todo set-owner` | write | `object` | 直通（`ok=true`） | `id` `title` `createdBy` |
+| 19 | `project add` | write | `object` | 直通（`ok=true`） | `id` `name` `color` `archived` `sortOrder` `createdAt` `handoffMarkdown` `notice`（同名项目复用时返回 id name docsDir(可选) reused） |
+| 20 | `project handoff-rollback` | write | `object` | 直通（`ok=true`） | `project` `changed` `revision` |
+| 21 | `project archive` | write | `object` | 直通（`ok=true`） | `id` `name` `archived` `message` |
+| 22 | `project unarchive` | write | `object` | 直通（`ok=true`） | `id` `name` `archived` `message` |
+| 23 | `project rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted projectName removed message）；授权后顶层键：`deleted` `projectName` `removed` `message` |
+| 24 | `release add` | write | `object` | 直通（`ok=true`） | `version` `projectId` `shippedAt` `highlights` `tested` `linkedTodos` `note` |
+| 25 | `release update` | write | `object` | 直通（`ok=true`） | `version` `projectId` `shippedAt` `summary` `highlights` `tested` `linkedTodos` |
+| 26 | `release rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted orphanTodos）；授权后顶层键：`deleted` `orphanTodos` |
+| 27 | `memo add` | write | `object` | 直通（`ok=true`） | `id` `author` `recipient` `text`（传 --reply-to 追加同线程回复时返回 id replyTo replyId author recipient text replies） |
+| 28 | `memo ack` | write | `object` | 直通（`ok=true`） | `id` `status` `readAt` |
+| 29 | `memo rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted ok）；授权后顶层键：`deleted` `ok` |
+| 30 | `category add` | write | `object` | 直通（`ok=true`） | `id` `name` |
+| 31 | `category rm` | destructive | `object` | **需人工授权，形状未知**（`grant_required`） | 需人工授权，形状未知（无人值守不可达，错误信封 code=grant_required, exitCode=4；人工授权后键：deleted affectedTodos）；授权后顶层键：`deleted` `affectedTodos` |
+| 32 | `category merge` | write | `object` | **需人工授权，形状未知**（`grant_required`） | 源分类非空时需人工授权，形状未知（code=grant_required, exitCode=4）；源分类为空（0 条待办）或人工授权后键：merged into movedTodos；授权后顶层键：`merged` `into` `movedTodos` |
+| 33 | `batch` | write | `object` | 直通（`ok=true`） | `total` `failed` `allFailed` `results` |
+| 34 | `ui set` | config | `object` | **需人工授权，形状未知**（`grant_required`） | 配置档需人工会话授权，形状未知（无人值守默认 code=grant_required, exitCode=4；会话授权后键：key before after changed note）；授权后顶层键：`key` `before` `after` `changed` `note` |
+| 35 | `ui reset` | config | `object` | **需人工授权，形状未知**（`grant_required`） | 配置档需人工会话授权，形状未知（无人值守默认 code=grant_required, exitCode=4；会话授权后键：reset affected settings）；授权后顶层键：`reset` `affected` `settings` |
+| 36 | `agent register` | write | `object` | 直通（`ok=true`） | `id` `displayName` `color` `approved` `rejectedAt` `hasCredential` `createdAt` `lastSeenAt` `lastWriteAt` `lastWriteCmd` `reused` `needsApproval` `nextSteps` `humanNotified` `nextHint` |
+| 37 | `agent credential` | write | `object` | 直通（`ok=true`） | `agentId` `credentialPath` `declaredAs` `otherCredentials` `note` |
+| 38 | `agent revoke` | write | `object` | 直通（`ok=true`） | `agentId` `scope` `revokedGrants` `note` |
+| 39 | `agent purge-credentials` | write | `object` | 直通（`ok=true`） | `agentId` `credentialPath` `removed` `remaining` `note` |
 
 ## 3. 关口（守卫与门禁）
 

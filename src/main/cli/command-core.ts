@@ -31,6 +31,7 @@ import type { NotificationRepository } from '../database/notification.repository
 import type { ReminderReceiptRepository } from '../database/reminder-receipt.repository'
 import type { ProtocolRepository } from '../database/protocol.repository'
 import type { ProfileRepository } from '../database/profile.repository'
+import type { AttachmentRepository } from '../database/attachment.repository'
 import fs from 'node:fs'
 import dayjs from 'dayjs'
 
@@ -370,6 +371,13 @@ export interface CliDeps {
     'create' | 'update' | 'delete' | 'list' | 'getByProjectAndVersion' | 'detail' | 'listByProject' | 'audit'
   >
   memoRepo: Pick<MemoRepository, 'create' | 'reply' | 'list' | 'get' | 'ack' | 'remove' | 'unreadCount'>
+  /**
+   * 事项附件（1.0.146，卡 `89f3b3bc`）
+   *
+   * 到这一版为止 agent 侧只有**读元数据 + 按路径挂一份**：把字节交给模型那一档
+   * 明确不做（附件是**复制**进数据目录的，等于允许把本机任意可读文件固化进看板）。
+   */
+  attachmentRepo: Pick<AttachmentRepository, 'list' | 'find' | 'add' | 'totalBytes'>
   /** R2-3：让 agent 能读/改界面参数（改前过 `commands/ui.ts` 里的 UI_WHITELIST） */
   settingsRepo: Pick<
     SettingsRepository,

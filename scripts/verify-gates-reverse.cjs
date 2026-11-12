@@ -232,6 +232,31 @@ const GROUPS = [
         'red'
       ]
     ]
+  },
+  {
+    /**
+     * ⚠️ 这一组打的是**源码闸门**（`attach-command-surface-…`），不是那份行为用例：
+     * 行为用例 import 了 better-sqlite3，而本脚本用 `process.execPath` 起 vitest
+     * （本机裸 `node` 是 24、ABI 137）—— 挂上去基线就是红的。
+     */
+    name: 'agent 用附件的命令面（attach-command-surface-89f3b3bc.test.ts）',
+    gate: 'tests/main/cli/attach-command-surface-89f3b3bc.test.ts',
+    cases: [
+      [
+        '① 把挂附件的授权档悄悄升成删除档（每次都要人点头）',
+        'src/main/cli/commands/todo.ts',
+        "    name: 'todo attach',\n    dataShape: 'object',\n    risk: 'write',",
+        "    name: 'todo attach',\n    dataShape: 'object',\n    risk: 'destructive',",
+        'red'
+      ],
+      [
+        '② 读元数据那条假装没挂东西（空数组）',
+        'src/main/cli/commands/todo.ts',
+        'const items = ctx.deps.attachmentRepo.list(id)',
+        'const items: never[] = []',
+        'red'
+      ]
+    ]
   }
 ]
 

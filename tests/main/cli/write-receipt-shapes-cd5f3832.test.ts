@@ -13,7 +13,13 @@ const db = new Database(':memory:')
 const credsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dp-write-probe-creds-'))
 process.env.DESKPARTNER_CREDENTIALS_FILE = path.join(credsDir, 'credentials.json')
 
-vi.mock('../../../src/main/database/index', () => ({ getDatabase: () => db }))
+/** 附件是**复制**进数据目录的，`todo attach` 需要它落在临时目录里，别写进真实数据目录 */
+const PROBE_DATA_DIR = path.join(os.tmpdir(), 'dp-write-probe-data')
+
+vi.mock('../../../src/main/database/index', () => ({
+  getDatabase: () => db,
+  getDataDirPath: () => PROBE_DATA_DIR
+}))
 vi.mock('../../../src/cli/credentials', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/cli/credentials')>()
   return { ...actual, writeCredential: vi.fn() }
@@ -32,6 +38,7 @@ const { ReminderReceiptRepository } = await import('../../../src/main/database/r
 const { RulesRepository } = await import('../../../src/main/database/rules.repository')
 const { ProtocolRepository } = await import('../../../src/main/database/protocol.repository')
 const { ProfileRepository } = await import('../../../src/main/database/profile.repository')
+const { AttachmentRepository } = await import('../../../src/main/database/attachment.repository')
 
 const todoRepo = new TodoRepository()
 const categoryRepo = new CategoryRepository()
@@ -41,12 +48,15 @@ const settingsRepo = new SettingsRepository()
 const agentRepo = new AgentRepository()
 const releaseRepo = new ReleaseRepository()
 const commentRepo = new CommentRepository()
+const attachmentRepo = new AttachmentRepository()
 
 describe('写入命令回执形状盘点（卡 cd5f3832）与 doc show 自述报错（卡 9a991bb1）', () => {
   let token = ''
   beforeAll(() => {
     runMigrations(db)
     db.pragma('foreign_keys = OFF')
+    fs.mkdirSync(PROBE_DATA_DIR, { recursive: true })
+    fs.writeFileSync(path.join(os.tmpdir(), 'dp-write-probe-attach.txt'), '探针附件的内容')
     agentRepo.register({ id: 'agent:probe', displayName: '探针身份' } as never)
     agentRepo.setApproved('agent:probe', true)
     const issued = agentRepo.issueCredential('agent:probe')
@@ -68,15 +78,15 @@ describe('写入命令回执形状盘点（卡 cd5f3832）与 doc show 自述报
     )
   })
 
-  it('38 条非只读命令在 WRITE_RECEIPT_SHAPES 与 headless-surface.md 中零遗漏、零冗余，且实跑顶层键与门禁码完全一致', async () => {
+  it('39 条非只读命令在 WRITE_RECEIPT_SHAPES 与 headless-surface.md 中零遗漏、零冗余，且实跑顶层键与门禁码完全一致', async () => {
     const writeCommands = commands.filter((c) => !c.readOnly)
-    expect(writeCommands.length).toBe(38)
+    expect(writeCommands.length).toBe(39)
 
     const declaredNames = Object.keys(WRITE_RECEIPT_SHAPES)
     expect(declaredNames.sort()).toEqual(writeCommands.map((c) => c.name).sort())
 
     const md = buildSurfaceInventoryMarkdown()
-    expect(md).toContain('## 2b. 写入型命令回执形状（38 条，卡 cd5f3832）')
+    expect(md).toContain('## 2b. 写入型命令回执形状（39 条，卡 cd5f3832）')
     expect(md).toContain('需人工授权，形状未知')
 
     for (const c of writeCommands) {
@@ -179,7 +189,9 @@ describe('写入命令回执形状盘点（卡 cd5f3832）与 doc show 自述报
         'protocol propose': { '--block': 'roles' },
         'release add': { '--version': '0.0.2', '--summary': '新版本' },
         'release update': { '--summary': '更新摘要' },
-        'agent purge-credentials': { '--id': 'agent:probe-orphan' }
+        'agent purge-credentials': { '--id': 'agent:probe-orphan' },
+        // 附件那条要一个**真的**文件路径（随便给一句话就会以 usage_error 收场）
+        'todo attach': { '--path': path.join(os.tmpdir(), 'dp-write-probe-attach.txt') }
       }
       if (c.name === 'agent credential' || c.name === 'agent revoke') {
         agentRepo.register({ id: 'agent:new-probe', displayName: '新探针' } as never)
@@ -203,6 +215,7 @@ describe('写入命令回执形状盘点（卡 cd5f3832）与 doc show 自述报
           categoryRepo,
           projectRepo,
           memoRepo,
+          attachmentRepo,
           settingsRepo,
           agentRepo,
           releaseRepo,

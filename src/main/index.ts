@@ -22,6 +22,7 @@ import { ReminderReceiptRepository } from './database/reminder-receipt.repositor
 import { RulesRepository } from './database/rules.repository'
 import { ProtocolRepository } from './database/protocol.repository'
 import { ProfileRepository } from './database/profile.repository'
+import { AttachmentRepository } from './database/attachment.repository'
 import { BackupService } from './services/backup.service'
 import { REG_EXPAND_SZ, REG_SZ } from './lib/user-path'
 import { TimerService } from './services/timer.service'
@@ -510,6 +511,7 @@ app.whenReady().then(async () => {
         projectRepo,
         releaseRepo,
         memoRepo,
+        attachmentRepo: new AttachmentRepository(),
         settingsRepo,
         agentRepo,
         commentRepo,
@@ -740,6 +742,7 @@ app.whenReady().then(async () => {
       projectRepo,
       releaseRepo,
       memoRepo,
+      attachmentRepo: new AttachmentRepository(),
       settingsRepo,
       agentRepo,
       commentRepo,

@@ -24,6 +24,7 @@ import { buildDescChangeEvent } from '../../lib/desc-audit'
 import { assignmentTargetOf } from '../../database/todo.repository'
 import { CLOSURE_SECTION } from '../../database/closure-structure'
 import { buildTodoAudit } from '../../lib/audit-text'
+import { formatBytes } from '../../lib/attachments'
 import { FILTER_STATUSES, LIMIT_ZERO_DOC, LIST_DESC_PREVIEW_CHARS, OPEN_STATUSES, PRIORITIES, STATUSES, TODO_LIST_DEFAULT_LIMIT, TYPES, isDescriptionTruncated, parseLimit, parseOffset, summarizeDescription, takeLimit, todosForExecutor } from '../command-text'
 import { AWAITING_REVIEW_COMMENT_HINT, AWAITING_REVIEW_HINT, DESC_SHRINK_HINT, DONE_HINT, actorOf, assertCreatedByNotImpersonating, assertNoLauncherOnlyFlags, assertRegisteredActor, assertValidTitle, commentDeleteRisk, missingClosure, parseTime, proposedDescNotice, resolveActor, resolveCreatedBy, resolveProjectForWrite, riskOf, strValue } from '../command-core'
 import type { CliContext, CommandSpec } from '../command-core'
@@ -2678,6 +2679,120 @@ export const todoCommands: CommandSpec[] = [
         auditNote:
           '审计事件有保留策略（7 天 / 2000 条），更早的记录可能已被清理；' +
           '它是审计线索不是备份。'
+      }
+    }
+  },
+  {
+    /**
+     * agent 用附件：读元数据（卡 `89f3b3bc`，1.0.146）
+     *
+     * 读的是**元数据**，不是内容：附件是复制进数据目录的副本，把字节交给模型那一档
+     * 明确不做（等于把本机文件送进模型上下文，收不回来）。所以这条命令回答的是
+     * "这条卡上挂了什么、谁挂的、多大"；想看内容由人在详情里打开。
+     */
+    name: 'todo attachments',
+    dataShape: 'object',
+    readOnly: true,
+    desc: '看一条事项上挂了哪些附件（名字、类型、大小、sha256、谁挂的、什么时候）—— 只读元数据',
+    args: [],
+    positional: { name: 'id', required: true, desc: '待办 ID（支持前缀）' },
+    run: (ctx, _flags, positional) => {
+      const input = positional[0]
+      if (!input) throw new UsageError('缺少待办 id')
+      const id = ctx.deps.todoRepo.resolveId(input)
+      const todo = ctx.deps.todoRepo.getById(id)
+      if (!todo) throw new NotFoundError(`待办不存在: ${id}`)
+      const items = ctx.deps.attachmentRepo.list(id)
+      const totalBytes = ctx.deps.attachmentRepo.totalBytes(id)
+      return {
+        todoId: id,
+        title: todo.title,
+        count: items.length,
+        totalBytes,
+        attachments: items.map((a) => ({
+          id: a.id,
+          seq: a.seq,
+          name: a.name,
+          kind: a.kind,
+          mime: a.mime,
+          bytes: a.bytes,
+          sha256: a.sha256,
+          relPath: a.relPath,
+          createdBy: a.createdBy,
+          createdAt: a.createdAt
+        })),
+        message: items.length
+          ? `这条事项上挂着 ${items.length} 份附件，共 ${formatBytes(totalBytes)}`
+          : '这条事项上没有附件'
+      }
+    }
+  },
+  {
+    /**
+     * agent 用附件：把本机一个文件挂上去（卡 `89f3b3bc`，1.0.146）
+     *
+     * 授权档是**日常写入**（2026-11-12 主用户拍板，理由照录在卡评论里）：
+     * 凭身份就能挂，不做逐条审批 —— "我自己口头说结果"与"顺手把证据挂上去"
+     * 是两件事，逐条审批只会让人一路点同意，然后闭眼点。
+     *
+     * 它做的事要说清：把本机**任意可读文件复制**进数据目录（附件一直是这个口径，
+     * 见 `AttachmentRepository` 的说明）。上限两道：单份 25 MB、这条事项总量 200 MB，
+     * 都在**复制之前**判；超了就是 usage_error，磁盘上不留半个文件。
+     */
+    name: 'todo attach',
+    dataShape: 'object',
+    risk: 'write',
+    desc:
+      '把一个本机文件挂到事项上（复制进数据目录；单份 25 MB，每条事项总量 200 MB 上限）',
+    args: [
+      {
+        flag: '--path',
+        type: 'string',
+        required: true,
+        desc: '要挂的文件路径（本机路径；相对路径按当前工作目录解析）'
+      }
+    ],
+    positional: { name: 'id', required: true, desc: '待办 ID（支持前缀）' },
+    run: (ctx, flags, positional) => {
+      const input = positional[0]
+      if (!input) throw new UsageError('缺少待办 id')
+      const file = strValue(flags['--path'])
+      if (!file) throw new UsageError('缺少 --path（要挂的文件路径）')
+      const id = ctx.deps.todoRepo.resolveId(input)
+      /**
+       * 身份这道闸与别的写命令同一口径：未注册的自称只能读。
+       * 附件行要记 `created_by`，而那个字段就该是真身份，不是随便写的字符串。
+       */
+      const actor = actorOf(ctx)
+      assertRegisteredActor(ctx, actor)
+      const res = ctx.deps.attachmentRepo.add({
+        todoId: id,
+        paths: [file],
+        actor
+      })
+      const bad = res.failed[0]
+      if (bad) {
+        /**
+         * 失败原因已经是给人看的一句话（超上限 / 不是文件 / 读不到），原样抛出去。
+         * 归 usage_error 是因为处置动作是"换一个文件或先删掉几份旧的"，
+         * 不是重试、也不是权限问题。
+         */
+        throw new UsageError(bad.reason)
+      }
+      const a = res.added[0]
+      return {
+        todoId: id,
+        id: a.id,
+        seq: a.seq,
+        name: a.name,
+        kind: a.kind,
+        mime: a.mime,
+        bytes: a.bytes,
+        sha256: a.sha256,
+        relPath: a.relPath,
+        createdBy: a.createdBy,
+        createdAt: a.createdAt,
+        message: `已把 ${a.name}（${formatBytes(a.bytes)}）挂到这条事项上`
       }
     }
   },

@@ -41,8 +41,8 @@ export const DOC_FILES = ['README.md', 'AGENTS.md']
  * 改完还得同步入口文档，否则源码侧用例会红。**别只改这里。**
  */
 export const CAPABILITY_BASELINE = {
-  cliCommands: 76,
-  mcpTools: 69,
+  cliCommands: 78,
+  mcpTools: 71,
   excludedMcpCommands: 7
 }
 
