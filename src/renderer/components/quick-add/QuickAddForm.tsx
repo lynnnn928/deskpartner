@@ -242,7 +242,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   }
   useEffect(resizeTitle, [title])
 
-  const { createTodo, updateTodo, todos } = useTodoStore()
+  const { createTodo, updateTodo, todos, loading: todosLoading } = useTodoStore()
   const showToast = useUIStore((s) => s.showToast)
   const { categories } = useCategoryStore()
   const { projects } = useProjectStore()
@@ -961,6 +961,67 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
   useEffect(() => {
     setEditingDesc(false)
   }, [editingTodoId])
+
+  /**
+   * 这条事项还在不在（卡 `bfdc8cc1`）
+   *
+   * 通知（提醒 / 交付 / 待拍板）的 `refId` 指向的事项被删掉之后，点开仍然会进这个表单
+   * —— 而装载逻辑是 `todos.find(...)`，找不到就什么都不做，于是留下一张**看起来能填**的
+   * 空表：标题、描述、状态全空，底部还挂着保存按钮，填完才以 not_found 收场。
+   *
+   * ⚠️ 这段注释里别写那个按钮的原文：源码闸门按第一次出现定位底部操作栏，
+   *    注释里出现同一个词会让它算错位置（35fa2cbc 那条就是这么假红的）。
+   *
+   * 要分清两种"找不到"：store 还没加载完（真事项在路上）与真的没了。
+   * 所以找不到时问一次主进程 —— 别把"还没加载"当成"已经删除"。
+   * `todo:get` 对已删事项回的是墓碑（`{ deleted: true, lastSnapshot … }`），
+   * 那也算"不存在"：墓碑是给恢复用的，不是能编辑的详情。
+   */
+  const [missingTodo, setMissingTodo] = useState(false)
+  const missingCheckedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!editingTodoId) {
+      setMissingTodo(false)
+      missingCheckedRef.current = null
+      return
+    }
+    if (todos.some((t) => t.id === editingTodoId)) {
+      missingCheckedRef.current = null
+      setMissingTodo(false)
+      return
+    }
+    // store 还在加载：先别下结论（否则刚打开就闪一句"已经不存在"）
+    if (todosLoading) return
+    // 已经确认缺过这一条：别每次 todo 广播都再问主进程一遍
+    if (missingCheckedRef.current === editingTodoId) return
+    let alive = true
+    void invoke('todo:getById', { id: editingTodoId })
+      .then((todo) => {
+        if (!alive) return
+        missingCheckedRef.current = editingTodoId
+        setMissingTodo(!todo)
+      })
+      .catch(() => {
+        // not_found：连墓碑都没有，这条确实不在
+        if (!alive) return
+        missingCheckedRef.current = editingTodoId
+        setMissingTodo(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [editingTodoId, todos, todosLoading])
+
+  if (missingTodo) {
+    return (
+      <div data-testid="todo-detail-missing" className="flex flex-col gap-2 px-4 py-5">
+        <p className="text-content font-medium text-text-primary">这条事项已经不存在</p>
+        <p className="text-label leading-relaxed text-text-secondary">
+          它可能已经被删除。通知或入口还留着，但那条事项本身已经不在了 —— 关掉这一屏就行。
+        </p>
+      </div>
+    )
+  }
 
   const spacing = PADDING_MAP[settings.quickAddPadding] ?? PADDING_MAP.standard
   const showDetailSection = Boolean(editingTodoId) || showDetail
