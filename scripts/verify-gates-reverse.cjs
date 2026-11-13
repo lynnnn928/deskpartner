@@ -310,17 +310,50 @@ const GROUPS = [
         'red'
       ],
       [
-        '② 把「接手说明」那一步整行删掉（锚点命中 0 个编号步骤）',
+        '② 把「接手说明」那一步整行删掉（编号跟着断 → 编号连续性判红）',
         'src/renderer/lib/onboarding-prompts.ts',
         /^6\. 询问主用户是否要把现有项目登记[^\n]*\n/m,
         '',
         'red'
       ],
       [
-        '③ 把「协作约定」那一步复制成两行（锚点命中 2 个编号步骤）',
+        '③ 把「协作约定」的正文又抄进下一步（同一件事写了两遍 → 锚点命中 2 个编号步骤）',
         'src/renderer/lib/onboarding-prompts.ts',
-        /^5\. 与主用户确认协作协议内容[^\n]*$/m,
-        (matched) => `${matched}\n${matched}`,
+        /^(5\. 与主用户确认协作协议内容[^\n]*)\n(6\. 询问主用户是否要把现有项目登记[^\n]*)$/m,
+        (matched) => {
+          const [fifth, sixth] = matched.split('\n')
+          return `${fifth}\n${sixth}${fifth.replace(/^5\.\s+/, '')}`
+        },
+        'red'
+      ],
+      [
+        /**
+         * 复审 round 3 第 2 节给的 P1：另插一步只讲"建项目"。
+         *
+         * 清单第 5 步的锚点是「接手说明」，这种插法命不中任何锚点，
+         * 顺序看起来一点没变 —— 上一版闸门在这里是绿的。现在靠
+         * 「讲建项目的步骤必须排在档案与约定之后」判红。
+         */
+        '④ 另插一步只讲建项目（排在档案之前 —— P1）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^3\. 获批后读取用户档案[\s\S]*?^7\. 完成后回读[^\n]*$/m,
+        (matched) => {
+          const lines = matched.split('\n')
+          const first = Number((lines[0].match(/^\d+/) ?? [0])[0])
+          const bodies = ['逐个建项目。', ...lines.map((line) => line.replace(/^\d+\.\s+/, ''))]
+          return bodies.map((body, i) => `${first + i}. ${body}`).join('\n')
+        },
+        'red'
+      ],
+      [
+        /** P2：只把第 6 行挪到第 4 行前面、编号不动 —— 助手读到的先后变了 */
+        '⑤ 只把第 6 行挪到第 4 行前面、编号不动（P2）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^4\. 在对话中与主用户确认[\s\S]*?^6\. 询问主用户是否要把现有项目登记[^\n]*$/m,
+        (matched) => {
+          const lines = matched.split('\n')
+          return [lines[2], lines[0], lines[1]].join('\n')
+        },
         'red'
       ],
       [
@@ -332,7 +365,7 @@ const GROUPS = [
          * 一旦提前，全文件顺序就变了），而它真正该守的东西一点没变。
          * 这一条就是那个假红的回归用例。
          */
-        '④ 只把函数定义搬了位置（提示词一个字没改，不该变红）',
+        '⑥ 只把函数定义搬了位置（提示词一个字没改，不该变红）',
         'src/renderer/lib/onboarding-prompts.ts',
         /^export function buildMigratePrompt\([\s\S]*$/m,
         (matched) => {
@@ -344,7 +377,7 @@ const GROUPS = [
         'green'
       ],
       [
-        '⑤ 注释里写反序命令（说明文字不该把闸门惹红）',
+        '⑦ 注释里写反序命令（说明文字不该把闸门惹红）',
         'src/renderer/lib/onboarding-prompts.ts',
         'const HARD_RULES = `',
         '// 反例（只是注释）：project add 早于 profile propose 也不是产品顺序\nconst HARD_RULES = `',

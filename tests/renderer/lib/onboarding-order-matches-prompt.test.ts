@@ -102,6 +102,7 @@ function numberedSteps(prompt: string, label: string): NumberedStep[] {
  */
 function orderOf(prompt: string, label: string): OnboardingStepKey[] {
   const steps = numberedSteps(prompt, label)
+  assertNumbering(steps, label)
   const hits = (ONBOARDING_STEP_ORDER).map((key) => {
     const anchor = STEP_ANCHOR[key]
     const matched = steps
@@ -124,6 +125,64 @@ function orderOf(prompt: string, label: string): OnboardingStepKey[] {
   return hits
     .sort((a, b) => a.n - b.n || a.offset - b.offset || a.position - b.position)
     .map((hit) => hit.key)
+}
+
+/**
+ * 编号必须从 1 开始、连续、不重号，行的先后也要与编号一致
+ *
+ * 复审 round 3 第 2 节：编号没动、只是把行挪到别处，读提示词的助手看到的仍是
+ * 行的先后 —— 「编号没动就是顺序没动」这个说法不成立。重号（两个 `4.`）同理：
+ * 助手会照行读，闸门却按编号排，两边说的不是一回事。
+ */
+function assertNumbering(steps: NumberedStep[], label: string): void {
+  steps.forEach((step, index) => {
+    expect(step.n, `${label} 的编号必须从 1 开始连续：第 ${index + 1} 行是「${step.n}.」`).toBe(
+      index + 1
+    )
+  })
+}
+
+/**
+ * 「建项目」这件事在提示词里占了哪几步
+ *
+ * 复审 round 3 第 2 节给的漏法（P1/P3）：新插一步只写「先 project add 建第一个项目」，
+ * 或者在第 3 步末尾补一句「若还没有项目，先 project add」—— 因为清单第 5 步的锚点是
+ * 「接手说明」，这两处都命不中锚点，顺序看起来没变，闸门照样绿。
+ * 而它们正是主用户否掉的顺序：「注册审批完就直接建第一个项目」。
+ *
+ * 所以另立一条：凡提到"建项目"这件事的编号步骤，必须排在**档案与约定之后**。
+ * 现在两版提示词里只有第 6 步提到它，这条是绿的；P1/P3 会红。
+ */
+const PROJECT_STEP_PATTERN = /project add|建(第一个|出)?项目|创建第一个项目|逐个建项目/
+
+function assertProjectAfterBasics(steps: NumberedStep[], order: OnboardingStepKey[], label: string): void {
+  const stepOf = (key: OnboardingStepKey): number => {
+    const anchor = STEP_ANCHOR[key]
+    const hit = steps.find((step) => step.text.includes(anchor))
+    expect(hit, `${label} 里找不到「${anchor}」`).toBeTruthy()
+    return (hit as NumberedStep).n
+  }
+  const basicsAt = stepOf('basics')
+  const protocolAt = stepOf('protocol')
+  const projectSteps = steps.filter((step) => PROJECT_STEP_PATTERN.test(step.text))
+  expect(projectSteps.length, `${label} 里一条都没提到建项目 —— 这一步是产品流程的一部分`).toBeGreaterThan(0)
+  for (const step of projectSteps) {
+    expect(
+      step.n,
+      `${label} 第 ${step.n} 步在讲建项目，却排在档案（第 ${basicsAt} 步）或约定（第 ${protocolAt} 步）之前`
+    ).toBeGreaterThan(Math.max(basicsAt, protocolAt))
+  }
+}
+
+/**
+ * 【硬要求】段里也不许出现"建项目"
+ *
+ * 复审 round 3 的 P4：把「注册审批完先 project add 建第一个项目」写进【硬要求】，
+ * 那一段不在编号步骤里，上面所有断言都看不见它，但助手照样会照做。
+ */
+function hardRulesOf(prompt: string): string {
+  const at = prompt.indexOf(STEPS_END)
+  return at >= 0 ? prompt.slice(at) : ''
 }
 
 /** 只把某几步做完的清单状态 */
@@ -164,6 +223,17 @@ describe('清单顺序 = 开场提示词顺序（读成品文本）', () => {
     })
   }
 
+  for (const [label, prompt] of PROMPTS) {
+    it(`${label}：讲建项目的那一步在档案与约定之后（不在之前、也不在硬要求里）`, () => {
+      const order = orderOf(prompt, label)
+      assertProjectAfterBasics(numberedSteps(prompt, label), order, label)
+      expect(
+        PROJECT_STEP_PATTERN.test(hardRulesOf(prompt)),
+        `${label} 的【硬要求】里出现了建项目：那一段不在编号步骤里，助手照样会照做`
+      ).toBe(false)
+    })
+  }
+
   it('每个锚点在两版提示词里都恰好命中一个编号步骤', () => {
     for (const key of ONBOARDING_STEP_ORDER) {
       for (const [label, prompt] of PROMPTS) {
@@ -192,12 +262,35 @@ describe('闸门认得出「提示词里真的挪了一步」', () => {
   }
 
   /**
-   * 把真实的那几行按新顺序重排、编号跟着走 —— 一次真的「挪一步」
+   * 把步骤段里某一步整行删掉、编号往后收一格 —— 作者真删一步时会做的事
    *
-   * 只交换行、不改编号是**不算**挪的：提示词是有编号的清单，助手照编号走，
-   * 编号没动就是顺序没动（那种改动闸门应当仍然绿，见 `verify-gates-reverse` 的
-   * 「只调换函数定义位置」那条）。所以要验证的是：`order` 给的那几行互换内容，
-   * 编号留在原地 —— 这正是作者把第 6 步剪到第 4 步前面之后会做的事。
+   * 只动「请按以下顺序工作：」到「【硬要求】」之间：接入地址段里也有 `1. 2. 3.`
+   * 的编号，整份文本重编号会把它一起改掉（第一次写就是这么错的）。
+   */
+  const dropStep = (n: number): string => {
+    const lines = migrate.split('\n')
+    const headerAt = lines.findIndex((line) => line.includes('请按以下顺序工作'))
+    const endAt = lines.findIndex((line) => line.startsWith('【硬要求】'))
+    expect(headerAt).toBeGreaterThan(-1)
+    expect(endAt).toBeGreaterThan(headerAt)
+    const section = lines.slice(headerAt + 1, endAt).filter((line) => !line.trim().startsWith(`${n}. `))
+    let cursor = 0
+    const renumbered = section.map((line) => {
+      const matched = line.trim().match(/^(\d+)\.\s+(.*)$/)
+      if (!matched) return line
+      cursor += 1
+      return `${cursor}. ${line.trim().replace(/^\d+\.\s+/, '')}`
+    })
+    return [...lines.slice(0, headerAt + 1), ...renumbered, ...lines.slice(endAt)].join('\n')
+  }
+
+  /**
+   * 把真实的那几行按新顺序重排、编号按**物理位置**重新编 —— 一次真的「挪一步」
+   *
+   * 只交换行、不改编号是**不算**挪的：提示词是有编号的清单，助手照它读，
+   * 行的先后和编号对不上时闸门应当直接判红（见下面「编号必须连续」那条与
+   * `verify-gates-reverse` 的 P2 用例）。真正的挪步是"内容换了位置、编号跟着重编"，
+   * 这正是作者把第 6 步剪到第 4 步前面之后会做的事。
    */
   const renumber = (order: number[]): string => {
     const lines = migrate.split('\n')
@@ -206,17 +299,19 @@ describe('闸门认得出「提示词里真的挪了一步」', () => {
       expect(at, `提示词里没有第 ${n} 步`).toBeGreaterThan(-1)
       return at
     }
-    /** 每一行去掉编号后的正文 */
     const bodyOf = (n: number): string => lineOf(n).trim().replace(/^\d+\.\s+/, '')
-    const slots = order.map((_, k) => slotOf(order[k]))
+    /** 物理位置从小到大排（编号写在这一格上） */
+    const slots = order.map((n) => slotOf(n)).sort((a, b) => a - b)
+    /** 正文按 order 给的先后依次填进上面那几格 —— 这才是"内容换了位置" */
     const bodies = order.map((n) => bodyOf(n))
+    const firstNumber = Number((lines[slots[0]].trim().match(/^\d+/) ?? ['0'])[0])
     slots.forEach((slot, k) => {
-      lines[slot] = `${Math.min(...order) + k}. ${bodies[k]}`
+      lines[slot] = `${firstNumber + k}. ${bodies[k]}`
     })
     return lines.join('\n')
   }
 
-  it('把真实的「接手说明」那一步挪到档案之前（编号跟着走）→ 顺序变了，闸门红', () => {
+  it('把真实的「接手说明」那一步挪到档案之前（编号跟着重编）→ 顺序变了，闸门红', () => {
     const moved = renumber([6, 4, 5])
     expect(orderOf(moved, '项目挪到档案之前的提示词')).toEqual([
       'agent',
@@ -227,15 +322,24 @@ describe('闸门认得出「提示词里真的挪了一步」', () => {
     ])
   })
 
-  it('把真实的「接手说明」那一步删掉 → 锚点命中 0 个编号步骤，闸门红', () => {
-    const sixth = lineOf(6)
-    const dropped = migrate.replace(sixth, '').replace(/\n{2,}/g, '\n')
-    expect(() => orderOf(dropped, '删掉第 6 步的提示词')).toThrow(/命中了 0 个编号步骤/)
+  it('把真实的「接手说明」那一步删掉（编号跟着收）→ 锚点命中 0 个编号步骤，闸门红', () => {
+    expect(() => orderOf(dropStep(6), '删掉第 6 步的提示词')).toThrow(/命中了 0 个编号步骤/)
   })
 
-  it('把真实的一步复制成两步 → 锚点命中 2 个，闸门红', () => {
-    const fifth = lineOf(5)
-    const duplicated = migrate.replace(fifth, `${fifth}\n${fifth}`)
-    expect(() => orderOf(duplicated, '复制了第 5 步的提示词')).toThrow(/命中了 2 个编号步骤/)
+  /** 同一件事被写了两遍：把第 5 步的正文又抄进第 6 步（真实文本、编号合法） */
+  it('把真实的一步正文抄进另一步 → 锚点命中 2 个编号步骤，闸门红', () => {
+    const fifthBody = lineOf(5).trim().replace(/^\d+\.\s+/, '')
+    const sixth = lineOf(6)
+    const duplicated = migrate.replace(sixth, `${sixth}${fifthBody}`)
+    expect(() => orderOf(duplicated, '把第 5 步抄进第 6 步的提示词')).toThrow(/命中了 2 个编号步骤/)
+  })
+
+  /** 只交换行、编号不动 —— 助手看到的是行的先后，闸门必须红（复审 round 3 的 P2） */
+  it('只把第 6 行挪到第 4 行前面、编号不动 → 编号与行的先后对不上，闸门红', () => {
+    const lines = migrate.split('\n')
+    const at4 = lines.findIndex((line) => line.trim().startsWith('4. '))
+    const at6 = lines.findIndex((line) => line.trim().startsWith('6. '))
+    const moved = [...lines.slice(0, at4), lines[at6], ...lines.slice(at4, at6), ...lines.slice(at6 + 1)]
+    expect(() => orderOf(moved.join('\n'), '只挪行不动编号的提示词')).toThrow(/编号必须从 1 开始连续/)
   })
 })
