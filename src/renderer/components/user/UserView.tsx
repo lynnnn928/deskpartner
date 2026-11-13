@@ -9,6 +9,7 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { invoke } from '../../lib/ipc-client'
 import { useUIStore } from '../../stores/ui.store'
 import { getOnboardingStatus } from '../../lib/onboarding'
+import { resetCoaches } from '../../lib/coach-marks'
 import { ownerLabel } from '../../lib/todo-filter'
 import { stripMarkdown } from '../../lib/markdown'
 import { cn } from '../../lib/utils'
@@ -172,6 +173,7 @@ export const UserView: React.FC = () => {
   const [hardGates, setHardGates] = useState<GateInfo[]>([])
   const [showCompletedChecklist, setShowCompletedChecklist] = useState(false)
   const setMainView = useUIStore((state) => state.setMainView)
+  const setOnboardingChecklistState = useUIStore((state) => state.setOnboardingChecklistState)
   const userEntryTarget = useUIStore((state) => state.userEntryTarget)
   const clearUserEntryTarget = useUIStore((state) => state.clearUserEntryTarget)
 
@@ -436,6 +438,18 @@ export const UserView: React.FC = () => {
 
   const displayName = settings.humanName?.trim() || '我'
 
+  /**
+   * 「重新看一遍上手提示」（评审第 23 条）
+   *
+   * `resetCoaches()` 一直存在却没有任何界面入口 —— 点过「跳过引导」就再也找不回来。
+   * 这里三样一起复位：气泡（含"跳过"）、页面条（同一个 storage key）、
+   * 以及「我的工作」那条清单的收起状态。
+   */
+  const replayOnboarding = (): void => {
+    resetCoaches()
+    setOnboardingChecklistState({ dismissed: false, reopened: true })
+  }
+
   return (
     <div className="flex-1 min-h-0 flex">
       {/* 左导航：分区列表 */}
@@ -545,6 +559,16 @@ export const UserView: React.FC = () => {
                     ))}
                   </ol>
                 )}
+                <div className="mt-2.5 flex justify-end">
+                  <button
+                    type="button"
+                    data-testid="onboarding-replay"
+                    onClick={replayOnboarding}
+                    className="text-caption text-text-secondary hover:text-text-primary cursor-pointer"
+                  >
+                    重新看一遍上手提示
+                  </button>
+                </div>
               </section>
 
               {/* 关于我 */}
@@ -670,6 +694,8 @@ export const UserView: React.FC = () => {
                                   type="button"
                                   size="sm"
                                   variant="primary"
+                                  /** 就地提示的锚点：清单送过来时要指的那颗按钮（评审第 22 条） */
+                                  data-coach-target={key === 'basics' ? 'about-save' : undefined}
                                   disabled={!draftBody.trim()}
                                   onClick={() => void saveProfile(key)}
                                 >
@@ -785,7 +811,7 @@ export const UserView: React.FC = () => {
               {!protocolProjectId && !globalProtocolConfirmed && globalProtocolBlocks.length > 0 && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-input border border-warning/30 bg-warning/10 px-3 py-2">
                   <span className="text-label text-warning font-medium">当前为默认模板，尚未确认。</span>
-                  <button type="button" className="h-7 rounded-button bg-accent px-3 text-label text-white hover:opacity-90 cursor-pointer" onClick={() => void confirmDefaultProtocol()}>确认全部协议</button>
+                  <button type="button" data-coach-target="protocol-confirm" className="h-7 rounded-button bg-accent px-3 text-label text-white hover:opacity-90 cursor-pointer" onClick={() => void confirmDefaultProtocol()}>确认全部协议</button>
                 </div>
               )}
               {protocolError && <p className="mt-2 text-label text-danger">{protocolError}</p>}

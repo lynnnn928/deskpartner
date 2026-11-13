@@ -648,6 +648,8 @@ export const ApprovalView: React.FC = () => {
                       <Button
                         variant="primary"
                         size="sm"
+                        /** 就地提示的锚点：已经站在审批页时，气泡指的就是这颗（评审第 19 条） */
+                        data-coach-target="approve-button"
                         disabled={busy === a.id}
                         onClick={() => void setApproved(a.id)}
                       >

@@ -3,11 +3,12 @@ import { Icon } from '../ui/Icon'
 import { Button } from '../ui/Button'
 import { invoke } from '../../lib/ipc-client'
 import { useUIStore } from '../../stores/ui.store'
+import { useAgentStore } from '../../stores/agent.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useOnboardingStatus } from '../../lib/use-onboarding-status'
 import { useCliAccess } from '../../lib/use-cli-access'
-import { buildMigratePrompt } from '../../lib/onboarding-prompts'
-import { cn } from '../../lib/utils'
+import { buildMigratePrompt, buildFirstProjectPrompt } from '../../lib/onboarding-prompts'
+import { rememberOnboardingJump } from '../../lib/coach-marks'
 
 /**
  * 首屏上手清单（卡 `a19054a1`）
@@ -19,46 +20,91 @@ import { cn } from '../../lib/utils'
  * 为什么判据全从真实数据推算（`useOnboardingStatus`）：
  * 不另存"引导进度"，就不会出现"标记说看过、实际没做过"的假状态。
  *
- * 为什么一行要写四句：主用户 2026-11-13 的原话是「这 5 件事你现在默认用户
- * 已经都知道具体内容了，只给一句话简述，这不对」。第一次装的人要能读出来：
- * 这是什么 → 跟我有什么关系 → 现在点哪里 → 点完会发生什么。
- * 前两句（`what` / `why`）是常文；后两句（`next`）跟着状态走 ——
- * 每行只给此刻最该做的那一个动作，做完就改口说"已经怎样了"。
+ * ── 为什么每行只留一句（1.0.147，评审 `claude-opus-5-5`）──
+ *
+ * 1.0.146 每行写了四句（这是什么 / 为什么轮到你 / 现在点哪里 / 点完会怎样），
+ * 五行共 765 字，主用户的结论是「把解释描述文案放上去不算引导」。
+ * 现在的判据是：
+ *
+ *   「用户按一下就能往前走的步骤，只写『点哪里、点完会看到什么』；
+ *     只有不知道某件事他就会点错、不敢点、或点完以为没反应时，才多加一句
+ *     —— 这一句只讲后果，不讲定义。」
+ *
+ * 于是：当前步骤 = 一句话 + 一个按钮（≤45 字）；其余步骤只留标题（≤8 字），
+ * 还没轮到的那几步收成一行灰字「接下来：…」。同屏只有一个进度数 `n/5`。
  *
  * 五步与 `getOnboardingStatus` 的五个布尔一一对应：
- * 接入 → 批准 → 关于我 → 协作约定 → 第一个项目。
- * 第 3 步曾经因为"只在用户页有行"而被计数排除，屏上成了 x/4；
- * 那反而让人不知道还有一份关于自己的档案要填，所以补回这一行。
+ * 接入 → 批准 → 建第一个项目 →（再花一分钟）关于我 → 协作约定。
+ * 第二阶段只在主线三步完成后才出现：先让人把助手接进来，别一上来摊五行。
  */
 export interface OnboardingChecklistProps {
   /** 收起状态下用户仍能看到入口（点了重新展开） */
   forceOpen?: boolean
 }
 
+type StepKey = 'agent' | 'approved' | 'basics' | 'protocol' | 'handoff'
+
+interface StepRow {
+  key: StepKey
+  /** 标题就是这一步的名字；非当前步骤只有它，所以要短 */
+  title: string
+  done: boolean
+  /** 当前这一步要点哪里、点完会看到什么。非当前步骤不写，也不渲染 */
+  hint: string
+  /** 主按钮 */
+  action: { label: string; onClick: () => void } | null
+  /** 次按钮：给出的不是"再点一次"，而是"换条路也走得到" */
+  secondary?: { label: string; onClick: () => void }
+}
+
+const STAGE_MAIN: StepKey[] = ['agent', 'approved', 'handoff']
+const STAGE_REST: StepKey[] = ['basics', 'protocol']
+const ALL_KEYS: StepKey[] = [...STAGE_MAIN, ...STAGE_REST]
+
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const { status, coreDone, doneCount, reload } = useOnboardingStatus()
   const setMainView = useUIStore((s) => s.setMainView)
   const openUserSection = useUIStore((s) => s.openUserSection)
+  const dismissed = useUIStore((s) => s.onboardingChecklistDismissed)
+  const reopened = useUIStore((s) => s.onboardingChecklistReopened)
+  const setChecklistState = useUIStore((s) => s.setOnboardingChecklistState)
+  const agents = useAgentStore((s) => s.agents)
   const settings = useSettingsStore((s) => s.settings)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
   const cliAccess = useCliAccess()
-  /** 用户主动收起；与"全绿后自动收起"分开记，否则自动收起之后再也点不开 */
-  const [dismissed, setDismissed] = useState(false)
-  const [reopened, setReopened] = useState(false)
   const [name, setName] = useState(settings?.humanName ?? '')
-  /** 刚复制过提示词的那一行；两行都复制同一段，得分开记，否则两处一起变「已复制」 */
-  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  /** 第 1 行复制过、但助手还没注册 —— 这一行要停在等待态，而不是弹回原样 */
+  const [agentPromptCopied, setAgentPromptCopied] = useState(false)
+  /** 第 5 行刚复制过：只是两秒的按钮反馈，不需要等待态 */
+  const [justCopied, setJustCopied] = useState(false)
 
   const nameMissing = !settings?.humanNameAsked
-  const autoHidden = coreDone && !nameMissing
-  const hidden = dismissed || (autoHidden && !reopened)
+  /**
+   * 全部完成才算做完 —— 主线三步 + 关于我 + 协作约定（+ 称呼已问过）。
+   *
+   * 1.0.146 是 `coreDone`（只算主线三步）就自动收：那时「关于我」「约定」
+   * 还没做，卡片就带着这两步一起消失，收起后还写着「接入完成」。
+   * 现在第二阶段不自动收起，`allDone` 之后才收（评审第 14 条）。
+   */
+  const allDone = coreDone && status.basicsConfirmed && status.globalProtocolConfirmed && !nameMissing
+  const hidden = dismissed || (allDone && !reopened)
+  const remaining = 5 - doneCount
 
-  const copyPrompt = async (key: string): Promise<void> => {
-    const text = buildMigratePrompt(cliAccess)
+  const pendingAgent = agents.find((agent) => !agent.approved && !agent.rejectedAt)
+  const approvedAgent = agents.find((agent) => agent.approved && agent.hasCredential)
+  const pendingAgentName = pendingAgent?.displayName?.trim() ?? ''
+  const approvedAgentName = approvedAgent?.displayName?.trim() ?? ''
+
+  const copyPrompt = async (key: 'agent' | 'handoff'): Promise<void> => {
+    const text = key === 'handoff' ? buildFirstProjectPrompt(cliAccess) : buildMigratePrompt(cliAccess)
     try {
       await navigator.clipboard.writeText(text)
-      setCopiedKey(key)
-      window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 2000)
+      if (key === 'agent') {
+        setAgentPromptCopied(true)
+        return
+      }
+      setJustCopied(true)
+      window.setTimeout(() => setJustCopied(false), 2000)
     } catch {
       /* 剪贴板不可用时保持原样，用户可以用「快速上手」页的按钮 */
     }
@@ -66,7 +112,9 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
 
   const confirmProtocol = async (): Promise<void> => {
     try {
-      const res = (await invoke('protocol:get')) as unknown as { blocks?: Array<{ blockKey: string; body: string }> } | null
+      const res = (await invoke('protocol:get')) as unknown as {
+        blocks?: Array<{ blockKey: string; body: string }>
+      } | null
       await Promise.all(
         (res?.blocks ?? []).map((block) =>
           invoke('protocol:set', { blockKey: block.blockKey, body: block.body, confirmed: true })
@@ -83,114 +131,102 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     void updateSettings({ humanName: trimmed, humanNameAsked: true }).then(() => reload())
   }
 
+  const openAbout = (): void => {
+    rememberOnboardingJump('about')
+    openUserSection('about')
+  }
+
+  const openProtocol = (): void => {
+    rememberOnboardingJump('protocol')
+    openUserSection('protocol')
+  }
+
   if (hidden) {
     return (
       <button
         type="button"
         data-testid="onboarding-checklist-collapsed"
-        onClick={() => {
-          setReopened(true)
-          setDismissed(false)
-        }}
+        onClick={() => setChecklistState({ dismissed: false, reopened: true })}
         className="self-start inline-flex items-center gap-1.5 text-caption text-text-secondary hover:text-text-primary cursor-pointer"
       >
-        <Icon name="checkCircle" size={13} />
-        接入完成 · 查看上手清单（{doneCount}/5）
+        <Icon
+          name={allDone ? 'checkCircle' : 'chevronLeft'}
+          size={13}
+          className={allDone ? undefined : 'rotate-180'}
+        />
+
+        {allDone ? '上手已完成 · 查看清单' : `上手清单 · 还差 ${Math.max(0, remaining)} 步`}
       </button>
     )
   }
 
-  const rows: Array<{
-    key: string
-    title: string
-    /** 这是什么 */
-    what: string
-    /** 为什么轮到你了 */
-    why: string
-    /** 现在点哪里、点完会发生什么；做完了就说"已经怎样了" */
-    next: string
-    done: boolean
-    action: { label: string; onClick: () => void } | null
-  }> = [
-    {
+  const rows: Record<StepKey, StepRow> = {
+    agent: {
       key: 'agent',
-      title: '接入你的 AI 助手',
-      what: '把你正在用的 AI 助手连到这个工作台，它就能读到项目资料，也能把做完的事登记回来。',
-      why: '没有它，这里只有你一个人；接进来之后，读资料、登记、执行都由它做，你只定方向和验收。',
-      next: status.hasApprovedCredential
-        ? '已经接入并批准，后面几步由它和你一起走。'
-        : status.hasRegisteredAgent
-          ? '已经接入，它的名字在上方可见；下一步是批准它。'
-          : '现在点「复制开场提示词」，粘给你在用的助手发出去。它会读到本机接入地址、自己申请接入；回到这里就能看见它的名字。',
+      title: '接入 AI 助手',
       done: status.hasRegisteredAgent,
-      action: { label: copiedKey === 'agent' ? '已复制' : '复制开场提示词', onClick: () => void copyPrompt('agent') }
+      hint: agentPromptCopied
+        ? '已复制。发给助手后回到这里——它申请接入时，这一行会自己变。'
+        : '复制这段话，发给你正在用的 AI 助手。它接上后，名字会出现在这一行。',
+      action: {
+        label: agentPromptCopied ? '再复制一次' : '复制开场提示词',
+        onClick: () => void copyPrompt('agent')
+      }
     },
-    {
+    approved: {
       key: 'approved',
       title: '批准它的身份',
-      what: '助手申请接入之后要你点头：审批页里列着它是谁、想动你的哪些东西。',
-      why: '批准之后它才能写入项目资料、登记事项；在你点头之前，它只能读。',
-      next: status.hasApprovedCredential
-        ? '已批准，它可以写入你交给它的项目了。'
-        : status.hasRegisteredAgent
-          ? '现在点「前往审批」打开审批页，在它的申请上点「批准」。批完回来这里会打勾，它也能开始干活。'
-          : '现在还没有助手申请；先做上面第 1 步，它申请之后这里才会出现「前往审批」。',
       done: status.hasApprovedCredential,
-      action: status.hasRegisteredAgent
-        ? { label: '前往审批', onClick: () => setMainView('approval') }
-        : null
+      hint: pendingAgentName
+        ? `${pendingAgentName} 申请写入你的项目。批准前它只能读。`
+        : '它申请写入你的项目。批准前它只能读。',
+      action: pendingAgent ? { label: '前往审批', onClick: () => setMainView('approval') } : null
     },
-    {
+    basics: {
       key: 'basics',
-      title: '在「关于我」里写下自己',
-      what: '「关于我」是用户页里的一份档案：怎么称呼你、你习惯怎么沟通、哪些事要先问你、什么算做完。',
-      why: '助手每次动手前先读它；没写清的地方它会先问你的偏好，再把准备怎么做交给你拍板。',
-      next: status.basicsConfirmed
-        ? '已经填好，助手会先读这份档案再动手。'
-        : '现在点「去写关于我」打开用户页的「关于我」，在「基本情况」里填上怎么称呼你，点「保存并确认」。保存后这里打勾，它下次动手前就照着来。',
+      title: '写下关于我',
       done: status.basicsConfirmed,
-      action: { label: '去写关于我', onClick: () => openUserSection('about') }
+      hint: '点「去写关于我」，在「基本情况」写下怎么称呼你，点「保存并确认」。',
+      action: { label: '去写关于我', onClick: openAbout }
     },
-    {
+    protocol: {
       key: 'protocol',
       title: '确认协作约定',
-      what: '约定是五条写好的规则：各自干什么、怎么交接、怎么留痕、怎么沟通、用什么语言。',
-      why: '它做事前按这份约定来；先看一遍再确认，以后不用每次从头交代。',
-      next: status.globalProtocolConfirmed
-        ? '已确认，助手会按这份约定跟你配合；想改随时去用户页逐条编辑。'
-        : '现在点「一键确认」，这五条就按当前内容生效。之后想改，去用户页逐条编辑，改完再确认一次。',
       done: status.globalProtocolConfirmed,
-      action: status.globalProtocolConfirmed ? null : { label: '一键确认', onClick: () => void confirmProtocol() }
+      hint: '五条默认规则：分工、交接、留痕、沟通、语言。按当前内容生效。',
+      action: { label: '一键确认', onClick: () => void confirmProtocol() },
+      secondary: { label: '先看看', onClick: openProtocol }
     },
-    {
+    handoff: {
       key: 'handoff',
-      title: '让助手建第一个项目',
-      what: '项目是一摊事的边界：背景、目标、做到什么算完，都落在它的接手说明里。',
-      why: '助手只能把事项挂到项目下；有了项目和已确认的接手说明，它才知道从哪儿开始、做到哪儿停。',
-      next: status.projectHandoffConfirmed
-        ? '项目和接手说明都在了；助手可以在这摊事里提事项、接着做。'
-        : '现在点「让助手建项目」会复制一段开场白。粘给助手后，它会建项目、写接手说明、登记第一条事项，等你拍板。',
+      title: '建第一个项目',
       done: status.projectHandoffConfirmed,
+      hint: approvedAgentName
+        ? `复制这段话发给 ${approvedAgentName}，它会建好项目，再提第一条事项等你拍板。`
+        : '复制这段话发给助手，它会建好项目，再提第一条事项等你拍板。',
       action: {
-        label: copiedKey === 'handoff' ? '已复制' : '让助手建项目',
+        label: justCopied ? '已复制' : '复制建项目的话',
         onClick: () => void copyPrompt('handoff')
       }
     }
-  ]
+  }
+
+  /** 全部做完时（用户手动点开查看）把五行都列出来；否则只列当前这一段 */
+  const stageKeys = allDone ? ALL_KEYS : coreDone ? STAGE_REST : STAGE_MAIN
+  const stageRows = stageKeys.map((key) => rows[key])
+  const currentIndex = stageRows.findIndex((row) => !row.done)
+  const doneRows = currentIndex < 0 ? stageRows : stageRows.slice(0, currentIndex)
+  const current = currentIndex < 0 ? null : stageRows[currentIndex]
+  const upcoming = currentIndex < 0 ? [] : stageRows.slice(currentIndex + 1)
 
   return (
     <section
       data-testid="onboarding-checklist"
       className="rounded-card border border-border bg-bg-card shadow-sm overflow-hidden"
     >
-      <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border bg-surface-subtle">
-        <div className="min-w-0">
-          <div className="text-content font-semibold text-text-primary">
-            {coreDone ? '接入完成' : '先把助手接进来'}
-          </div>
-          <p className="text-caption text-text-secondary mt-0.5">
-            DeskPartner 是你和 AI 助手共用的工作台：你定方向、拍板、验收，它读项目背景、执行、留痕交付。
-          </p>
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-border bg-surface-subtle">
+        <div className="text-content font-semibold text-text-primary">
+          {allDone ? '上手已完成' : coreDone ? '再花一分钟' : '先把你的 AI 助手接进来'}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-caption text-text-secondary font-mono">{doneCount}/5</span>
@@ -198,7 +234,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
             type="button"
             aria-label="收起上手清单"
             data-testid="onboarding-checklist-collapse"
-            onClick={() => setDismissed(true)}
+            onClick={() => setChecklistState({ dismissed: true })}
             className="w-6 h-6 flex items-center justify-center rounded-button text-text-secondary hover:bg-black/5 hover:text-text-primary cursor-pointer"
           >
             <Icon name="chevronLeft" size={14} className="rotate-90" />
@@ -206,9 +242,23 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
         </div>
       </div>
 
-      <div className="divide-y divide-border/60">
-        {nameMissing && (
-          <div className="flex items-center gap-2 px-4 py-2.5" data-testid="onboarding-name-row">
+      <div className="px-4 py-2.5">
+        {doneRows.map((row) => (
+          <div
+            key={row.key}
+            data-testid={`onboarding-row-${row.key}`}
+            className="flex items-center gap-2 py-1 text-label text-text-secondary"
+          >
+            <span className="w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+              <Icon name="check" size={11} />
+            </span>
+            {row.title}
+          </div>
+        ))}
+
+        {/** 第二阶段才问称呼：首屏唯一要做的动作是接入，多一个输入框只是分心 */}
+        {coreDone && nameMissing && (
+          <div className="flex items-center gap-2 py-1.5" data-testid="onboarding-name-row">
             <span className="text-caption text-text-secondary shrink-0">怎么称呼你</span>
             <input
               value={name}
@@ -216,47 +266,65 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
               placeholder="用于看板归属与协作动态"
               className="h-8 flex-1 min-w-0 px-2.5 rounded-button border border-border bg-bg-card text-label text-text-primary outline-none focus:border-accent"
             />
-            <Button variant="ghost" size="sm" className="border border-border bg-surface-subtle px-2.5" onClick={commitName}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="border border-border bg-surface-subtle px-2.5"
+              onClick={commitName}
+            >
               保存
             </Button>
           </div>
         )}
-        {rows.map((row) => (
-          <div key={row.key} className="flex items-start gap-3 px-4 py-2.5" data-testid={`onboarding-row-${row.key}`}>
-            <span
-              className={cn(
-                'mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0',
-                row.done ? 'bg-accent text-white' : 'border border-border text-transparent'
-              )}
-            >
-              <Icon name="check" size={11} />
-            </span>
+
+        {current && (
+          <div
+            key={current.key}
+            data-testid={`onboarding-row-${current.key}`}
+            className="flex items-start gap-2 py-1"
+          >
+            <span className="mt-1 w-4 h-4 rounded-full border border-accent shrink-0" />
             <div className="min-w-0 flex-1">
-              <div className={cn('text-label font-medium', row.done ? 'text-text-secondary' : 'text-text-primary')}>
-                {row.title}
-              </div>
-              <p className="text-caption text-text-secondary leading-relaxed">{row.what}</p>
-              <p className="text-caption text-text-secondary leading-relaxed">{row.why}</p>
+              <div className="text-label font-medium text-text-primary">{current.title}</div>
               <p
-                data-testid={`onboarding-next-${row.key}`}
-                className={cn('text-caption leading-relaxed', row.done ? 'text-text-secondary' : 'text-text-primary')}
+                data-testid={`onboarding-next-${current.key}`}
+                className="text-caption text-text-secondary leading-relaxed"
               >
-                {row.next}
+                {current.hint}
               </p>
+              <div className="mt-1.5 flex items-center gap-2">
+                {current.action && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid={`onboarding-action-${current.key}`}
+                    className="border border-border bg-surface-subtle hover:bg-surface-muted px-2.5 text-text-primary"
+                    onClick={current.action.onClick}
+                  >
+                    {current.action.label}
+                  </Button>
+                )}
+                {current.secondary && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid={`onboarding-secondary-${current.key}`}
+                    className="text-text-secondary hover:text-text-primary cursor-pointer"
+                    onClick={current.secondary.onClick}
+                  >
+                    {current.secondary.label}
+                  </Button>
+                )}
+              </div>
             </div>
-            {row.action && !row.done && (
-              <Button
-                variant="ghost"
-                size="sm"
-                data-testid={`onboarding-action-${row.key}`}
-                className="shrink-0 border border-border bg-surface-subtle hover:bg-surface-muted px-2.5 text-text-primary"
-                onClick={row.action.onClick}
-              >
-                {row.action.label}
-              </Button>
-            )}
           </div>
-        ))}
+        )}
+
+        {upcoming.length > 0 && (
+          <p data-testid="onboarding-upcoming" className="pt-1.5 text-caption text-text-secondary">
+            接下来：{upcoming.map((row) => row.title).join(' → ')}
+          </p>
+        )}
       </div>
     </section>
   )

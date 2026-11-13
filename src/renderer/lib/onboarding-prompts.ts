@@ -109,6 +109,41 @@ ${buildAccessBlock(access)}
 ${HARD_RULES}`
 }
 
+/**
+ * 只要求「建第一个项目」的那段开场白（1.0.147，评审第 9/10 条）
+ *
+ * ── 为什么另起一段 ──
+ *
+ * 1.0.146 里清单第 1 行和第 5 行复制的是**同一段** `buildMigratePrompt`。
+ * 用户照着第 5 行发出去的话，里面第一步就是注册与凭据手续，而那时助手已经
+ * 接进去了 —— 他分不清这一步和第 1 步差在哪，助手也可能重复走一遍流程。
+ *
+ * 评审给的两种改法（重写成等待态 / 换一段专门建项目的开场白）里，
+ * 主用户拍了后者：**这一行仍要有一个按钮和一句话**，不是干等。
+ * 这段只讲项目这一件事：项目是什么、为什么需要它、建完把第一条事项留给他拍板。
+ *
+ * ⚠️ 这条改动是代拍的（评审只写了"两种任选"），可回退：
+ * 把 `OnboardingChecklist` 里第 5 行的 `buildFirstProjectPrompt` 换回
+ * `buildMigratePrompt` 即恢复 1.0.146 的行为。
+ */
+export function buildFirstProjectPrompt(access: CliAccess | null = null): string {
+  return `你是 DeskPartner 的协作 agent，已经接入并获准写入。主用户希望在这里建出**第一个项目**。
+
+${buildAccessBlock(access)}
+
+【为什么要项目】事项只能挂在项目下：一个项目就是一摊事的边界 —— 背景、目标、做到什么算完，
+都写在它的接手说明里。没有项目，你提的事项没有地方落，也没有东西告诉主用户"这摊事做到哪儿了"。
+
+请按以下顺序工作：
+1. 按上面的接入地址读取接入说明，了解项目和事项的命令规则；自检身份（agent whoami），未获批就先停下等主用户在「审批」页批准。
+2. 用一两个问题问清这摊事叫什么、想做到什么程度（问过的不要再问）。
+3. 建项目（project add），接着提议交接说明（project handoff-propose），交主用户在审批页采纳。
+4. 把已经定下来的事拆成事项登记进看板，每条在评论里写明来源；**至少留 1 条 --status proposed（待确认）**，让主用户亲手拍板一次 —— 这是他要学会的第一个动作，别替他决定。
+5. 完成后回读（project get + todo list）并向主用户汇报：建了什么、哪一条待确认、下一步建议。
+
+${HARD_RULES}`
+}
+
 export function buildProjectPrompt(access: CliAccess | null = null): string {
   return `你是 DeskPartner 的协作 agent。主用户希望把一个已有项目接入 DeskPartner。
 

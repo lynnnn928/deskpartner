@@ -170,6 +170,17 @@ interface UIState {
   /** 当前形态：看板 / 动态 */
   boardView: BoardView
 
+  /**
+   * 上手清单的展开状态（会话级，不落库）
+   *
+   * `dismissed` 是用户自己收起，`reopened` 是全部做完之后他又点开来看。
+   * 放 store 里而不是组件 state：用户页底部的「重新看一遍上手提示」要能
+   * 把两件事一起复位（清空气泡 + 把清单重新摊开），跨组件传不进去（评审第 23 条）。
+   */
+  onboardingChecklistDismissed: boolean
+  onboardingChecklistReopened: boolean
+  setOnboardingChecklistState: (next: { dismissed?: boolean; reopened?: boolean }) => void
+
   /** 内容区当前视图：看板/动态 还是 通知中心 */
   mainView: MainView
 
@@ -361,6 +372,13 @@ export const useUIStore = create<UIState>()((set) => ({
   filterFixedIn: null,
   boardView: 'kanban',
   mainView: 'board',
+  onboardingChecklistDismissed: false,
+  onboardingChecklistReopened: false,
+  setOnboardingChecklistState: (next) =>
+    set((state) => ({
+      onboardingChecklistDismissed: next.dismissed ?? state.onboardingChecklistDismissed,
+      onboardingChecklistReopened: next.reopened ?? state.onboardingChecklistReopened
+    })),
   filterTimeRange: DEFAULT_TIME_RANGE,
   filterCreatedRange: DEFAULT_TIME_RANGE,
   filterDue: 'all',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildAccessBlock,
+  buildFirstProjectPrompt,
   buildFreshPrompt,
   buildMigratePrompt,
   buildProjectPrompt,
@@ -40,7 +41,7 @@ const ACCESS: CliAccess = {
   mcpCommand: 'D:\\Apps\\DeskPartner\\resources\\cli\\mcp.cmd'
 }
 
-const ALL_PROMPTS = [buildMigratePrompt, buildFreshPrompt, buildProjectPrompt]
+const ALL_PROMPTS = [buildMigratePrompt, buildFreshPrompt, buildProjectPrompt, buildFirstProjectPrompt]
 
 describe('开场提示词自带接入地址', () => {
   it('带 MCP 片段与命令行绝对路径，且 MCP 片段是可解析的 JSON', () => {

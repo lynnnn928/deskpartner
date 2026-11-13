@@ -3,9 +3,10 @@ import { Button } from '../ui/Button'
 import { useAgentStore } from '../../stores/agent.store'
 import { useTodoStore } from '../../stores/todo.store'
 import { useUIStore } from '../../stores/ui.store'
+import { useOnboardingStatus } from '../../lib/use-onboarding-status'
 import {
-  COACH_TOTAL,
   pickCoachMark,
+  readOnboardingJump,
   readSeen,
   rememberSeen,
   skipAllCoaches,
@@ -87,11 +88,34 @@ function placeBeside(rect: DOMRect, size: BubbleSize, mode: 'beside' | 'below' =
   }
 }
 
+/**
+ * 清单此刻有没有在替我们指路
+ *
+ * 「当前行在视口里」不能靠 `IntersectionObserver`：离屏窗口不合成帧，
+ * 那个回调一次都不来（本仓库实测过同类问题）。这里直接量矩形，
+ * 由宿主按 600ms 轮询 —— 判据简单，代价是两次 querySelector。
+ *
+ * 判据取"没在指路"而不是"在指路"：清单元素还没挂上 / 已收起 / 被滚出视口，
+ * 三种情况都该由气泡接手，所以默认答案是"没在指路"。
+ */
+function isChecklistQuiet(): boolean {
+  if (document.querySelector('[data-testid="onboarding-checklist-collapsed"]')) return true
+  const section = document.querySelector('[data-testid="onboarding-checklist"]')
+  if (!section) return true
+  const rect = section.getBoundingClientRect()
+  if (rect.width === 0 && rect.height === 0) return true
+  return rect.bottom <= 0 || rect.top >= window.innerHeight
+}
+
 export const CoachMarkHost: React.FC = () => {
   const agents = useAgentStore((s) => s.agents)
   const todos = useTodoStore((s) => s.todos)
   const selectedTodoId = useUIStore((s) => s.selectedTodoId)
+  const mainView = useUIStore((s) => s.mainView)
+  const { status } = useOnboardingStatus()
   const [seen, setSeen] = useState<CoachSeen>(() => readSeen())
+  /** 清单是否已收起/滚出视口；轮询更新，初值按当前 DOM 量一次 */
+  const [checklistQuiet, setChecklistQuiet] = useState<boolean>(() => isChecklistQuiet())
   /** 锚点的位置；量不到就先不画（气泡不能指着空气） */
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
   /** 气泡自己的真实尺寸：渲染出来才知道这次文案有几行 */
@@ -100,9 +124,25 @@ export const CoachMarkHost: React.FC = () => {
   /** 首帧把视口外的锚点滚进来这件事只做一次（见 measure 里的注释） */
   const didScrollRef = useRef(false)
 
+  /**
+   * 清单收起/展开、被滚出视口，都不会触发任何 store 更新 ——
+   * 不给它一个轮询，气泡 1 就会一直以为清单还在指路而不出现（或反过来挡着清单）。
+   */
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const next = isChecklistQuiet()
+      setChecklistQuiet((current) => (current === next ? current : next))
+    }, 600)
+    return () => window.clearInterval(timer)
+  }, [])
+
   const mark = pickCoachMark(
     {
       pendingApproval: agents.some((a) => !a.approved && !a.rejectedAt),
+      approvalPage: mainView === 'approval',
+      checklistQuiet,
+      jumpedToAbout: readOnboardingJump() === 'about' && !status.basicsConfirmed,
+      jumpedToProtocol: readOnboardingJump() === 'protocol' && !status.globalProtocolConfirmed,
       firstProposed: todos.some((t) => t.status === 'proposed'),
       decidingProposed:
         Boolean(selectedTodoId) && todos.some((t) => t.id === selectedTodoId && t.status === 'proposed')
@@ -117,12 +157,37 @@ export const CoachMarkHost: React.FC = () => {
     if (!mark) return
     let alive = true
 
+    /** 两次量到的矩形是否已经不同 —— 不同才更新 state，别让 400ms 轮询一直重渲染 */
+    const sameRect = (a: DOMRect | null, b: DOMRect): boolean =>
+      a !== null &&
+      Math.abs(a.top - b.top) < 0.5 &&
+      Math.abs(a.left - b.left) < 0.5 &&
+      Math.abs(a.width - b.width) < 0.5 &&
+      Math.abs(a.height - b.height) < 0.5
+
+    const clearIfShown = (): void => {
+      if (alive) setAnchorRect((current) => (current === null ? current : null))
+    }
+
     const measure = (): boolean => {
       const anchor = document.querySelector(mark.anchor)
-      if (!anchor) return false
+      if (!anchor) {
+        /**
+         * 锚点消失了就把气泡收起来。
+         *
+         * 1.0.147 走查实测：从清单跳到用户页时气泡指「保存并确认」，切回「我的工作」
+         * 之后那颗按钮已经不在了，气泡却还挂在原来的坐标上 —— 正好印证它指的
+         * 是个不存在的东西。三处旧锚点都在同一页，所以以前没露过这个破绽。
+         */
+        clearIfShown()
+        return false
+      }
       const first = anchor.getBoundingClientRect()
       // 侧栏收起/展开切换时会有一帧 0 尺寸：量到 0 说明还没排好，等下一次
-      if (first.width === 0 && first.height === 0) return false
+      if (first.width === 0 && first.height === 0) {
+        clearIfShown()
+        return false
+      }
       if (!alive) return true
       /**
        * 锚点在折叠线以下就先滚进来（2026-11-13 实测：上手清单补到五行之后，
@@ -133,22 +198,23 @@ export const CoachMarkHost: React.FC = () => {
         didScrollRef.current = true
         anchor.scrollIntoView({ block: 'nearest' })
       }
-      setAnchorRect(anchor.getBoundingClientRect())
+      const next = anchor.getBoundingClientRect()
+      if (alive) setAnchorRect((current) => (sameRect(current, next) ? current : next))
       return true
     }
 
-    if (!measure()) {
-      const timer = window.setInterval(() => {
-        if (measure()) window.clearInterval(timer)
-      }, 400)
-      return () => {
-        alive = false
-        window.clearInterval(timer)
-      }
-    }
+    measure()
+    /**
+     * 一直轮询，不再"量到一次就停"：气泡显示期间锚点可能被换掉（换视图、
+     * 收起侧栏、列表重排），那时它必须跟着消失或跟上，而不是留在原地指空气。
+     * 轮询只在有提示要显示的时候跑，代价是一次 querySelector + 一次量矩形。
+     */
+    const timer = window.setInterval(() => {
+      measure()
+    }, 400)
 
     /**
-     * resize 与滚动都要重新量：气泡贴着锚点，锚点被滚走之后它还留在原地，
+     * resize 与滚动还要立刻跟上：气泡贴着锚点，锚点被滚走之后它还留在原地，
      * 就成了"指着别的东西"。滚动监听用捕获，才收得到内层滚动容器的滚动。
      */
     const onLayoutChange = (): void => {
@@ -158,6 +224,7 @@ export const CoachMarkHost: React.FC = () => {
     window.addEventListener('scroll', onLayoutChange, true)
     return () => {
       alive = false
+      window.clearInterval(timer)
       window.removeEventListener('resize', onLayoutChange)
       window.removeEventListener('scroll', onLayoutChange, true)
     }
@@ -203,10 +270,7 @@ export const CoachMarkHost: React.FC = () => {
       className="fixed z-50 w-72 rounded-card border border-border bg-bg-card shadow-card px-3 py-2.5"
       style={{ top: placement.top, left: placement.left }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-caption font-mono text-text-secondary" data-testid="coach-mark-step">
-          {mark.step}/{COACH_TOTAL}
-        </span>
+      <div className="flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={skipRest}
