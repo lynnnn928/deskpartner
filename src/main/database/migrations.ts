@@ -1539,6 +1539,29 @@ const migrations: MigrationFn[] = [
       CREATE INDEX IF NOT EXISTS idx_todo_attachments_todo
         ON todo_attachments(todo_id, seq);
     `)
+  },
+  // ── 51：评论也能带附件（截图长在评论下面）──
+  //
+  // 起因是主用户 2026-11-13 的一句话：「你写在评论里的截图，我看不到」——
+  // 交付截图写在评论里只剩一个路径串，对方还得自己去开，等于没给。
+  // 附件能力（v50）本来就有，缺的只是"这条附件属于哪条评论"。
+  //
+  // 为什么加可空列而不是另起一张评论附件表：同一份文件要在同一张表里只有一行，
+  // 删除、总量上限、序号、缩略图这些口径就都只有一份。comment_id 为空 =
+  // 挂在卡片上的附件（原行为不变）。
+  (db) => {
+    /**
+     * 先看列在不在再 ALTER。
+     *
+     * 老库副本、"全量建表后把版本号改回旧值"的夹具里这一列可能已经有了 ——
+     * 裸 ALTER 会以 duplicate column name 把整次迁移打回，用户看到的是应用起不来。
+     * 判据是**迁完之后结构对不对**，不是某条 SQL 有没有跑过。
+     */
+    const cols = db.prepare('PRAGMA table_info(todo_attachments)').all() as Array<{ name: string }>
+    if (!cols.some((col) => col.name === 'comment_id')) {
+      db.exec('ALTER TABLE todo_attachments ADD COLUMN comment_id TEXT')
+    }
+    db.exec('CREATE INDEX IF NOT EXISTS idx_todo_attachments_comment ON todo_attachments(comment_id)')
   }
 ]
 

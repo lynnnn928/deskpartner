@@ -116,7 +116,7 @@ export const DB_FILENAME = 'user.db'
  *
  * v39：profile_proposals —— agent 提议档案修改，待主用户在用户页确认后生效。
  */
-export const DB_VERSION = 50
+export const DB_VERSION = 51
 
 /**
  * 单个附件的大小上限（25 MB，卡 `1cb61d18`）

@@ -14,6 +14,8 @@ import {
 export interface TodoAttachment {
   id: string
   todoId: string
+  /** 挂在哪条评论下（1.0.146）：null = 卡片级附件，渲染在附件区而不是评论里 */
+  commentId: string | null
   /** 这条事项内的展示序号：删了不回收、不重排（与接手说明/文档快照同源） */
   seq: number
   /** 原始文件名，给人看的 */
@@ -32,6 +34,7 @@ export interface TodoAttachment {
 interface AttachmentRow {
   id: string
   todo_id: string
+  comment_id?: string | null
   seq: number
   name: string
   ext: string
@@ -47,6 +50,7 @@ interface AttachmentRow {
 const toAttachment = (row: AttachmentRow): TodoAttachment => ({
   id: row.id,
   todoId: row.todo_id,
+  commentId: row.comment_id ?? null,
   seq: row.seq,
   name: row.name,
   ext: row.ext,
@@ -109,11 +113,23 @@ export class AttachmentRepository {
     todoId: string
     paths: string[]
     actor: string
+    /** 挂到某条评论下（1.0.146）：评论必须属于同一条事项，否则会挂错卡 */
+    commentId?: string | null
   }): { added: TodoAttachment[]; failed: Array<{ path: string; reason: string }> } {
     const { todoId, paths, actor } = input
+    const commentId = input.commentId ?? null
     const exists = this.db.prepare('SELECT 1 FROM todos WHERE id = ?').get(todoId)
     if (!exists) throw new NotFoundError(`事项不存在：${todoId}`)
     if (!paths.length) throw new UsageError('没有选择任何文件')
+    if (commentId) {
+      const row = this.db.prepare('SELECT todo_id FROM todo_comments WHERE id = ?').get(commentId) as
+        | { todo_id: string }
+        | undefined
+      if (!row) throw new NotFoundError(`评论不存在：${commentId}`)
+      if (row.todo_id !== todoId) {
+        throw new UsageError('这条评论不属于该事项，附件不能挂到别的事项的评论上')
+      }
+    }
 
     const dataDir = getDataDirPath()
     const added: TodoAttachment[] = []
@@ -143,12 +159,13 @@ export class AttachmentRepository {
           this.db
             .prepare(
               `INSERT INTO todo_attachments
-                 (id, todo_id, seq, name, ext, kind, mime, bytes, sha256, rel_path, created_by, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                 (id, todo_id, comment_id, seq, name, ext, kind, mime, bytes, sha256, rel_path, created_by, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             )
             .run(
               meta.id,
               todoId,
+              commentId,
               seq,
               meta.name,
               meta.ext,
@@ -166,6 +183,7 @@ export class AttachmentRepository {
         added.push({
           id: meta.id,
           todoId,
+          commentId,
           seq: row.seq,
           name: meta.name,
           ext: meta.ext,

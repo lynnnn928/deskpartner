@@ -209,6 +209,13 @@ export interface TodoComment {
   body: string
   kind: CommentKind
   createdAt: string
+  /**
+   * 这条评论附的图/文件（1.0.146，schema 51）
+   *
+   * 交付截图贴在评论下，而不是把路径写成一行字 —— 路径对方还得自己去开。
+   * 缺省不传 = 老主进程（没有这个字段），渲染时按"没有附件"处理。
+   */
+  attachments?: TodoAttachment[]
 }
 
 /** 附件类型：图片能预览，其余交给系统默认程序打开 */

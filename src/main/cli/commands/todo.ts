@@ -212,6 +212,14 @@ export const todoInboxCommands: CommandSpec[] = [
           '**@ 给某个 agent**（1.0.68，`b097ca99` 的「叫醒」）。' +
           '与 `--reply-to` **不是一回事**：那个是"我知道有这条才回它"，' +
           '这个是"**你在评论上留话，他被动能看到**"。不传 = 对着卡说，回应者自己看'
+      },
+      {
+        flag: '--attach',
+        type: 'string',
+        repeat: true,
+        desc:
+          '给这条评论附一张图或一个文件（本机路径，可重复传；复制进数据目录，规则同 `todo attach`）。' +
+          '截图直接写在评论里的时代结束了 —— 路径对方还得自己去开'
       }
     ],
     positional: { name: 'id', required: true, desc: '待办 ID（支持前缀）' },
@@ -251,6 +259,29 @@ export const todoInboxCommands: CommandSpec[] = [
           recipient: flags['--to'] ? String(flags['--to']).trim() || null : null
         })
 
+      /**
+       * 评论附图（1.0.146）：先落评论、再挂图。
+       *
+       * 顺序反过来不行：附件行要记 comment_id，评论还没写出来时那个 id 不存在。
+       * 附图失败时评论保留并照实报错 —— 字是用户写的，不能因为图没挂上就一起没了。
+       */
+      const rawAttach = flags['--attach']
+      const attachPaths = (Array.isArray(rawAttach) ? rawAttach : rawAttach ? [String(rawAttach)] : [])
+        .map((p) => p.trim())
+        .filter(Boolean)
+      let attachments: Array<{ id: string; name: string; kind: string; bytes: number }> = []
+      let attachmentError: string | null = null
+      if (attachPaths.length) {
+        const res = ctx.deps.attachmentRepo.add({
+          todoId: id,
+          paths: attachPaths,
+          actor,
+          commentId: comment.id
+        })
+        attachments = res.added.map((a) => ({ id: a.id, name: a.name, kind: a.kind, bytes: a.bytes }))
+        if (res.failed.length) attachmentError = res.failed[0].reason
+      }
+
       const payload = {
         ok: true,
         commentId: comment.id,
@@ -259,6 +290,8 @@ export const todoInboxCommands: CommandSpec[] = [
         author: actor,
         createdAt: comment.createdAt,
         commentCount: repo.countByTodo(id),
+        attachments,
+        attachmentError,
         message: '评论已写入。规格请改 description，往来都算评论 —— 这样详情页的规格卡才不会被追加内容冲乱。'
       }
 

@@ -2,7 +2,7 @@
   "_note": "命令面契约基线（卡 829ad776）。由 tests/main/cli/cli-contract-baseline-829ad776.test.ts 逐条比对。契约要改就是显式改：跑 `node scripts/update-cli-contract-baseline.mjs`，把这个文件的 diff 带进评审。普通测试运行不会改写它。",
   "schema": {
     "_what": "`dp schema` 的非 TTY 输出：envelope=整份字节；rest=除 commands 之外的部分；entries=逐条命令",
-    "envelope": "f16be7c1fae4f3fa35b6084b57604582939a5003f26b72399a25251e0b6cf74c",
+    "envelope": "0daef955cd3d8f1d256e3beb296bbcc37a3b3a388840d4d36feca40128c113da",
     "rest": "93ced633bb8676afa6262fac5d84dbee16e39d340a9e08a8b71751b54a1decd4",
     "order": [
       "schema",
@@ -89,7 +89,7 @@
       "schema": "fb121b3d8369dc347a86545b80a67a76bfbe3e2880bfa6475b61cb5ddb8bad54",
       "notification list": "931a65427040c8c83f7c9251d6a49677d913a81f1f396133e8c694d14142f93d",
       "todo inbox": "f438f2f283801f6ad42654347f9ab01c354b66f74321c029255744b80b86dd5d",
-      "todo comment": "ad05ee1254b3cf9f49fe5ce89f02a99bb84468e86b88aa451d4354579c0c447d",
+      "todo comment": "3f29b4b89c25ae7e1045fb68985258256bc68973f7eb06794eec1392222d1218",
       "todo reject": "42f108dbfb88dfc1519a0112227568e92042a324b89c8ed7963cd3443ee73c3b",
       "todo close": "a642c7952fe9a00b96b959007dbfe9d1c7b2d14724b0006b2328fc655d047367",
       "todo delete-comment": "7807463a69e12f0227fc2bb3d9d607e70197da553cc7943ca5b5ce4dcefd7c4c",
@@ -255,7 +255,7 @@
       "schema": "5008eee3ac0759c4b1a56ba19ed6e7f56596befd96437f6f35dfee4dac2626cd",
       "notification list": "c869a1d35163b2f721ca0cb3e5f4c2852de2996b1954cd8d42fa2c27a6549201",
       "todo inbox": "64e9276fbb470df8ebb45947a2d77d651afa274c5501bd4fcebe7854eb6a3519",
-      "todo comment": "6e3ca9dd4740f1403692ade5fca4d510cbb23b13a0756e5ee9b13772b8e411bb",
+      "todo comment": "5b3aed36b139915c68a4efbd411d3bf4469d288bd9b24fe37624be92deb7a3d6",
       "todo reject": "2414601f9aa61f487838c1d85baab20a2e1767551b6b6bb24007859555d8d0ad",
       "todo close": "28ac7e61a594d579390acd991b5eaa8887a6942a32ad1bb98e62e482a64157de",
       "todo delete-comment": "447025253e8608e9ad5ed09f73668e9a027b34fdd3f63a64ba2df7315492c800",

@@ -535,7 +535,20 @@ todoRepo.delete(id, 'gui', 'human')
    * 别的窗口（悬浮球面板、看板）要跟着刷新，否则数字对不上。
    */
   ipcMain.handle('todo:comments', (_e, { todoId }: { todoId: string }) =>
-    safeHandle(() => new CommentRepository().listByTodo(todoId))
+    safeHandle(() => {
+      /**
+       * 评论里的截图跟着评论一起回来（1.0.146）
+       *
+       * 分成两次请求（先评论、再按 id 求附件）会让"评论已经显示、图再晚一步出现"，
+       * 在这段时间里那几条评论看起来像"只写了句'见截图'" —— 正是这次要修的毛病。
+       */
+      const comments = new CommentRepository().listByTodo(todoId)
+      const owned = attachmentRepo.list(todoId).filter((item) => item.commentId)
+      return comments.map((comment) => ({
+        ...comment,
+        attachments: owned.filter((item) => item.commentId === comment.id)
+      }))
+    })
   )
   ipcMain.handle('todo:commentCounts', (_e, { todoIds }: { todoIds: string[] }) =>
     safeHandle(() => new CommentRepository().countsByTodo(todoIds))
@@ -544,7 +557,14 @@ todoRepo.delete(id, 'gui', 'human')
     'todo:addComment',
     (
       _e,
-      input: { todoId: string; body: string; parentId?: string | null; kind?: CommentKind }
+      input: {
+        todoId: string
+        body: string
+        parentId?: string | null
+        kind?: CommentKind
+        /** 评论附图（1.0.146）：本机路径，复制进数据目录后挂在评论下 */
+        attachmentPaths?: string[]
+      }
     ) =>
       safeHandle(() => {
         // 界面发评论一律记 human：评论是"人说的还是 agent 说的"由入口决定，
@@ -557,8 +577,28 @@ todoRepo.delete(id, 'gui', 'human')
           authorId: 'human',
           kind: input.kind ?? 'comment'
         })
+        /**
+         * 附图失败不回滚评论：评论已经写进库了，回滚等于把用户刚打的字删掉。
+         * 失败原因照实带回，界面弹提示——「字在、图没挂上」是可以补救的，
+         * 「字没了」不行。
+         */
+        const paths = (input.attachmentPaths ?? []).filter(
+          (p) => typeof p === 'string' && p.trim().length > 0
+        )
+        let attachments: ReturnType<typeof attachmentRepo.list> = []
+        let attachmentError: string | null = null
+        if (paths.length) {
+          const res = attachmentRepo.add({
+            todoId: input.todoId,
+            paths,
+            actor: 'human',
+            commentId: comment.id
+          })
+          attachments = res.added
+          if (res.failed.length) attachmentError = res.failed[0].reason
+        }
         broadcastDataChanged('todo', getWindows)
-        return comment
+        return { ...comment, attachments, attachmentError }
       })
   )
   ipcMain.handle('todo:deleteComment', (_e, { id }: { id: string }) =>

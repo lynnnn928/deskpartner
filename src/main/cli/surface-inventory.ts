@@ -56,8 +56,9 @@ export interface WriteReceiptShapeSpec {
  */
 export const WRITE_RECEIPT_SHAPES: Record<string, WriteReceiptShapeSpec> = {
   'todo comment': {
+    // 1.0.146：评论可以附图，回执多这两项（图没挂上时如实带回原因，评论照常写入）
     unattended: 'ok',
-    keys: ['ok', 'commentId', 'todoId', 'parentId', 'author', 'createdAt', 'commentCount', 'message']
+    keys: ['ok', 'commentId', 'todoId', 'parentId', 'author', 'createdAt', 'commentCount', 'attachments', 'attachmentError', 'message']
   },
   'todo reject': {
     unattended: 'ok',

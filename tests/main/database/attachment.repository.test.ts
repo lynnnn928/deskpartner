@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { AttachmentRepository } from '../../../src/main/database/attachment.repository'
 import { TodoRepository } from '../../../src/main/database/todo.repository'
+import { CommentRepository } from '../../../src/main/database/comment.repository'
 import { runMigrations } from '../../../src/main/database/migrations'
 import { MAX_ATTACHMENT_BYTES } from '../../../src/main/lib/attachments'
 import { MAX_ATTACHMENT_TOTAL_BYTES } from '../../../src/renderer/lib/constants'
@@ -225,5 +226,43 @@ describe('AttachmentRepository（v50 事项附件）', () => {
     // 只有 a.bin 落了盘（b.bin 被拒时还没复制）
     const dirOnDisk = path.join(dataDir, 'attachments', todoId)
     expect(fs.readdirSync(dirOnDisk)).toHaveLength(1)
+  })
+
+  /**
+   * 评论附图（schema v51）
+   *
+   * 起因挺直白：交付截图写在评论里只有一个路径串，对方还得自己去开 ——
+   * 「你写在评论里的截图，我看不到」。所以附件要能挂在**某条评论**下面，
+   * 而卡片级附件（commentId = null）保持原样。
+   */
+  it('挂在评论下的附件带 commentId，卡片级附件仍是 null', () => {
+    const comment = new CommentRepository().create({
+      todoId,
+      body: '见截图',
+      authorType: 'agent',
+      authorId: 'agent:bob'
+    })
+    const png = makeSrc('验收.png', Buffer.from('假装是 PNG'))
+    const res = attachments.add({ todoId, paths: [png], actor: 'agent:bob', commentId: comment.id })
+    expect(res.added[0]?.commentId).toBe(comment.id)
+    expect(attachments.list(todoId)[0]?.commentId).toBe(comment.id)
+
+    const plain = makeSrc('日志.txt', Buffer.from('log'))
+    const card = attachments.add({ todoId, paths: [plain], actor: 'human' })
+    expect(card.added[0]?.commentId).toBeNull()
+  })
+
+  it('评论不属于这条事项时拒绝挂附件（别挂到别的事项的评论下）', () => {
+    const other = todos.create({ title: '另一条', projectId: 'p1' }).id
+    const comment = new CommentRepository().create({
+      todoId: other,
+      body: '别处的评论',
+      authorType: 'human',
+      authorId: 'human'
+    })
+    const png = makeSrc('x.png', Buffer.from('x'))
+    expect(() =>
+      attachments.add({ todoId, paths: [png], actor: 'human', commentId: comment.id })
+    ).toThrow(/不属于该事项/)
   })
 })

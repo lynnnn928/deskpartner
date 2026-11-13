@@ -111,7 +111,7 @@
 
 | # | 命令 | 风险档 | 声明 | 无人值守实跑 | 回执顶层键 / 错误信封与边界 |
 |---:|---|---|---|---|---|
-| 1 | `todo comment` | write | `object` | 直通（`ok=true`） | `ok` `commentId` `todoId` `parentId` `author` `createdAt` `commentCount` `message` |
+| 1 | `todo comment` | write | `object` | 直通（`ok=true`） | `ok` `commentId` `todoId` `parentId` `author` `createdAt` `commentCount` `attachments` `attachmentError` `message` |
 | 2 | `todo reject` | write | `object` | 直通（`ok=true`） | `ok` `todoId` `status` `commentId` `reason` `rejectedBy` `message` |
 | 3 | `todo close` | write | `object` | 直通（`ok=true`） | `todoId` `status` `commentId` `leftoverNotifiedTo` `leftoverMemoId` `message`（当 --leftover 填「无」或收口人即执行方时，不返回 leftoverNotifiedTo / leftoverMemoId） |
 | 4 | `todo delete-comment` | write | `object` | 直通（`ok=true`） | `ok` `commentId` `todoId` `cascadedReplies` `commentCount` `message`（删自己写的普通评论属 write 档直通；删他人评论或驳回理由升为 destructive（需人工授权，code=grant_required）） |

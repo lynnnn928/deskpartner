@@ -59,6 +59,13 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ todoId, refreshTok
   /** human/system 类评论的"展开更多"——默认折叠旧的那批 */
   const [showAllHuman, setShowAllHuman] = useState(false)
   const [busy, setBusy] = useState(false)
+  /**
+   * 评论附图的缩略图（attachmentId → data URL）
+   *
+   * 图片字节由主进程解码（渲染层拿不到磁盘路径），所以缩略图要单独求一次；
+   * 求不到就只是缺一张图，不影响正文与操作。
+   */
+  const [thumbs, setThumbs] = useState<Record<string, string>>({})
 
   /**
    * 拉评论。返回值是**结果**而不是 cleanup 函数 ——
@@ -86,6 +93,23 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ todoId, refreshTok
     }
     // refreshToken 变化 = 外部（改动详情的批注）刚写了一条，要重新取
   }, [load, refreshToken])
+
+  /** 评论带图：把这一批图片的缩略图一次取回来（只取图片，文件不缩略） */
+  useEffect(() => {
+    const ids = comments.flatMap((comment) =>
+      (comment.attachments ?? []).filter((item) => item.kind === 'image').map((item) => item.id)
+    )
+    if (!ids.length) return
+    let alive = true
+    void Promise.resolve(invoke('todo:attachmentThumbs', { ids }))
+      .then((map) => {
+        if (alive && map) setThumbs((prev) => ({ ...prev, ...(map as Record<string, string>) }))
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [comments])
 
   useEffect(() => {
     if (!focusCommentId || !comments.some((comment) => comment.id === focusCommentId)) return
@@ -202,6 +226,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ todoId, refreshTok
         <div className="flex flex-col gap-1">
           {visibleRoots.map((c) => (
             <CommentItem
+              thumbs={thumbs}
               key={c.id}
               comment={c}
               replies={repliesOf.get(c.id) ?? []}
@@ -314,11 +339,12 @@ const AUTHOR_META: Record<CommentAuthorType, { color: string; icon: string }> = 
 const CommentItem: React.FC<{
   comment: TodoComment
   replies: TodoComment[]
+  thumbs: Record<string, string>
   humanName?: string
   focusCommentId?: string | null
   onReply: (c: TodoComment) => void
   onDelete: (c: TodoComment) => void
-}> = ({ comment, replies, humanName, focusCommentId, onReply, onDelete }) => {
+}> = ({ comment, replies, thumbs, humanName, focusCommentId, onReply, onDelete }) => {
   const kind = KIND_META[comment.kind]
   const author = AUTHOR_META[comment.authorType]
   return (
@@ -327,6 +353,7 @@ const CommentItem: React.FC<{
         comment={comment}
         kind={kind}
         author={author}
+        thumbs={thumbs}
         humanName={humanName}
         highlighted={comment.id === focusCommentId}
         onReply={onReply}
@@ -339,6 +366,7 @@ const CommentItem: React.FC<{
             comment={r}
             kind={KIND_META[r.kind]}
             author={AUTHOR_META[r.authorType]}
+            thumbs={thumbs}
             humanName={humanName}
             highlighted={r.id === focusCommentId}
             onReply={onReply}
@@ -354,11 +382,12 @@ const CommentRow: React.FC<{
   comment: TodoComment
   kind: { label: string; color: string } | null
   author: { color: string; icon: string }
+  thumbs: Record<string, string>
   humanName?: string
   highlighted?: boolean
   onReply: (c: TodoComment) => void
   onDelete: (c: TodoComment) => void
-}> = ({ comment, kind, author, humanName, highlighted, onReply, onDelete }) => (
+}> = ({ comment, kind, author, thumbs, humanName, highlighted, onReply, onDelete }) => (
   <div
     id={`todo-comment-${comment.id}`}
     data-comment-id={comment.id}
@@ -389,6 +418,37 @@ const CommentRow: React.FC<{
       <div data-testid="comment-body">
         <MarkdownContent content={comment.body} className="gap-1" />
       </div>
+      {/**
+       * 评论附图（1.0.146）：截图直接显示在评论下面，不再是一行路径文字。
+       * 非图片附件只列名字 —— 点开交给系统默认程序这件事在卡片附件区已经做了，
+       * 这里再放一份入口只会让人不知道点哪个。
+       */}
+      {!!comment.attachments?.length && (
+        <div className="mt-1.5 flex flex-wrap items-start gap-1.5" data-testid={`comment-attachments-${comment.id}`}>
+          {comment.attachments.map((item) =>
+            item.kind === 'image' ? (
+              thumbs[item.id] ? (
+                <img
+                  key={item.id}
+                  src={thumbs[item.id]}
+                  alt={item.name}
+                  title={item.name}
+                  data-testid={`comment-attachment-image-${item.id}`}
+                  className="max-h-40 w-auto rounded-button border border-border bg-surface-subtle"
+                />
+              ) : (
+                <span key={item.id} className="text-caption text-text-secondary">
+                  {item.name}
+                </span>
+              )
+            ) : (
+              <span key={item.id} className="text-caption text-text-secondary">
+                附件：{item.name}
+              </span>
+            )
+          )}
+        </div>
+      )}
       {/*
         元信息一行：时间在左，回复/删除靠右（卡 `35fa2cbc`）
 
