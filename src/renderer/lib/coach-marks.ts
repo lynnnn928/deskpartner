@@ -79,7 +79,13 @@ export const COACH_MARKS: CoachMarkDef[] = [
     anchor: '[data-coach-target="approval-nav"]',
     placement: 'below',
     title: '批准它的身份',
-    body: '点「审批」，再在它的申请上点「批准」。批了它才能写项目资料、登记事项；批完这条自己就消失了。'
+    /**
+     * 46 字 → 35 字（评审 round 2 第三节第 2 条）：删的是「批完这条自己就消失了」。
+     *
+     * 按「删掉这句会不会做错」自检：气泡关不关掉是它自己的事，
+     * 人要做的是「点审批 → 点批准」，前两句已经说全了。
+     */
+    body: '点「审批」，再在它的申请上点「批准」。批了它才能写项目资料、登记事项。'
   },
   {
     id: 'about-save',
@@ -103,7 +109,14 @@ export const COACH_MARKS: CoachMarkDef[] = [
     id: 'decide',
     anchor: '[data-coach-target="status-actions"]',
     title: '这一下由你定',
-    body: `把状态从「${PROPOSED}」改成「${TODO}」，再点「提交保存」，助手才会开工去做；不想做就改成「已废弃」。停在「${PROPOSED}」，它就一直等你点头。`
+    /**
+     * 63 字 → 29 字（评审 round 2 第三节第 3 条）
+     *
+     * 砍掉的是「不想做就改成『已废弃』」和「停在『待确认』，它就一直等你点头」：
+     * 前一句在状态下拉里看得见，后一句是解释而不是动作。
+     * 留下三件必须做的事：改哪两个状态、点「提交保存」、改完谁会动。
+     */
+    body: `把「${PROPOSED}」改成「${TODO}」，再点「提交保存」，助手才会开工。`
   }
 ]
 

@@ -189,6 +189,27 @@ describe('就地提示：选哪一处', () => {
   })
 
   /**
+   * 正文 45 字上限（评审 round 2 第三节）：`approval` 46 字、`decide` 63 字都超了。
+   * 这一条把它们钉在同一个数上 —— 以后再想加一句话，先想清楚删掉哪一句。
+   */
+  it('六处正文都不超过 45 字、标题不超过 8 字（一个字符算一个字）', () => {
+    const chars = (text: string): number => [...text].length
+    for (const mark of COACH_MARKS) {
+      expect(chars(mark.body), `${mark.id} 正文 ${chars(mark.body)} 字`).toBeLessThanOrEqual(45)
+      expect(chars(mark.title), `${mark.id} 标题 ${chars(mark.title)} 字`).toBeLessThanOrEqual(8)
+    }
+  })
+
+  /** 评审 round 2 第三节第 3 条：`decide` 63 字 → 29 字 */
+  it('状态那一处气泡已压到上限内，且仍点名两个状态与提交保存', () => {
+    const decide = COACH_MARKS.find((mark) => mark.id === 'decide')
+    expect([...(decide?.body ?? '')].length).toBeLessThanOrEqual(45)
+    expect(decide?.body).toContain('「待确认」改成「待办」')
+    expect(decide?.body).toContain('提交保存')
+    expect(decide?.body).toContain('助手才会开工')
+  })
+
+  /**
    * 选择器写对不等于挂上去了：锚点名必须真的出现在那几处控件上，
    * 宿主也必须真的挂在看板窗口里。少一处，气泡就永远等不到锚点、
    * 静默不出现 —— 这种缺陷 tsc 与上面的选路用例都抓不到。
