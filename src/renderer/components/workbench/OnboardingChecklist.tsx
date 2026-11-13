@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { Button } from '../ui/Button'
 import { invoke } from '../../lib/ipc-client'
@@ -9,6 +9,13 @@ import { useOnboardingStatus } from '../../lib/use-onboarding-status'
 import { useCliAccess } from '../../lib/use-cli-access'
 import { buildMigratePrompt, buildFirstProjectPrompt } from '../../lib/onboarding-prompts'
 import { rememberOnboardingJump } from '../../lib/coach-marks'
+import { cn } from '../../lib/utils'
+import {
+  ONBOARDING_STEP_ORDER,
+  ONBOARDING_STEP_TITLES,
+  onboardingStageKeys,
+  type OnboardingStepKey
+} from '../../lib/onboarding'
 
 /**
  * 首屏上手清单（卡 `a19054a1`）
@@ -42,7 +49,7 @@ export interface OnboardingChecklistProps {
   forceOpen?: boolean
 }
 
-type StepKey = 'agent' | 'approved' | 'basics' | 'protocol' | 'handoff'
+type StepKey = OnboardingStepKey
 
 interface StepRow {
   key: StepKey
@@ -57,9 +64,7 @@ interface StepRow {
   secondary?: { label: string; onClick: () => void }
 }
 
-const STAGE_MAIN: StepKey[] = ['agent', 'approved', 'handoff']
-const STAGE_REST: StepKey[] = ['basics', 'protocol']
-const ALL_KEYS: StepKey[] = [...STAGE_MAIN, ...STAGE_REST]
+const ALL_KEYS: StepKey[] = ONBOARDING_STEP_ORDER
 
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const { status, coreDone, doneCount, reload } = useOnboardingStatus()
@@ -72,11 +77,42 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const settings = useSettingsStore((s) => s.settings)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
   const cliAccess = useCliAccess()
+  const focusStep = useUIStore((s) => s.onboardingFocusStep)
+  const setFocusStep = useUIStore((s) => s.setOnboardingFocusStep)
+  /** 从审批页回来看这一行时，短暂标一下它 —— 光滚过去，人还是不知道看哪儿 */
+  const [flashFocus, setFlashFocus] = useState(false)
   const [name, setName] = useState(settings?.humanName ?? '')
   /** 第 1 行复制过、但助手还没注册 —— 这一行要停在等待态，而不是弹回原样 */
   const [agentPromptCopied, setAgentPromptCopied] = useState(false)
   /** 第 5 行刚复制过：只是两秒的按钮反馈，不需要等待态 */
   const [justCopied, setJustCopied] = useState(false)
+
+  /**
+   * 有人点了「回我的工作」要看见当前这一行（1.0.148）
+   *
+   * 为什么用定时器而不是直接 scrollIntoView：这一下是**跨视图**来的，
+   * 视图切换要等这一次渲染落地，行元素才在文档里；同一次提交里量到的位置是旧的。
+   * 清空放第二次定时器：锚是给"这一次回来"的，留着会让下次进页面又跳一次。
+   *
+   * 这个 effect 必须在下面 `if (hidden)` 之前：收起与展开是同一组状态在切换，
+   * hook 挂到提前返回之后，一收一展就会撞上"渲染的 hook 数量变了"。
+   */
+  useEffect(() => {
+    if (!focusStep) return
+    const scrollTimer = window.setTimeout(() => {
+      const el = document.querySelector(`[data-testid="onboarding-row-${focusStep}"]`)
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      setFlashFocus(true)
+    }, 60)
+    const clearTimer = window.setTimeout(() => {
+      setFlashFocus(false)
+      setFocusStep(null)
+    }, 2600)
+    return () => {
+      window.clearTimeout(scrollTimer)
+      window.clearTimeout(clearTimer)
+    }
+  }, [focusStep, setFocusStep])
 
   const nameMissing = !settings?.humanNameAsked
   /**
@@ -163,7 +199,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const rows: Record<StepKey, StepRow> = {
     agent: {
       key: 'agent',
-      title: '接入 AI 助手',
+      title: ONBOARDING_STEP_TITLES.agent,
       done: status.hasRegisteredAgent,
       hint: agentPromptCopied
         ? '已复制。发给助手后回到这里——它申请接入时，这一行会自己变。'
@@ -175,7 +211,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     },
     approved: {
       key: 'approved',
-      title: '批准它的身份',
+      title: ONBOARDING_STEP_TITLES.approved,
       done: status.hasApprovedCredential,
       hint: pendingAgentName
         ? `${pendingAgentName} 申请写入你的项目。批准前它只能读。`
@@ -184,14 +220,14 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     },
     basics: {
       key: 'basics',
-      title: '写下关于我',
+      title: ONBOARDING_STEP_TITLES.basics,
       done: status.basicsConfirmed,
       hint: '点「去写关于我」，在「基本情况」写下怎么称呼你，点「保存并确认」。',
       action: { label: '去写关于我', onClick: openAbout }
     },
     protocol: {
       key: 'protocol',
-      title: '确认协作约定',
+      title: ONBOARDING_STEP_TITLES.protocol,
       done: status.globalProtocolConfirmed,
       hint: '五条默认规则：分工、交接、留痕、沟通、语言。按当前内容生效。',
       action: { label: '一键确认', onClick: () => void confirmProtocol() },
@@ -199,7 +235,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     },
     handoff: {
       key: 'handoff',
-      title: '建第一个项目',
+      title: ONBOARDING_STEP_TITLES.handoff,
       done: status.projectHandoffConfirmed,
       hint: approvedAgentName
         ? `复制这段话发给 ${approvedAgentName}，它会建好项目，再提第一条事项等你拍板。`
@@ -212,7 +248,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   }
 
   /** 全部做完时（用户手动点开查看）把五行都列出来；否则只列当前这一段 */
-  const stageKeys = allDone ? ALL_KEYS : coreDone ? STAGE_REST : STAGE_MAIN
+  const stageKeys = allDone ? ALL_KEYS : onboardingStageKeys(status)
   const stageRows = stageKeys.map((key) => rows[key])
   const currentIndex = stageRows.findIndex((row) => !row.done)
   const doneRows = currentIndex < 0 ? stageRows : stageRows.slice(0, currentIndex)
@@ -281,7 +317,10 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
           <div
             key={current.key}
             data-testid={`onboarding-row-${current.key}`}
-            className="flex items-start gap-2 py-1"
+            className={cn(
+              'flex items-start gap-2 py-1 rounded-button transition-shadow',
+              flashFocus && focusStep === current.key && 'ring-2 ring-accent/40 bg-accent/5 px-1.5'
+            )}
           >
             <span className="mt-1 w-4 h-4 rounded-full border border-accent shrink-0" />
             <div className="min-w-0 flex-1">

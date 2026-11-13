@@ -145,13 +145,44 @@ describe('AgentRepository 授权窗口（待表态 vs 已批准）', () => {
     }
 
     const page = agents.listApprovalHistory({ offset: 200, limit: 20 })
-    expect(page.total).toBe(207)
-    expect(page.rows).toHaveLength(7)
+    // 205 条授权 + 1 条表态（接入申请已被表态，不再单独占一行，见下一条用例）
+    expect(page.total).toBe(206)
+    expect(page.rows).toHaveLength(6)
     expect(page.rows.every((row) => row.activityAt)).toBe(true)
     const identity = agents.listApprovalHistory({ offset: 0, limit: 20, type: 'agent' })
-    expect(identity.total).toBe(2)
-    expect(identity.rows.map((row) => row.decision).sort()).toEqual(['approved', 'pending'])
+    expect(identity.total).toBe(1)
+    expect(identity.rows.map((row) => row.decision)).toEqual(['approved'])
     expect(agents.listApprovalHistory({ offset: 0, limit: 20, decision: 'approved' }).rows.every((row) => row.decision === 'approved')).toBe(true)
+  })
+
+  /**
+   * 1.0.148：主用户实测的"同一个 Testbot 出现两条记录"
+   *
+   * 21:26 注册、21:27 批准 —— 审批记录里却同时有「21:26 待处理」和
+   * 「21:27 已批准 / 已生效」，前一条永远停着、点开也没有任何动作。
+   * 根因不是注册了两次（`register()` 对已有身份只更新展示名、不再写事件），
+   * 而是 `registered` 事件被当成一条"待处理申请"永久陈列：身份表态之后它不会关。
+   *
+   * 判据：接入申请只在**还没有人表态**时占一行；一表态，流水里只剩表态那一条。
+   */
+  it('接入申请在有人表态之后不再作为"待处理"单独占一行', () => {
+    agents.register({ id: 'agent:early', displayName: 'Early' })
+
+    const beforeDecision = agents.listApprovalHistory({ offset: 0, limit: 20, type: 'agent' })
+    expect(beforeDecision.rows.map((row) => row.decision)).toEqual(['pending'])
+
+    agents.setApproved('agent:early', true)
+
+    const afterDecision = agents.listApprovalHistory({ offset: 0, limit: 20, type: 'agent' })
+    expect(afterDecision.total).toBe(1)
+    expect(afterDecision.rows.map((row) => row.decision)).toEqual(['approved'])
+    expect(afterDecision.rows[0].decidedBy).toBe('human')
+
+    // 被拒绝也是同一个道理：决定已经落下，申请不该继续挂在"待处理"里
+    agents.register({ id: 'agent:late', displayName: 'Late' })
+    agents.setRejected('agent:late', true)
+    const refused = agents.listApprovalHistory({ offset: 0, limit: 20, type: 'agent', decision: 'pending' })
+    expect(refused.total).toBe(0)
   })
 
   it('统一审批流水包含接手说明提议的原文、决定正文和项目来源', () => {

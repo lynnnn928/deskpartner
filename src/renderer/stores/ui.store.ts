@@ -3,6 +3,7 @@ import type { TodoStatus, TodoPriority, TodoType } from '../types/enums'
 import type { Todo } from '../types/todo'
 import { DEFAULT_TIME_RANGE, type TimeRange } from '../lib/timeline-group'
 import type { DueScope } from '../lib/due-scope'
+import type { OnboardingStepKey } from '../lib/onboarding'
 
 /**
  * 一次可撤销的操作（1.0.48 做真）
@@ -309,6 +310,17 @@ interface UIState {
    */
   focusGrantId: string | null
   setFocusGrantId: (id: string | null) => void
+
+  /**
+   * 「回我的工作」时要让用户看见哪一行清单（1.0.148，主用户 2026-11-13 实测）
+   *
+   * 她在审批页批准完的身份后断在那里：「没有一句接下来去哪」。
+   * 回执里的按钮把视图切回「我的工作」，但切换本身只会把人丢到页面顶部 ——
+   * 清单里当前那一步可能已经滚出视口，看起来像"点了没反应"。
+   * 所以这里放一个**一次性**的锚：清单读完就清空，不落库。
+   */
+  onboardingFocusStep: OnboardingStepKey | null
+  setOnboardingFocusStep: (step: OnboardingStepKey | null) => void
 }
 
 export interface PendingReject {
@@ -598,5 +610,7 @@ export const useUIStore = create<UIState>()((set) => ({
   pendingReject: null,
   setPendingReject: (p) => set({ pendingReject: p }),
   focusGrantId: null,
-  setFocusGrantId: (id) => set({ focusGrantId: id })
+  setFocusGrantId: (id) => set({ focusGrantId: id }),
+  onboardingFocusStep: null,
+  setOnboardingFocusStep: (step) => set({ onboardingFocusStep: step })
 }))

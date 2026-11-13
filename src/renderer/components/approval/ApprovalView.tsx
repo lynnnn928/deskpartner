@@ -11,6 +11,8 @@ import { invoke } from '../../lib/ipc-client'
 import { isForceConfirmableGrant, isPendingAgent, isPendingGrant } from '../../lib/grant-state'
 import { APPROVAL_ACTION, allowLabel, forceConfirmLabel, grantBadgeLabel } from '../../lib/approval-copy'
 import { useUIStore } from '../../stores/ui.store'
+import { useOnboardingStatus } from '../../lib/use-onboarding-status'
+import { nextOnboardingStep, ONBOARDING_STEP_TITLES } from '../../lib/onboarding'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useTodoStore } from '../../stores/todo.store'
 import { useProjectStore } from '../../stores/project.store'
@@ -321,6 +323,14 @@ export const ApprovalView: React.FC = () => {
     grantId?: string
     canForce?: boolean
   } | null>(null)
+  /**
+   * 刚刚批准了哪个身份（1.0.148，主用户 2026-11-13 实测）
+   *
+   * 她的原话：「审批完之后就断在这里了，对于刚安装这个应用的用户来说，会一脸懵」——
+   * 点完「批准」，那条申请从队列里消失、记录里多一行「已批准 / 已生效」，
+   * 然后就没有下一句了。这里留一份**回执**：谁被批了、下一步是哪一行。
+   */
+  const [approvedReceipt, setApprovedReceipt] = useState<{ agentName: string } | null>(null)
   const [profileProposals, setProfileProposals] = useState<ProfileProposal[]>([])
   const [protocolProposals, setProtocolProposals] = useState<ProfileProposal[]>([])
   const [handoffProposals, setHandoffProposals] = useState<HandoffProposal[]>([])
@@ -552,7 +562,17 @@ export const ApprovalView: React.FC = () => {
   const setApproved = async (id: string) => {
     setBusy(id)
     setError(null)
-    try { await invoke('agent:setApproved', { id, approved: true }); await refresh() } catch (e) { setError((e as Error).message) } finally { setBusy(null) }
+    setApprovedReceipt(null)
+    try {
+      await invoke('agent:setApproved', { id, approved: true })
+      await refresh()
+      /** 记下"刚批准了谁"：成功之后这一屏必须回答"接下来去哪"，不能只留一行记录 */
+      setApprovedReceipt({ agentName: nameOf(id) })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
   }
   const setRejected = async (id: string, rejected: boolean) => {
     setBusy(id)
@@ -575,6 +595,30 @@ export const ApprovalView: React.FC = () => {
     return () => window.clearTimeout(timer)
   }, [focusGrantId, setFocusGrantId])
 
+  /**
+   * 下一步是哪一行 —— 取清单当前行（`nextOnboardingStep`），不在这里另写一份顺序
+   *
+   * 主用户的原话是「文案按当前真实清单状态给，别写死」：她这次的下一步可能是
+   * 「写下关于我」，换一个人、换一台机器就可能是「建第一个项目」或者「都做完了」。
+   */
+  const onboarding = useOnboardingStatus(agents)
+  const nextStepKey = nextOnboardingStep(onboarding.status)
+  const nextStepTitle = nextStepKey ? ONBOARDING_STEP_TITLES[nextStepKey] : null
+
+  /**
+   * 回「我的工作」，并让当前那一行出现在视口里（1.0.148）
+   *
+   * 三件事缺一不可：切视图（= 侧栏那个入口）、把清单摊开（可能被收起过）、
+   * 给出一次性锚（`onboardingFocusStep`，清单读完自己清掉）。
+   * 只做第一件的话，人落在页面顶部、清单在下面几屏之外，会以为按钮没反应。
+   */
+  const returnToWork = (): void => {
+    const ui = useUIStore.getState()
+    ui.setOnboardingChecklistState({ dismissed: false, reopened: true })
+    ui.setOnboardingFocusStep(nextStepKey)
+    ui.enterWorkbench()
+  }
+
   /** 有没有登记过任何助手：没有时"当前无待处理申请"会误导人 —— 那是在叫他去接入，不是"一切正常" */
   const anyAgent = useAgentStore((state) => state.agents.length > 0)
   const cliAccess = useCliAccess()
@@ -587,6 +631,42 @@ export const ApprovalView: React.FC = () => {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
       <div className="max-w-page mx-auto flex flex-col gap-5">
+        {/* ── 零、批准回执：批完这一屏要回答"接下来去哪"（1.0.148，主用户实测） ── */}
+        {approvedReceipt && (
+          <section
+            role="status"
+            data-testid="approval-approved-receipt"
+            className="rounded-card border border-border bg-bg-card px-4 py-3 flex items-center justify-between gap-4 shadow-sm"
+          >
+            <div className="min-w-0 grid gap-0.5">
+              <p className="text-content font-medium text-text-primary inline-flex items-center gap-2">
+                <Icon name="checkCircle" size={15} className="text-success shrink-0" />
+                <span className="break-words">
+                  已批准「{approvedReceipt.agentName}」，它现在可以读写事项和项目。
+                </span>
+              </p>
+              <p className="text-label text-text-secondary">
+                {nextStepTitle
+                  ? `下一步：${nextStepTitle}。回「我的工作」，清单就停在这一行。`
+                  : '上手清单已经走完，剩下的都在「我的工作」里。'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button size="sm" variant="ghost" onClick={() => setApprovedReceipt(null)}>
+                关闭
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                data-testid="approval-back-to-work"
+                onClick={returnToWork}
+              >
+                回「我的工作」
+              </Button>
+            </div>
+          </section>
+        )}
+
         {/* ── 一、待审批队列：支持点击查看申请详情与关联事项 ── */}
         {showPendingPanel && (
           <section aria-label="待审批" className="flex flex-col gap-3 pb-3 border-b border-border/60">
@@ -1088,15 +1168,26 @@ export const ApprovalView: React.FC = () => {
               </div>
 
               {!showPendingPanel &&
+                !approvedReceipt &&
                 (anyAgent ? (
+                  /**
+                   * 队列空了的时候说"待审批 · 当前无待处理申请"是在报一个空事实（1.0.148）。
+                   * 主用户的原话：「这里没有别的了，回『我的工作』继续」——
+                   * 空下来的时候人要的不是状态，是往哪走，所以这里给同一颗返回按钮。
+                   */
                   <div
-                    aria-label="待审批"
+                    data-testid="approval-nothing-else"
                     className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-bg-card px-3 py-1 text-caption text-text-secondary"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-                    <span className="font-medium text-text-primary">待审批</span>
-                    <span>·</span>
-                    <span>当前无待处理申请</span>
+                    <span>这里没有别的了，</span>
+                    <button
+                      type="button"
+                      onClick={returnToWork}
+                      className="text-accent hover:underline decoration-accent/40 underline-offset-2 cursor-pointer"
+                    >
+                      回「我的工作」继续
+                    </button>
                   </div>
                 ) : (
                   /** 还没有任何助手：这里的正确答案不是"无待处理"，而是"去接入一个" */

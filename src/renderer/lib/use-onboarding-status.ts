@@ -2,7 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke, on } from './ipc-client'
 import { useAgentStore } from '../stores/agent.store'
 import { useProjectStore } from '../stores/project.store'
-import { getOnboardingStatus, type OnboardingBlockState, type OnboardingStatus } from './onboarding'
+import {
+  getOnboardingStatus,
+  isOnboardingCoreDone,
+  type OnboardingAgentState,
+  type OnboardingBlockState,
+  type OnboardingStatus
+} from './onboarding'
 
 /**
  * 上手清单的状态（卡 `a19054a1`）
@@ -33,7 +39,14 @@ const EMPTY: OnboardingStatus = {
   projectHandoffConfirmed: false
 }
 
-export function useOnboardingStatus(): OnboardingSnapshot {
+/**
+ * @param freshAgents 调用方手里更新鲜的身份清单（审批页刚批准完就是这种情况）
+ *
+ * 判据仍从真实数据推算，但"哪一份数据"要让调用方选：审批页的 `agent:list`
+ * 是刚拉回来的，全局 store 可能要等下一轮广播 —— 用旧的那份算，回执会指着
+ * 「批准它的身份」，而人一秒钟前刚点过那颗按钮。
+ */
+export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): OnboardingSnapshot {
   const agents = useAgentStore((s) => s.agents)
   const projects = useProjectStore((s) => s.projects)
   const [profileBlocks, setProfileBlocks] = useState<OnboardingBlockState[]>([])
@@ -79,10 +92,11 @@ export function useOnboardingStatus(): OnboardingSnapshot {
     }
   }, [reload])
 
-  const status = agents
-    ? getOnboardingStatus(agents, profileBlocks, protocolBlocks, projects)
+  const statusAgents = freshAgents ?? agents
+  const status = statusAgents
+    ? getOnboardingStatus(statusAgents, profileBlocks, protocolBlocks, projects)
     : EMPTY
-  const coreDone = status.hasRegisteredAgent && status.hasApprovedCredential && status.projectHandoffConfirmed
+  const coreDone = isOnboardingCoreDone(status)
   /**
    * 计数算**界面上真有那一步**的五项。
    *

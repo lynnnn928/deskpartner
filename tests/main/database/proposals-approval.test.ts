@@ -103,13 +103,14 @@ describe('档案与协议提议审批快照', () => {
     protocol.propose({ scope: 'global' }, 'communication', '新协议', 'agent:history')
 
     const all = agentRepo.listApprovalHistory({ offset: 0, limit: 20 })
-    expect(all.total).toBe(5)
-    expect(all.rows.map((row) => row.type).sort()).toEqual(['agent', 'agent', 'grant', 'profile', 'protocol'])
+    // 身份被批准之后，「接入申请」那条 registered 事件不再单独成行（1.0.148）
+    expect(all.total).toBe(4)
+    expect(all.rows.map((row) => row.type).sort()).toEqual(['agent', 'grant', 'profile', 'protocol'])
     const profileHistory = agentRepo.listApprovalHistory({ offset: 0, limit: 20, type: 'profile' })
     expect(profileHistory.rows[0]).toMatchObject({ originalBody: '原档案', proposedBody: '新档案', decidedBody: '确认档案', decision: 'approved' })
     const protocolHistory = agentRepo.listApprovalHistory({ offset: 0, limit: 20, type: 'protocol' })
     expect(protocolHistory.rows[0]).toMatchObject({ originalBody: '原协议', proposedBody: '新协议', decision: 'pending' })
-    expect(agentRepo.listApprovalHistory({ offset: 0, limit: 20, type: 'agent' }).rows).toHaveLength(2)
+    expect(agentRepo.listApprovalHistory({ offset: 0, limit: 20, type: 'agent' }).rows).toHaveLength(1)
     expect(agentRepo.listApprovalHistory({ offset: 0, limit: 20, type: 'grant' }).rows).toHaveLength(1)
   })
 

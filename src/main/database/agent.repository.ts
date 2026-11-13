@@ -237,6 +237,22 @@ export interface ApprovalHistoryPage {
   limit: number
 }
 
+/**
+ * 已经有人表过态的「接入申请」不再单独成行（1.0.148，主用户实测）
+ *
+ * 事故形状：Testbot 21:26 注册（一条 registered 事件）、21:27 被批准（一条
+ * approved 事件）——本应是两条**互斥**的呈现，结果审批记录里同时挂着
+ * 「21:26 待处理」和「21:27 已批准 / 已生效」。前一条永远停在"待处理"，
+ * 点开也没有任何可做的动作：它代表的申请早在 21:27 就有结论了。
+ *
+ * 判据因此改成"申请只在**还没有人表态**时占一行"：身份一旦被批准或拒绝，
+ * 那条 registered 事件就不进审批流水（表态那一条自己会出现在里面，
+ * 时间、处理人、结论都在）。这不是丢审计 —— 注册时刻仍在 `agents.created_at`
+ * 与团队成员卡上，审批流水记的是**人的决定**，同一件事不该记两遍。
+ *
+ * 用 ag.approved / ag.rejected_at 而不是"有没有后续事件"：撤销（revoked）之后
+ * 身份又回到未批准状态，那时"等你表态"是真的，这一行该回来。
+ */
 const APPROVAL_HISTORY_CTE = `
   WITH approval_events AS (
     SELECT g.id, 'grant' AS type, g.agent_id AS agent_id,
@@ -286,6 +302,13 @@ const APPROVAL_HISTORY_CTE = `
       NULL, 'Agent 接入 · ' || e.action,
       NULL, NULL, NULL, 'not_required', NULL, NULL, NULL
     FROM agent_approval_events e
+    LEFT JOIN agents ag ON ag.id = e.agent_id
+    -- 已表态的接入申请不单独占一行，判据见该常量上方的说明
+    WHERE NOT (
+      e.action = 'registered'
+      AND ag.id IS NOT NULL
+      AND (ag.approved = 1 OR ag.rejected_at IS NOT NULL)
+    )
   )
 `
 
