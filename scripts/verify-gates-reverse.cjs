@@ -35,6 +35,14 @@ const ROOT = path.resolve(__dirname, '..')
  * - `gate`：被测闸门文件
  * - `cases`：`[名字, 相对路径, 原文片段, 替换成, 期望]`
  *   期望 Δ = 'red'（违规，闸门应当变红）/ 'green'（噪音，闸门应当仍绿）
+ *
+ * `原文片段` 可以是一段字符串（占大多数），也可以是**正则**；
+ * `替换成` 可以是字符串，也可以是 `(matched) => string` 的函数。
+ *
+ * 为什么要这两种写法（2026-11-14，清单顺序那组）：那组用例要求"挪的是真实的一行"，
+ * 而真实的一行很长、会随文案改。正则只钉住那一行的开头，函数按行取正文再重排 ——
+ * 用例里没有一句是作者编的假文本，文案改了也不会变成「锚点失配」，
+ * 除非真那一行没了（那时它本来就该失配）。
  */
 const GROUPS = [
   {
@@ -278,26 +286,65 @@ const GROUPS = [
      *
      * 这是**源码闸门**：只读提示词与清单两个文件，不碰数据库，所以能挂在
      * `process.execPath` 起的 vitest 上（bare node 起 better-sqlite3 会红）。
+     *
+     * ── 为什么这一组全改成「挪真行」（2026-11-14，fable-5.2 复核）──
+     *
+     * 上一版的 ① 是**作者设想出来的违规**：往提示词里塞一句「先 project add」，
+     * 而 `project add` 在两版全流程提示词里根本不存在（它只活在
+     * `buildFirstProjectPrompt` / `buildProjectPrompt` 里）。这种用例只能证明
+     * "闸门会读那串字"，不能证明"闸门认得出真挪了一步"。
+     * 现在每条都拿提示词里**真实存在的那几行**做：挪、删、复制，正文一个字不编。
      */
     name: '清单顺序 = 开场提示词顺序（onboarding-order-matches-prompt.test.ts）',
     gate: 'tests/renderer/lib/onboarding-order-matches-prompt.test.ts',
     cases: [
       [
-        '① 把建项目提到最前（主用户否掉的"注册审批完就建第一个项目"）',
+        '① 把项目那一步剪到档案之前（真实三行重排，编号留在原地 —— 主用户否掉的顺序）',
         'src/renderer/lib/onboarding-prompts.ts',
-        '请按以下顺序工作：\n1. 按上面的接入地址读取接入说明，了解命令和规则。',
-        '请按以下顺序工作：\n0. 先 project add 把第一个项目建出来，档案回头再补。\n1. 按上面的接入地址读取接入说明，了解命令和规则。',
+        /^4\. 在对话中与主用户确认[\s\S]*?^6\. 询问主用户是否要把现有项目登记[^\n]*$/m,
+        /** 取匹配到的三行正文本体，按 6 → 4 → 5 重排，编号照旧从 4 开始编 */
+        (matched) =>
+          [2, 0, 1]
+            .map((from, i) => `${4 + i}. ${matched.split('\n')[from].replace(/^\d+\.\s+/, '')}`)
+            .join('\n'),
         'red'
       ],
       [
-        '② 把档案与约定的两步对调（先确认约定再写档案）',
+        '② 把「接手说明」那一步整行删掉（锚点命中 0 个编号步骤）',
         'src/renderer/lib/onboarding-prompts.ts',
-        '4. 在对话中与主用户确认其基本情况、工作习惯、授权边界和完成标准，起草档案修改提议（profile propose），交主用户在审批页采纳。\n5. 与主用户确认协作协议内容：**先用 protocol get 看有没有已确认的协议**。已确认就别再发起 protocol propose（那会让人重复审批同一份东西）；未确认或有要改的地方，再起草提议交主用户在审批页采纳。',
-        '5. 与主用户确认协作协议内容：**先用 protocol get 看有没有已确认的协议**。已确认就别再发起 protocol propose（那会让人重复审批同一份东西）；未确认或有要改的地方，再起草提议交主用户在审批页采纳。\n4. 在对话中与主用户确认其基本情况、工作习惯、授权边界和完成标准，起草档案修改提议（profile propose），交主用户在审批页采纳。',
+        /^6\. 询问主用户是否要把现有项目登记[^\n]*\n/m,
+        '',
         'red'
       ],
       [
-        '③ 注释里写反序命令（说明文字不该把闸门惹红）',
+        '③ 把「协作约定」那一步复制成两行（锚点命中 2 个编号步骤）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^5\. 与主用户确认协作协议内容[^\n]*$/m,
+        (matched) => `${matched}\n${matched}`,
+        'red'
+      ],
+      [
+        /**
+         * 纯搬家：把 `buildFirstProjectPrompt` 的**定义**整个提到
+         * `buildMigratePrompt` 前面。提示词一个字没改，助手拿到的东西一模一样。
+         *
+         * 上一版闸门在这里**是红的**（它在文件里找首次出现位置，`project add`
+         * 一旦提前，全文件顺序就变了），而它真正该守的东西一点没变。
+         * 这一条就是那个假红的回归用例。
+         */
+        '④ 只把函数定义搬了位置（提示词一个字没改，不该变红）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^export function buildMigratePrompt\([\s\S]*$/m,
+        (matched) => {
+          const chunks = matched.split(/(?=^export function )/m)
+          const at = chunks.findIndex((c) => c.startsWith('export function buildFirstProjectPrompt'))
+          const moved = chunks.splice(at, 1)[0]
+          return [moved, ...chunks].join('')
+        },
+        'green'
+      ],
+      [
+        '⑤ 注释里写反序命令（说明文字不该把闸门惹红）',
         'src/renderer/lib/onboarding-prompts.ts',
         'const HARD_RULES = `',
         '// 反例（只是注释）：project add 早于 profile propose 也不是产品顺序\nconst HARD_RULES = `',
@@ -346,12 +393,15 @@ for (const g of GROUPS) {
      */
     const crlf = original.includes('\r\n')
     const normalized = crlf ? original.replace(/\r\n/g, '\n') : original
-    if (!normalized.includes(from)) {
+    /** 锚点可以是字符串（`includes`）或正则（只问"还在不在"） */
+    const anchorFound =
+      from instanceof RegExp ? from.test(normalized) : normalized.includes(from)
+    if (!anchorFound) {
       console.log(`⚠️  [锚点失配] ${name}：在 ${rel} 中找不到要替换的锚点片段，跳过（用例锚点已失配，核对闸门与实现是否已同步）`)
       all.push([g.name, name, 'SKIP', expect])
       continue
     }
-    // 注入 → 跑 → **无论如何都还原**
+    // 注入 → 跑 → **无论如何都还原**（`to` 是函数时 `replace` 会把它当 replacer 调）
     const injected = normalized.replace(from, to)
     fs.writeFileSync(abs, crlf ? injected.replace(/\n/g, '\r\n') : injected)
     let green
