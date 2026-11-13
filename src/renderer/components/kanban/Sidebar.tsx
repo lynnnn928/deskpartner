@@ -293,7 +293,9 @@ export const Sidebar: React.FC = () => {
       label: string,
       active: boolean,
       onClick: () => void,
-      badge?: number
+      badge?: number,
+      /** 就地提示的锚点名（卡 `a19054a1`）：只给引导要指的那一个按钮 */
+      coach?: string
     ) => (
       <button
         type="button"
@@ -302,6 +304,7 @@ export const Sidebar: React.FC = () => {
         aria-label={label}
         aria-current={active ? 'page' : undefined}
         data-active={active ? 'true' : 'false'}
+        data-coach-target={coach}
         className={cn(
           'relative shrink-0 w-9 h-9 flex items-center justify-center rounded-button transition-colors',
           active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-black/5 hover:text-text-primary'
@@ -350,7 +353,7 @@ export const Sidebar: React.FC = () => {
         <div className="flex flex-col items-center gap-1">
           {railButton('layers', '我的工作', workspaceMode === 'workbench' && mainView === 'board', enterWorkbench)}
           {railButton('bell', '通知', mainView === 'notifications', () => setMainView('notifications'), unreadCount)}
-          {railButton('shield', '审批', mainView === 'approval', () => setMainView('approval'), pendingCount)}
+          {railButton('shield', '审批', mainView === 'approval', () => setMainView('approval'), pendingCount, 'approval-nav')}
           {railButton('barChart', '统计', mainView === 'stats', () => nav('stats'))}
         </div>
 
@@ -458,7 +461,7 @@ export const Sidebar: React.FC = () => {
               我的工作
             </NavButton>
             <NavButton icon="bell" active={mainView === 'notifications'} onClick={() => setMainView('notifications')} badge={unreadCount}>通知</NavButton>
-            <NavButton icon="shield" active={mainView === 'approval'} onClick={() => setMainView('approval')} badge={pendingCount}>审批</NavButton>
+            <NavButton icon="shield" active={mainView === 'approval'} onClick={() => setMainView('approval')} badge={pendingCount} coach="approval-nav">审批</NavButton>
             <NavButton icon="barChart" active={mainView === 'stats'} onClick={() => nav('stats')}>统计</NavButton>
           </NavSection>
         </div>
@@ -926,8 +929,8 @@ const NavSection: React.FC<{ label: string; children: React.ReactNode }> = ({ la
   </section>
 )
 
-const NavButton: React.FC<{ icon: IconName; active: boolean; onClick: () => void; badge?: number; children: React.ReactNode }> = ({ icon, active, onClick, badge, children }) => (
-  <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} data-active={active ? 'true' : 'false'} className={cn('nav-item w-full flex items-center gap-2 px-2 py-1.5 rounded-button text-label transition-colors', active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-black/5 hover:text-text-primary')}>
+const NavButton: React.FC<{ icon: IconName; active: boolean; onClick: () => void; badge?: number; coach?: string; children: React.ReactNode }> = ({ icon, active, onClick, badge, coach, children }) => (
+  <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} data-active={active ? 'true' : 'false'} data-coach-target={coach} className={cn('nav-item w-full flex items-center gap-2 px-2 py-1.5 rounded-button text-label transition-colors', active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-black/5 hover:text-text-primary')}>
     <Icon name={icon} size={14} />
     <span className="flex-1 text-left">{children}</span>
     {!!badge && <span className={cn('text-caption font-mono', active ? 'opacity-90' : 'text-red-500')}>{badge}</span>}

@@ -113,6 +113,8 @@ export const WorkbenchView: React.FC = () => {
                   <button
                     key={todo.id}
                     type="button"
+                    data-coach-target="todo-row"
+                    data-todo-status={todo.status}
                     /**
                      * 详情就地展开在右栏（卡 `6ba3db21` / `35fa2cbc`）
                      *

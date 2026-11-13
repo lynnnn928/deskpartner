@@ -1231,7 +1231,7 @@ export const QuickAddForm: React.FC<QuickAddFormProps> = (props = {}) => {
       <div className="rounded-card border border-border bg-surface-subtle p-3 flex flex-col gap-2.5">
         {/* 状态（仅编辑模式） */}
         {editingTodoId && (
-          <div className="flex items-start gap-2.5 min-h-7">
+          <div className="flex items-start gap-2.5 min-h-7" data-coach-target="status-actions">
             <span className="w-20 shrink-0 text-label text-text-secondary inline-flex items-center gap-1.5 pt-1">
               <Icon name="circle" size={12} />
               <span>状态</span>

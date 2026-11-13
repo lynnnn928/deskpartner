@@ -20,6 +20,7 @@ import { ProjectDocsView } from '../components/project/ProjectDocsView'
 import { ViewScopeSwitcher } from '../components/kanban/ViewScopeSwitcher'
 import { WorkbenchView } from '../components/workbench/WorkbenchView'
 import { TodoDetailPanel } from '../components/kanban/TodoDetailPanel'
+import { CoachMarkHost } from '../components/onboarding/CoachMark'
 import { GlobalSearchView } from '../components/workbench/GlobalSearchView'
 import { useSettingsStore } from '../stores/settings.store'
 import { useProjectStore } from '../stores/project.store'
@@ -516,6 +517,9 @@ const Kanban: React.FC = () => {
             />
           )}
         </div>
+
+        {/* 就地提示：三处锚点（审批导航项 / 待确认那一行 / 状态按钮）全在这个窗口里 */}
+        <CoachMarkHost />
 
         {/* 全局轻提示：失败不能只落在控制台（1.0.48） */}
         <Toast />
