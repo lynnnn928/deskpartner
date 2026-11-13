@@ -1288,6 +1288,15 @@ todoRepo.delete(id, 'gui', 'human')
          * 不收就永久钉在屏幕最上层，看起来像"批准了但没生效"。
          */
         hideReminderBanners()
+        /**
+         * 批准/取消批准必须广播（1.0.146 走查发现）
+         *
+         * 不广播的后果不是"晚一点更新"，而是**界面在说与事实相反的话**：
+         * 清单还停在 1/5、②没勾，气泡继续指着审批页说"你的助手在门外"，
+         * 而库里它已经获准写入了。判据落到 'grant' —— agent store 只认
+         * `agent_register` 与 `grant` 两类（见该 store 的注释）。
+         */
+        broadcastDataChanged('grant', getWindows)
         return result
       })
   )

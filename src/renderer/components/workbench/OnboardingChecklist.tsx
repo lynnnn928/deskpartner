@@ -86,7 +86,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
         className="self-start inline-flex items-center gap-1.5 text-caption text-text-secondary hover:text-text-primary cursor-pointer"
       >
         <Icon name="checkCircle" size={13} />
-        接入完成 · 查看上手清单（{doneCount}/5）
+        接入完成 · 查看上手清单（{doneCount}/4）
       </button>
     )
   }
@@ -147,7 +147,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-caption text-text-secondary font-mono">{doneCount}/5</span>
+          <span className="text-caption text-text-secondary font-mono">{doneCount}/4</span>
           <button
             type="button"
             aria-label="收起上手清单"

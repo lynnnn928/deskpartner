@@ -72,7 +72,7 @@ describe('首屏上手清单', () => {
     expect(screen.getByTestId('onboarding-row-agent').textContent).toContain('接入你的 AI 助手')
     expect(screen.getByTestId('onboarding-action-agent').textContent).toContain('复制开场提示词')
     expect(screen.getByTestId('onboarding-action-approved').textContent).toContain('前往审批')
-    expect(screen.getByText('0/5', { exact: false })).toBeTruthy()
+    expect(screen.getByText('0/4', { exact: false })).toBeTruthy()
   })
 
   it('已批准且持凭据的助手：批准那一步打勾、动作按钮消失', async () => {
