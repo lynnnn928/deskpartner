@@ -39,13 +39,13 @@ const protocolBlocks = [
   { blockKey: 'language', body: '语言约定', confirmed: false }
 ]
 
-const agentOf = (approved: boolean) => ({
+const agentOf = (approved: boolean, hasCredential = approved) => ({
   id: 'bob',
   displayName: 'Bob',
   color: null,
   approved,
   rejectedAt: null,
-  hasCredential: approved,
+  hasCredential,
   createdAt: '2026-11-13T00:00:00.000Z',
   lastSeenAt: null,
   lastWriteAt: approved ? '2026-11-13T00:10:00.000Z' : null,
@@ -96,12 +96,50 @@ describe('首屏上手清单：只展开当前一行', () => {
   it('没有任何助手时，第 1 行是当前行：一句话 + 一个按钮', async () => {
     render(<OnboardingChecklist />)
     await waitFor(() => expect(screen.getByTestId('onboarding-checklist')).toBeTruthy())
-    expect(screen.getByTestId('onboarding-row-agent').textContent).toContain('接入 AI 助手')
-    expect(screen.getByTestId('onboarding-next-agent').textContent).toContain('发给你正在用的 AI 助手')
+    expect(screen.getByTestId('onboarding-row-agent').textContent).toContain('让助手来申请')
+    const hint = screen.getByTestId('onboarding-next-agent').textContent ?? ''
+    expect(hint).toContain('发给你正在用的助手')
+    // 这一勾的含义必须写在正文里：它来了 ≠ 你放行了（主用户 2026-11-13 抓到的错）
+    expect(hint).toContain('只代表它来了')
+    expect(hint).toContain('不算放行')
     expect(screen.getByTestId('onboarding-action-agent').textContent).toContain('复制开场提示词')
     // 它还停在"先做第 1 步"，指向审批页等于让人去看一张空列表
     expect(screen.queryByTestId('onboarding-action-approved')).toBeNull()
     expect(screen.getByText('0/5', { exact: false })).toBeTruthy()
+  })
+
+  /** 主用户 2026-11-13：「接入打勾不就是批准身份了吗，怎么还要批准身份呢？」 */
+  it('第 1 步一勾只说明它来了：卡头改口、第 2 步仍等着人批准', async () => {
+    useAgentStore.setState({ agents: [agentOf(false, false)] as never, loading: false })
+    render(<OnboardingChecklist />)
+    await waitFor(() => expect(screen.getByTestId('onboarding-row-approved')).toBeTruthy())
+    // 第 1 行已经打勾，卡头不能还说"先把助手接进来"
+    expect(screen.getByTestId('onboarding-row-agent').textContent).toBe('让助手来申请')
+    expect(screen.queryByText('先把你的 AI 助手接进来')).toBeNull()
+    expect(screen.getByText('它来了，等你批准')).toBeTruthy()
+    // 第 2 步是当前行：一句话 + 「前往审批」，还没有勾
+    expect(screen.getByTestId('onboarding-action-approved').textContent).toContain('前往审批')
+    expect(screen.getByText('1/5', { exact: false })).toBeTruthy()
+  })
+
+  /**
+   * 批准之后清单必须往前走 —— 凭据（`agent credential`）是助手下次连上时
+   * 自己领的，人这一侧没有可点的东西，不该让第 2 行等人等不到的东西。
+   */
+  it('批准了就勾第 2 行、计数 2/5；凭据没到手只补一句说明，不打回未完成', async () => {
+    useAgentStore.setState({ agents: [agentOf(true, false)] as never, loading: false })
+    render(<OnboardingChecklist />)
+    await waitFor(() => expect(screen.getByTestId('onboarding-row-approved')).toBeTruthy())
+    expect(screen.getByText('2/5', { exact: false })).toBeTruthy()
+    // 第 2 行在"已完成"那一段里，只剩标题
+    expect(screen.getByTestId('onboarding-row-approved').textContent).toContain('批准它的身份')
+    // 凭据没到手：勾照打，说明挂在它下面
+    const note = screen.getByTestId('onboarding-note-approved')
+    expect(note.textContent).toContain('凭据还没到手')
+    expect(note.textContent).toContain('自己领')
+    // 当前行已经是建项目，不再把「批准它的身份」当下一步
+    expect(screen.queryByTestId('onboarding-action-approved')).toBeNull()
+    expect(screen.getByTestId('onboarding-row-handoff')).toBeTruthy()
   })
 
   it('当前步骤一句话不超过 45 字，其余步骤只有不超过 8 字的标题', async () => {
@@ -112,7 +150,7 @@ describe('首屏上手清单：只展开当前一行', () => {
 
     // 「接入」已经做完，只留标题：没有正文，标题短
     const doneRow = screen.getByTestId('onboarding-row-agent')
-    expect(doneRow.textContent).toBe('接入 AI 助手')
+    expect(doneRow.textContent).toBe('让助手来申请')
     expect(chars(doneRow.textContent)).toBeLessThanOrEqual(8)
 
     // 还没轮到的那几步收成一行灰字路线，不再各占一段

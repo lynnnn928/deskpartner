@@ -3,8 +3,10 @@ import { invoke, on } from './ipc-client'
 import { useAgentStore } from '../stores/agent.store'
 import { useProjectStore } from '../stores/project.store'
 import {
+  ONBOARDING_STEP_ORDER,
   getOnboardingStatus,
   isOnboardingCoreDone,
+  onboardingStepDone,
   type OnboardingAgentState,
   type OnboardingBlockState,
   type OnboardingStatus
@@ -33,6 +35,7 @@ export interface OnboardingSnapshot {
 
 const EMPTY: OnboardingStatus = {
   hasRegisteredAgent: false,
+  hasApprovedAgent: false,
   hasApprovedCredential: false,
   basicsConfirmed: false,
   globalProtocolConfirmed: false,
@@ -98,14 +101,18 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
     : EMPTY
   const coreDone = isOnboardingCoreDone(status)
   /**
-   * 计数算**界面上真有那一步**的五项。
+   * 计数算**界面上真有那一步**的五项，判据取自 `onboardingStepDone`。
    *
    * 1.0.146 走查时，`basicsConfirmed`（主用户基本情况）只在用户页那份清单里有行，
    * 「我的工作」停在 4/5 却只有四行可做，于是计数被砍到四步。主用户否掉了那个做法：
    * 屏上少一行不是修法，是把「还有一份关于自己的档案要填」这件事藏起来了。
    * 现在清单补回「关于我」那一行，计数按五个布尔数。
+   *
+   * ⚠️ 别改回 `Object.values(status).length`：`status` 里还有诊断用的
+   * `hasApprovedCredential`（用户页的设置清单要它），数它会把 5 步算成 6 步。
    */
-  const doneCount = Object.values(status).filter(Boolean).length
+  const done = onboardingStepDone(status)
+  const doneCount = ONBOARDING_STEP_ORDER.filter((key) => done[key]).length
 
   return { status, coreDone, doneCount, reload }
 }

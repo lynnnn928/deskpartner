@@ -40,9 +40,17 @@ import {
  * 于是：当前步骤 = 一句话 + 一个按钮（≤45 字）；其余步骤只留标题（≤8 字），
  * 还没轮到的那几步收成一行灰字「接下来：…」。同屏只有一个进度数 `n/5`。
  *
- * 五步与 `getOnboardingStatus` 的五个布尔一一对应：
- * 接入 → 批准 → 建第一个项目 →（再花一分钟）关于我 → 协作约定。
+ * 五步与 `getOnboardingStatus` 的五个布尔一一对应（判据表在 `onboardingStepDone`）：
+ * 让助手来申请 → 批准它的身份 → 建第一个项目 →（再花一分钟）关于我 → 协作约定。
  * 第二阶段只在主线三步完成后才出现：先让人把助手接进来，别一上来摊五行。
+ *
+ * ── 第 1、2 步为什么这样写（主用户 2026-11-13 当场抓到）──
+ *
+ * 她的原话：「接入打勾不就是批准身份了吗，怎么还要批准身份呢？」
+ * 第 1 步过去叫「接入 AI 助手」，却是一登记就打勾：勾说"接通了"，
+ * 下一行又说"还没批准"，自相矛盾。现在第 1 步叫「让助手来申请」，
+ * 勾只代表**它来敲过门**；正文最后一句把这个区别说透（这一勾不算放行）。
+ * 第 2 步只认批准，凭据没到手时在那一行下面补一句说明，不影响打勾。
  */
 export interface OnboardingChecklistProps {
   /** 收起状态下用户仍能看到入口（点了重新展开） */
@@ -62,6 +70,8 @@ interface StepRow {
   action: { label: string; onClick: () => void } | null
   /** 次按钮：给出的不是"再点一次"，而是"换条路也走得到" */
   secondary?: { label: string; onClick: () => void }
+  /** 打勾之后才出现的一句说明（不影响打勾）：目前只有"批了但凭据还没到"用 */
+  note?: string
 }
 
 const ALL_KEYS: StepKey[] = ONBOARDING_STEP_ORDER
@@ -127,7 +137,10 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const remaining = 5 - doneCount
 
   const pendingAgent = agents.find((agent) => !agent.approved && !agent.rejectedAt)
-  const approvedAgent = agents.find((agent) => agent.approved && agent.hasCredential)
+  /** 已批准的助手（凭据可能还没到 —— 那是它自己的手续，见下面第 2 行的说明） */
+  const approvedAgent = agents.find((agent) => agent.approved)
+  /** 批准了、但凭据还没到手：只补一句说明，不打回未完成 */
+  const credentialPending = agents.some((agent) => agent.approved && !agent.hasCredential)
   const pendingAgentName = pendingAgent?.displayName?.trim() ?? ''
   const approvedAgentName = approvedAgent?.displayName?.trim() ?? ''
 
@@ -203,7 +216,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
       done: status.hasRegisteredAgent,
       hint: agentPromptCopied
         ? '已复制。发给助手后回到这里——它申请接入时，这一行会自己变。'
-        : '复制这段话，发给你正在用的 AI 助手。它接上后，名字会出现在这一行。',
+        : '复制这段话发给你正在用的助手。它来登记后这一行会勾上——只代表它来了，还不算放行。',
       action: {
         label: agentPromptCopied ? '再复制一次' : '复制开场提示词',
         onClick: () => void copyPrompt('agent')
@@ -212,11 +225,13 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     approved: {
       key: 'approved',
       title: ONBOARDING_STEP_TITLES.approved,
-      done: status.hasApprovedCredential,
+      /** 只认批准：凭据要等助手下次连上才领到，不该让这一行等人等不到的东西 */
+      done: status.hasApprovedAgent,
       hint: pendingAgentName
         ? `${pendingAgentName} 申请写入你的项目。批准前它只能读。`
         : '它申请写入你的项目。批准前它只能读。',
-      action: pendingAgent ? { label: '前往审批', onClick: () => setMainView('approval') } : null
+      action: pendingAgent ? { label: '前往审批', onClick: () => setMainView('approval') } : null,
+      note: credentialPending ? '凭据还没到手：它下次连上时会自己领，这一步不用等。' : undefined
     },
     basics: {
       key: 'basics',
@@ -255,6 +270,25 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const current = currentIndex < 0 ? null : stageRows[currentIndex]
   const upcoming = currentIndex < 0 ? [] : stageRows.slice(currentIndex + 1)
 
+  /**
+   * 卡头那句跟着**当前行**走。
+   *
+   * 第 1 步一勾还挂着「先把你的 AI 助手接进来」，等于让这一勾白勾了：
+   * 人刚被告知"它来了"，抬头又说没接进来。卡头只负责说这一段在干什么，
+   * 具体这一行要点哪里，下面那一行自己会说。
+   */
+  const headerTitle = !current
+    ? allDone
+      ? '上手已完成'
+      : '再花一分钟'
+    : current.key === 'agent'
+      ? '先把你的 AI 助手接进来'
+      : current.key === 'approved'
+        ? '它来了，等你批准'
+        : coreDone
+          ? '再花一分钟'
+          : `下一步：${current.title}`
+
   return (
     <section
       data-testid="onboarding-checklist"
@@ -262,7 +296,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-border bg-surface-subtle">
         <div className="text-content font-semibold text-text-primary">
-          {allDone ? '上手已完成' : coreDone ? '再花一分钟' : '先把你的 AI 助手接进来'}
+          {headerTitle}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-caption text-text-secondary font-mono">{doneCount}/5</span>
@@ -280,15 +314,19 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
 
       <div className="px-4 py-2.5">
         {doneRows.map((row) => (
-          <div
-            key={row.key}
-            data-testid={`onboarding-row-${row.key}`}
-            className="flex items-center gap-2 py-1 text-label text-text-secondary"
-          >
-            <span className="w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
-              <Icon name="check" size={11} />
-            </span>
-            {row.title}
+          <div key={row.key} data-testid={`onboarding-row-${row.key}`} className="py-1">
+            <div className="flex items-center gap-2 text-label text-text-secondary">
+              <span className="w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+                <Icon name="check" size={11} />
+              </span>
+              {row.title}
+            </div>
+            {/** 打完勾才说得上的一句（凭据还没到）：它不改变打勾，只是别让人等错东西 */}
+            {row.note && (
+              <p data-testid={`onboarding-note-${row.key}`} className="pl-6 text-caption text-text-secondary">
+                {row.note}
+              </p>
+            )}
           </div>
         ))}
 

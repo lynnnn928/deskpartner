@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   ONBOARDING_STEP_TITLES,
   getOnboardingStatus,
-  nextOnboardingStep
+  nextOnboardingStep,
+  onboardingStepDone
 } from '../../../src/renderer/lib/onboarding'
 import { PROJECT_HANDOFF_TEMPLATE } from '../../../src/renderer/types/project'
 
@@ -17,11 +18,45 @@ describe('新用户上手清单状态', () => {
     )
     expect(status).toEqual({
       hasRegisteredAgent: true,
+      hasApprovedAgent: false,
       hasApprovedCredential: false,
       basicsConfirmed: false,
       globalProtocolConfirmed: false,
       projectHandoffConfirmed: false
     })
+  })
+
+  /**
+   * 主用户 2026-11-13 当场抓到的错：「接入打勾不就是批准身份了吗，
+   * 怎么还要批准身份呢？」
+   *
+   * 两件事分开了：第 1 步的勾只代表"它来了"（已登记），第 2 步只认批准。
+   * 凭据（`agent credential`）是助手下次连上时自己领的，人批准完不能停在原地。
+   */
+  it('第 1 步叫「让助手来申请」，一登记就打勾，但不算放行', () => {
+    expect(ONBOARDING_STEP_TITLES.agent).toBe('让助手来申请')
+    const registered = getOnboardingStatus([{ approved: false, hasCredential: false }], [], [])
+    expect(onboardingStepDone(registered)).toMatchObject({ agent: true, approved: false })
+    // 下一步就是"由你决定放不放行"
+    expect(nextOnboardingStep(registered)).toBe('approved')
+  })
+
+  it('批准了就勾第 2 步：凭据还没到手也不等它', () => {
+    expect(ONBOARDING_STEP_TITLES.approved).toBe('批准它的身份')
+    const approvedNoCredential = getOnboardingStatus([{ approved: true, hasCredential: false }], [], [])
+    // 批准 = 打勾；凭据还是"没到手"（只作提示，不参与判据）
+    expect(approvedNoCredential.hasApprovedAgent).toBe(true)
+    expect(approvedNoCredential.hasApprovedCredential).toBe(false)
+    expect(onboardingStepDone(approvedNoCredential).approved).toBe(true)
+    // 清单要往前走，不能停在刚点过的那一步
+    expect(nextOnboardingStep(approvedNoCredential)).toBe('handoff')
+  })
+
+  it('判据表正好是五步，诊断用的字段不混进来（防计数变成 n/6）', () => {
+    const status = getOnboardingStatus([{ approved: true, hasCredential: false }], [], [])
+    const done = onboardingStepDone(status)
+    expect(Object.keys(done)).toHaveLength(5)
+    expect(Object.values(done).filter(Boolean)).toHaveLength(2)
   })
 
   it('只有已批准且持凭据、已确认基本档案和全部全局协议块才完成对应项', () => {
