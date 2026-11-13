@@ -20,6 +20,16 @@
  * 这里只记"这条提示关过了、别再挡路"。两件事混成一个字段，迟早互相撒谎。
  */
 
+import { STATUS_META } from './constants'
+
+/**
+ * 状态名直接取看板那一份（`STATUS_META`），不在这里另抄一遍：
+ * 正文里说的是「把状态从×改成×」，写错一个字符，人就照着一个不存在的按钮找。
+ * 顺便也过术语闸门 —— 状态名单独出现在常量里是放行的，句子里拿「待办」指代事项不行。
+ */
+const PROPOSED = STATUS_META.proposed.label
+const TODO = STATUS_META.todo.label
+
 export type CoachMarkId = 'approval' | 'proposed' | 'decide'
 
 export interface CoachMarkDef {
@@ -28,6 +38,14 @@ export interface CoachMarkDef {
   step: number
   /** 锚点选择器：锚在真实控件上，不画坐标 */
   anchor: string
+  /**
+   * 摆位方式。默认摆到锚点旁边；`below` 摆到锚点下面。
+   *
+   * 侧栏的「审批」项贴着窗口左缘，放它右边正好压住「我的工作」顶部的上手清单
+   * （1.0.146 走查实测：清单前两行被盖住）。改放它下面，清单和它指的那个入口
+   * 都还看得见 —— 气泡挡住的只剩侧栏其它入口，而那会儿要点的正是「审批」。
+   */
+  placement?: 'below'
   title: string
   body: string
 }
@@ -37,22 +55,23 @@ export const COACH_MARKS: CoachMarkDef[] = [
     id: 'approval',
     step: 1,
     anchor: '[data-coach-target="approval-nav"]',
+    placement: 'below',
     title: '你的助手在门外',
-    body: '它已经提出接入申请。在「审批」里点一下批准，它才能写入；在你点头之前，它只能读。'
+    body: '去「审批」页在它的申请上点「批准」：批了它才能登记事项、改项目资料；不批它只能读。批完这条提示自己就消失了。'
   },
   {
     id: 'proposed',
     step: 2,
     anchor: '[data-coach-target="todo-row"][data-todo-status="proposed"]',
     title: '有一条等你拍板',
-    body: '助手登记了一条「待确认」事项。点开它，决定做不做 —— 它不会自己开工。'
+    body: '点开这一行，看它写了什么、打算怎么做，再决定做不做。点开只是看，它不会开工。'
   },
   {
     id: 'decide',
     step: 3,
     anchor: '[data-coach-target="status-actions"]',
     title: '这一下由你定',
-    body: '把状态推进一步，它才会开始做；不认可就驳回，写一句原因它会照着重做。'
+    body: `把状态从「${PROPOSED}」改成「${TODO}」，再点「提交保存」，助手才会开工去做；不想做就改成「已废弃」。停在「${PROPOSED}」，它就一直等你点头。`
   }
 ]
 

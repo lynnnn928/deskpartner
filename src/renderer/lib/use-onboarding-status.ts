@@ -84,18 +84,14 @@ export function useOnboardingStatus(): OnboardingSnapshot {
     : EMPTY
   const coreDone = status.hasRegisteredAgent && status.hasApprovedCredential && status.projectHandoffConfirmed
   /**
-   * 计数只算**界面上真有那一步**的四项。
+   * 计数算**界面上真有那一步**的五项。
    *
-   * 原来直接数 status 的五个布尔，其中 `basicsConfirmed`（主用户基本情况）
-   * 只在用户页那份清单里有行 —— 于是「我的工作」里永远停在 4/5，屏上写着 x/5
-   * 却只有四行可做（1.0.146 走查实测）。
+   * 1.0.146 走查时，`basicsConfirmed`（主用户基本情况）只在用户页那份清单里有行，
+   * 「我的工作」停在 4/5 却只有四行可做，于是计数被砍到四步。主用户否掉了那个做法：
+   * 屏上少一行不是修法，是把「还有一份关于自己的档案要填」这件事藏起来了。
+   * 现在清单补回「关于我」那一行，计数按五个布尔数。
    */
-  const doneCount = [
-    status.hasRegisteredAgent,
-    status.hasApprovedCredential,
-    status.globalProtocolConfirmed,
-    status.projectHandoffConfirmed
-  ].filter(Boolean).length
+  const doneCount = Object.values(status).filter(Boolean).length
 
   return { status, coreDone, doneCount, reload }
 }

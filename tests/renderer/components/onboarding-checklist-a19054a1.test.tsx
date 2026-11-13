@@ -6,15 +6,18 @@ import { OnboardingChecklist } from '../../../src/renderer/components/workbench/
 import { useAgentStore } from '../../../src/renderer/stores/agent.store'
 import { useProjectStore } from '../../../src/renderer/stores/project.store'
 import { useSettingsStore } from '../../../src/renderer/stores/settings.store'
+import { useUIStore } from '../../../src/renderer/stores/ui.store'
 
 /**
  * 首屏上手清单（卡 `a19054a1`）
  *
- * 钉四件事：
+ * 钉五件事：
  * ① 判据来自真实数据：没助手时 ①② 打叉，有已批准助手时打勾；
  * ② 协议"一键确认"真的逐块调 `protocol:set`，不是只改本地状态；
  * ③ 没填名字时首屏就能填（名字不再单独占一个弹窗）；
- * ④ 必做三步全绿后自动收起成一行入口，点开还能看。
+ * ④ 必做三步全绿后自动收起成一行入口，点开还能看；
+ * ⑤ 五步都在屏上、计数是 x/5，「关于我」那一行的动作指向用户页
+ *    （1.0.146 曾把它从界面和计数里删掉，主用户不认这个做法）。
  */
 const invokeMock = vi.fn()
 
@@ -56,6 +59,7 @@ beforeEach(() => {
   })
   useAgentStore.setState({ agents: [], loading: false })
   useProjectStore.setState({ projects: [] })
+  useUIStore.setState({ mainView: 'board', userEntryTarget: null, selectedTodoId: null })
   useSettingsStore.setState({
     settings: { humanName: '', humanNameAsked: true, appName: 'DeskPartner', appIcon: null } as never
   })
@@ -66,13 +70,42 @@ afterEach(() => {
 })
 
 describe('首屏上手清单', () => {
-  it('没有任何助手时：接入与批准两步未完成，并给出复制提示词与前往审批', async () => {
+  it('没有任何助手时：接入与批准两步未完成，并给出复制提示词', async () => {
     render(<OnboardingChecklist />)
     await waitFor(() => expect(screen.getByTestId('onboarding-checklist')).toBeTruthy())
     expect(screen.getByTestId('onboarding-row-agent').textContent).toContain('接入你的 AI 助手')
     expect(screen.getByTestId('onboarding-action-agent').textContent).toContain('复制开场提示词')
+    // 它还停在"先做第 1 步"，指向审批页等于让人去看一张空列表
+    expect(screen.queryByTestId('onboarding-action-approved')).toBeNull()
+    expect(screen.getByTestId('onboarding-next-approved').textContent).toContain('先做上面第 1 步')
+    expect(screen.getByText('0/5', { exact: false })).toBeTruthy()
+  })
+
+  it('五步都在屏上，每行都写清这是什么、为什么、现在点哪里', async () => {
+    render(<OnboardingChecklist />)
+    await waitFor(() => expect(screen.getByTestId('onboarding-checklist')).toBeTruthy())
+    for (const key of ['agent', 'approved', 'basics', 'protocol', 'handoff']) {
+      expect(screen.getByTestId(`onboarding-row-${key}`)).toBeTruthy()
+      expect(screen.getByTestId(`onboarding-next-${key}`).textContent!.length).toBeGreaterThan(10)
+    }
+    expect(screen.getByText('0/5', { exact: false })).toBeTruthy()
+    expect(screen.queryByText('/4', { exact: false })).toBeNull()
+  })
+
+  it('未批准的助手在申请：批准那一步给「前往审批」', async () => {
+    useAgentStore.setState({ agents: [agentOf(false)] as never, loading: false })
+    render(<OnboardingChecklist />)
+    await waitFor(() => expect(screen.getByTestId('onboarding-action-approved')).toBeTruthy())
     expect(screen.getByTestId('onboarding-action-approved').textContent).toContain('前往审批')
-    expect(screen.getByText('0/4', { exact: false })).toBeTruthy()
+  })
+
+  it('「关于我」那一行的动作用户页的「关于我」分区', async () => {
+    render(<OnboardingChecklist />)
+    const button = await waitFor(() => screen.getByTestId('onboarding-action-basics'))
+    expect(button.textContent).toContain('去写关于我')
+    fireEvent.click(button)
+    expect(useUIStore.getState().mainView).toBe('user')
+    expect(useUIStore.getState().userEntryTarget).toMatchObject({ section: 'about' })
   })
 
   it('已批准且持凭据的助手：批准那一步打勾、动作按钮消失', async () => {

@@ -53,7 +53,7 @@ beforeEach(() => {
     if (channel === 'todo:attachmentThumbs') return { a1: 'data:image/png;base64,AAAA' }
     return null
   })
-  useSettingsStore.setState({ settings: { humanName: '木木' } as never })
+  useSettingsStore.setState({ settings: { humanName: 'Alex' } as never })
 })
 
 afterEach(() => cleanup())

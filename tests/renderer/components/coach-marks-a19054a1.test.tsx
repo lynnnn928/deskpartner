@@ -116,6 +116,22 @@ describe('就地提示：选哪一处', () => {
   })
 
   /**
+   * 主用户 2026-11-13 的原话：「我看不出需要把状态从待确认改到待办才算成」。
+   * 所以三处正文都得写出**要你做什么 + 点了会怎样**，不是一句口号：
+   * 状态那一处必须点名两个状态和「提交保存」，否则人改了状态不保存，还是没成。
+   */
+  it('三处正文都写清要做什么，状态那一处点名「待确认→待办」与提交保存', () => {
+    const byId = Object.fromEntries(COACH_MARKS.map((mark) => [mark.id, mark.body]))
+    expect(byId.approval).toContain('点「批准」')
+    expect(byId.approval).toContain('才能登记事项')
+    expect(byId.proposed).toContain('点开这一行')
+    expect(byId.proposed).toContain('不会开工')
+    expect(byId.decide).toContain('「待确认」改成「待办」')
+    expect(byId.decide).toContain('提交保存')
+    expect(byId.decide).toContain('助手才会开工')
+  })
+
+  /**
    * 选择器写对不等于挂上去了：锚点名必须真的出现在那三处控件上，
    * 宿主也必须真的挂在看板窗口里。少一处，气泡就永远等不到锚点、
    * 静默不出现 —— 这种缺陷 tsc 与上面的选路用例都抓不到。

@@ -19,9 +19,16 @@ import { cn } from '../../lib/utils'
  * 为什么判据全从真实数据推算（`useOnboardingStatus`）：
  * 不另存"引导进度"，就不会出现"标记说看过、实际没做过"的假状态。
  *
- * 只列 4 步：接入 → 批准 → 确认约定 → 首个项目与事项闭环。
- * 拍板与验收在最后一步里由助手登记的事项驱动，不单独占一行：
- * 它们不是"看一遍就会"的动作，而是要在真卡片上做一次。
+ * 为什么一行要写四句：主用户 2026-11-13 的原话是「这 5 件事你现在默认用户
+ * 已经都知道具体内容了，只给一句话简述，这不对」。第一次装的人要能读出来：
+ * 这是什么 → 跟我有什么关系 → 现在点哪里 → 点完会发生什么。
+ * 前两句（`what` / `why`）是常文；后两句（`next`）跟着状态走 ——
+ * 每行只给此刻最该做的那一个动作，做完就改口说"已经怎样了"。
+ *
+ * 五步与 `getOnboardingStatus` 的五个布尔一一对应：
+ * 接入 → 批准 → 关于我 → 协作约定 → 第一个项目。
+ * 第 3 步曾经因为"只在用户页有行"而被计数排除，屏上成了 x/4；
+ * 那反而让人不知道还有一份关于自己的档案要填，所以补回这一行。
  */
 export interface OnboardingChecklistProps {
   /** 收起状态下用户仍能看到入口（点了重新展开） */
@@ -31,6 +38,7 @@ export interface OnboardingChecklistProps {
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const { status, coreDone, doneCount, reload } = useOnboardingStatus()
   const setMainView = useUIStore((s) => s.setMainView)
+  const openUserSection = useUIStore((s) => s.openUserSection)
   const settings = useSettingsStore((s) => s.settings)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
   const cliAccess = useCliAccess()
@@ -38,18 +46,19 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const [dismissed, setDismissed] = useState(false)
   const [reopened, setReopened] = useState(false)
   const [name, setName] = useState(settings?.humanName ?? '')
-  const [copied, setCopied] = useState(false)
+  /** 刚复制过提示词的那一行；两行都复制同一段，得分开记，否则两处一起变「已复制」 */
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const nameMissing = !settings?.humanNameAsked
   const autoHidden = coreDone && !nameMissing
   const hidden = dismissed || (autoHidden && !reopened)
 
-  const copyPrompt = async (): Promise<void> => {
+  const copyPrompt = async (key: string): Promise<void> => {
     const text = buildMigratePrompt(cliAccess)
     try {
       await navigator.clipboard.writeText(text)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
+      setCopiedKey(key)
+      window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 2000)
     } catch {
       /* 剪贴板不可用时保持原样，用户可以用「快速上手」页的按钮 */
     }
@@ -86,7 +95,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
         className="self-start inline-flex items-center gap-1.5 text-caption text-text-secondary hover:text-text-primary cursor-pointer"
       >
         <Icon name="checkCircle" size={13} />
-        接入完成 · 查看上手清单（{doneCount}/4）
+        接入完成 · 查看上手清单（{doneCount}/5）
       </button>
     )
   }
@@ -94,41 +103,78 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const rows: Array<{
     key: string
     title: string
-    hint: string
+    /** 这是什么 */
+    what: string
+    /** 为什么轮到你了 */
+    why: string
+    /** 现在点哪里、点完会发生什么；做完了就说"已经怎样了" */
+    next: string
     done: boolean
-    optional?: boolean
     action: { label: string; onClick: () => void } | null
   }> = [
     {
       key: 'agent',
       title: '接入你的 AI 助手',
-      hint: '复制开场提示词，粘给你自己在用的 AI 助手；它会读本机接入地址并申请注册。',
+      what: '把你正在用的 AI 助手连到这个工作台，它就能读到项目资料，也能把做完的事登记回来。',
+      why: '没有它，这里只有你一个人；接进来之后，读资料、登记、执行都由它做，你只定方向和验收。',
+      next: status.hasApprovedCredential
+        ? '已经接入并批准，后面几步由它和你一起走。'
+        : status.hasRegisteredAgent
+          ? '已经接入，它的名字在上方可见；下一步是批准它。'
+          : '现在点「复制开场提示词」，粘给你在用的助手发出去。它会读到本机接入地址、自己申请接入；回到这里就能看见它的名字。',
       done: status.hasRegisteredAgent,
-      action: { label: copied ? '已复制' : '复制开场提示词', onClick: () => void copyPrompt() }
+      action: { label: copiedKey === 'agent' ? '已复制' : '复制开场提示词', onClick: () => void copyPrompt('agent') }
     },
     {
       key: 'approved',
       title: '批准它的身份',
-      hint: '批准之后它才能写入；在你点头之前，它只能读。',
+      what: '助手申请接入之后要你点头：审批页里列着它是谁、想动你的哪些东西。',
+      why: '批准之后它才能写入项目资料、登记事项；在你点头之前，它只能读。',
+      next: status.hasApprovedCredential
+        ? '已批准，它可以写入你交给它的项目了。'
+        : status.hasRegisteredAgent
+          ? '现在点「前往审批」打开审批页，在它的申请上点「批准」。批完回来这里会打勾，它也能开始干活。'
+          : '现在还没有助手申请；先做上面第 1 步，它申请之后这里才会出现「前往审批」。',
       done: status.hasApprovedCredential,
-      action: { label: '前往审批', onClick: () => setMainView('approval') }
+      action: status.hasRegisteredAgent
+        ? { label: '前往审批', onClick: () => setMainView('approval') }
+        : null
+    },
+    {
+      key: 'basics',
+      title: '在「关于我」里写下自己',
+      what: '「关于我」是用户页里的一份档案：怎么称呼你、你习惯怎么沟通、哪些事要先问你、什么算做完。',
+      why: '助手每次动手前先读它；没写清的地方它会先问你的偏好，再把准备怎么做交给你拍板。',
+      next: status.basicsConfirmed
+        ? '已经填好，助手会先读这份档案再动手。'
+        : '现在点「去写关于我」打开用户页的「关于我」，在「基本情况」里填上怎么称呼你，点「保存并确认」。保存后这里打勾，它下次动手前就照着来。',
+      done: status.basicsConfirmed,
+      action: { label: '去写关于我', onClick: () => openUserSection('about') }
     },
     {
       key: 'protocol',
       title: '确认协作约定',
-      hint:
-        status.globalProtocolConfirmed
-          ? '已确认，助手会按这份约定跟你配合。'
-          : '出厂协议已经写好五条规则，确认一次即可；想改可以去用户页。',
+      what: '约定是五条写好的规则：各自干什么、怎么交接、怎么留痕、怎么沟通、用什么语言。',
+      why: '它做事前按这份约定来；先看一遍再确认，以后不用每次从头交代。',
+      next: status.globalProtocolConfirmed
+        ? '已确认，助手会按这份约定跟你配合；想改随时去用户页逐条编辑。'
+        : '现在点「一键确认」，这五条就按当前内容生效。之后想改，去用户页逐条编辑，改完再确认一次。',
       done: status.globalProtocolConfirmed,
       action: status.globalProtocolConfirmed ? null : { label: '一键确认', onClick: () => void confirmProtocol() }
     },
     {
       key: 'handoff',
       title: '让助手建第一个项目',
-      hint: '它会提议接手说明并登记事项；你在待确认里拍板一次，再在待验收里核对一次。',
+      what: '项目是一摊事的边界：背景、目标、做到什么算完，都落在它的接手说明里。',
+      why: '助手只能把事项挂到项目下；有了项目和已确认的接手说明，它才知道从哪儿开始、做到哪儿停。',
+      next: status.projectHandoffConfirmed
+        ? '项目和接手说明都在了；助手可以在这摊事里提事项、接着做。'
+        : '现在点「让助手建项目」会复制一段开场白。粘给助手后，它会建项目、写接手说明、登记第一条事项，等你拍板。',
       done: status.projectHandoffConfirmed,
-      action: { label: '让助手建项目', onClick: () => void copyPrompt() }
+      action: {
+        label: copiedKey === 'handoff' ? '已复制' : '让助手建项目',
+        onClick: () => void copyPrompt('handoff')
+      }
     }
   ]
 
@@ -147,7 +193,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-caption text-text-secondary font-mono">{doneCount}/4</span>
+          <span className="text-caption text-text-secondary font-mono">{doneCount}/5</span>
           <button
             type="button"
             aria-label="收起上手清单"
@@ -189,7 +235,14 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
               <div className={cn('text-label font-medium', row.done ? 'text-text-secondary' : 'text-text-primary')}>
                 {row.title}
               </div>
-              <p className="text-caption text-text-secondary leading-relaxed">{row.hint}</p>
+              <p className="text-caption text-text-secondary leading-relaxed">{row.what}</p>
+              <p className="text-caption text-text-secondary leading-relaxed">{row.why}</p>
+              <p
+                data-testid={`onboarding-next-${row.key}`}
+                className={cn('text-caption leading-relaxed', row.done ? 'text-text-secondary' : 'text-text-primary')}
+              >
+                {row.next}
+              </p>
             </div>
             {row.action && !row.done && (
               <Button
