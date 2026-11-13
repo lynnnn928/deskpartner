@@ -8,12 +8,12 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { useOnboardingStatus } from '../../lib/use-onboarding-status'
 import { useCliAccess } from '../../lib/use-cli-access'
 import { buildMigratePrompt, buildFirstProjectPrompt } from '../../lib/onboarding-prompts'
-import { rememberOnboardingJump } from '../../lib/coach-marks'
 import { cn } from '../../lib/utils'
 import {
   ONBOARDING_STEP_ORDER,
   ONBOARDING_STEP_TITLES,
   onboardingStageKeys,
+  onboardingStepDone,
   type OnboardingStepKey
 } from '../../lib/onboarding'
 
@@ -40,9 +40,14 @@ import {
  * 于是：当前步骤 = 一句话 + 一个按钮（≤45 字）；其余步骤只留标题（≤8 字），
  * 还没轮到的那几步收成一行灰字「接下来：…」。同屏只有一个进度数 `n/5`。
  *
- * 五步与 `getOnboardingStatus` 的五个布尔一一对应（判据表在 `onboardingStepDone`）：
- * 让助手来申请 → 批准它的身份 → 建第一个项目 →（再花一分钟）关于我 → 协作约定。
- * 第二阶段只在主线三步完成后才出现：先让人把助手接进来，别一上来摊五行。
+ * 五步的顺序与打勾判据都**不在这里算**：顺序读 `ONBOARDING_STEP_ORDER`，
+ * 判据读 `onboardingStepDone`（唯一出处，`lib/onboarding.ts`）。
+ * 顺序本身就是产品设计顺序，唯一出处是开场提示词（`lib/onboarding-prompts.ts`）：
+ *
+ *   让助手来申请 → 批准它的身份 → 写下关于我 → 确认协作约定 → 写清项目接手说明
+ *
+ * 前四步不需要项目，第五步才问「要不要建第一个项目」—— 项目排在最后，
+ * 是因为档案与约定要先由助手跟人聊出来、人在审批页采纳，项目才有依据。
  *
  * ── 第 1、2 步为什么这样写（主用户 2026-11-13 当场抓到）──
  *
@@ -51,6 +56,13 @@ import {
  * 下一行又说"还没批准"，自相矛盾。现在第 1 步叫「让助手来申请」，
  * 勾只代表**它来敲过门**；正文最后一句把这个区别说透（这一勾不算放行）。
  * 第 2 步只认批准，凭据没到手时在那一行下面补一句说明，不影响打勾。
+ *
+ * ── 第 3、4 步为什么不再给「去写关于我 / 一键确认」（2026-11-14）──
+ *
+ * 档案与约定是**助手提议、人在审批页采纳**：这两步的动作只能指向审批页。
+ * 清单还要说出当前真实状态（还没提议 / 已提议待采纳 / 已采纳），
+ * 否则人点了「前往审批」，那一页可能还是空的，而清单一个字都没解释。
+ * 「按默认值先确认」只在助手还没提议时作为捷径出现，且是次按钮，不抢主路径。
  */
 export interface OnboardingChecklistProps {
   /** 收起状态下用户仍能看到入口（点了重新展开） */
@@ -77,9 +89,8 @@ interface StepRow {
 const ALL_KEYS: StepKey[] = ONBOARDING_STEP_ORDER
 
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
-  const { status, coreDone, doneCount, reload } = useOnboardingStatus()
+  const { status, coreDone, doneCount, proposals, reload } = useOnboardingStatus()
   const setMainView = useUIStore((s) => s.setMainView)
-  const openUserSection = useUIStore((s) => s.openUserSection)
   const dismissed = useUIStore((s) => s.onboardingChecklistDismissed)
   const reopened = useUIStore((s) => s.onboardingChecklistReopened)
   const setChecklistState = useUIStore((s) => s.setOnboardingChecklistState)
@@ -126,13 +137,14 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
 
   const nameMissing = !settings?.humanNameAsked
   /**
-   * 全部完成才算做完 —— 主线三步 + 关于我 + 协作约定（+ 称呼已问过）。
+   * 全部完成才算做完 —— 五步全绿（+ 称呼已问过）。
    *
-   * 1.0.146 是 `coreDone`（只算主线三步）就自动收：那时「关于我」「约定」
-   * 还没做，卡片就带着这两步一起消失，收起后还写着「接入完成」。
-   * 现在第二阶段不自动收起，`allDone` 之后才收（评审第 14 条）。
+   * 1.0.146 是"前几步做完"就自动收：那时后面几步还没做，
+   * 卡片就带着它们一起消失，收起后还写着「接入完成」。
+   * 现在两段都不自动收起，`allDone` 之后才收（评审第 14 条）。
    */
-  const allDone = coreDone && status.basicsConfirmed && status.globalProtocolConfirmed && !nameMissing
+  const done = onboardingStepDone(status)
+  const allDone = coreDone && done.handoff && !nameMissing
   const hidden = dismissed || (allDone && !reopened)
   const remaining = 5 - doneCount
 
@@ -180,14 +192,9 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     void updateSettings({ humanName: trimmed, humanNameAsked: true }).then(() => reload())
   }
 
-  const openAbout = (): void => {
-    rememberOnboardingJump('about')
-    openUserSection('about')
-  }
-
-  const openProtocol = (): void => {
-    rememberOnboardingJump('protocol')
-    openUserSection('protocol')
+  /** 档案与约定都在审批页采纳：这两步的按钮只指那一页 */
+  const openApproval = (): void => {
+    setMainView('approval')
   }
 
   if (hidden) {
@@ -213,7 +220,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     agent: {
       key: 'agent',
       title: ONBOARDING_STEP_TITLES.agent,
-      done: status.hasRegisteredAgent,
+      done: done.agent,
       hint: agentPromptCopied
         ? '已复制。发给助手后回到这里——它申请接入时，这一行会自己变。'
         : '复制这段话发给你正在用的助手。它来登记后这一行会勾上——只代表它来了，还不算放行。',
@@ -226,7 +233,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
       key: 'approved',
       title: ONBOARDING_STEP_TITLES.approved,
       /** 只认批准：凭据要等助手下次连上才领到，不该让这一行等人等不到的东西 */
-      done: status.hasApprovedAgent,
+      done: done.approved,
       hint: pendingAgentName
         ? `${pendingAgentName} 申请写入你的项目。批准前它只能读。`
         : '它申请写入你的项目。批准前它只能读。',
@@ -236,22 +243,39 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
     basics: {
       key: 'basics',
       title: ONBOARDING_STEP_TITLES.basics,
-      done: status.basicsConfirmed,
-      hint: '点「去写关于我」，在「基本情况」写下怎么称呼你，点「保存并确认」。',
-      action: { label: '去写关于我', onClick: openAbout }
+      done: done.basics,
+      /**
+       * 档案是**助手提议、你在审批页采纳**，所以这里给的是"提议到哪一步了"，
+       * 不是"去哪儿自己写"。人要知道现在按按钮过去会不会看到东西。
+       */
+      hint: proposals.profilePending
+        ? '助手已提议档案，等你采纳。点「前往审批」。'
+        : '还没收到档案提议：助手和你聊完会提过来，这行会自己变。',
+      action: { label: '前往审批', onClick: openApproval },
+      note: proposals.profileAdopted ? '已采纳助手的提议' : undefined
     },
     protocol: {
       key: 'protocol',
       title: ONBOARDING_STEP_TITLES.protocol,
-      done: status.globalProtocolConfirmed,
-      hint: '五条默认规则：分工、交接、留痕、沟通、语言。按当前内容生效。',
-      action: { label: '一键确认', onClick: () => void confirmProtocol() },
-      secondary: { label: '先看看', onClick: openProtocol }
+      done: done.protocol,
+      hint: proposals.protocolPending
+        ? '助手已提议约定，等你采纳。点「前往审批」。'
+        : '还没收到约定提议：助手会先和你确认，再提过来。',
+      action: { label: '前往审批', onClick: openApproval },
+      /**
+       * 助手还没提议时，人可以先按默认值确认（这是捷径，不是主路径）：
+       * 有提议待采纳时它消失 —— 那时该做的是去审批页看助手写的版本。
+       */
+      secondary:
+        !done.protocol && !proposals.protocolPending
+          ? { label: '按默认值先确认', onClick: () => void confirmProtocol() }
+          : undefined,
+      note: proposals.protocolAdopted ? '已采纳助手的提议' : undefined
     },
     handoff: {
       key: 'handoff',
       title: ONBOARDING_STEP_TITLES.handoff,
-      done: status.projectHandoffConfirmed,
+      done: done.handoff,
       hint: approvedAgentName
         ? `复制这段话发给 ${approvedAgentName}，它会建好项目，再提第一条事项等你拍板。`
         : '复制这段话发给助手，它会建好项目，再提第一条事项等你拍板。',
@@ -330,8 +354,11 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
           </div>
         ))}
 
-        {/** 第二阶段才问称呼：首屏唯一要做的动作是接入，多一个输入框只是分心 */}
-        {coreDone && nameMissing && (
+        {/**
+         * 批准之后才问称呼：首屏唯一要做的动作是接入，多一个输入框只是分心。
+         * 它属于「写下关于我」这一段 —— 助手提议档案时也会用到这个称呼。
+         */}
+        {status.hasApprovedAgent && nameMissing && (
           <div className="flex items-center gap-2 py-1.5" data-testid="onboarding-name-row">
             <span className="text-caption text-text-secondary shrink-0">怎么称呼你</span>
             <input

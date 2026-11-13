@@ -87,7 +87,7 @@ export const WorkbenchView: React.FC = () => {
           <div className="rounded-card border border-border bg-bg-card p-8 text-center text-label text-text-secondary">
             当前视角下没有需要处理的事项。
             <div className="text-caption mt-1.5">
-              按上面的上手清单把助手接进来，它会替你建第一个项目并登记事项。
+              按上面的上手清单把助手接进来：它先跟你确认档案与协作约定，再建第一个项目并登记事项。
             </div>
           </div>
         ) : grouped.map((group) => (

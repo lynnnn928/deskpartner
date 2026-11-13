@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ONBOARDING_STEP_ORDER,
   ONBOARDING_STEP_TITLES,
   getOnboardingStatus,
   nextOnboardingStep,
@@ -48,8 +49,8 @@ describe('新用户上手清单状态', () => {
     expect(approvedNoCredential.hasApprovedAgent).toBe(true)
     expect(approvedNoCredential.hasApprovedCredential).toBe(false)
     expect(onboardingStepDone(approvedNoCredential).approved).toBe(true)
-    // 清单要往前走，不能停在刚点过的那一步
-    expect(nextOnboardingStep(approvedNoCredential)).toBe('handoff')
+    // 清单要往前走，不能停在刚点过的那一步：批准后的下一步是档案，不是项目
+    expect(nextOnboardingStep(approvedNoCredential)).toBe('basics')
   })
 
   it('判据表正好是五步，诊断用的字段不混进来（防计数变成 n/6）', () => {
@@ -98,8 +99,10 @@ describe('新用户上手清单状态', () => {
    * 卡 `aa5f5222`：审批页批准完要说出"下一步是哪一行"
    *
    * 那句话必须由清单当前行算出来（主用户：「文案按当前真实清单状态给，别写死」）。
-   * 顺序是产品定的：主线三步（接入 → 批准 → 建第一个项目）走完才轮到
-   * 「写下关于我」「确认协作约定」。
+   * 顺序是产品定的（2026-11-14 主用户拍板，判据出处是开场提示词）：
+   * 接入 → 批准 → 写下关于我 → 确认协作约定 → 写清项目接手说明。
+   * **建项目排在最后**：她原话是「审批结束之后，才看有无项目、要不要接入项目」，
+   * 「而不是上来注册审批完就直接建第一个项目」。
    */
   it('清单当前行随真实状态推进，全部做完时没有下一步', () => {
     const empty = getOnboardingStatus([], [], [])
@@ -108,22 +111,32 @@ describe('新用户上手清单状态', () => {
     const registered = getOnboardingStatus([{ approved: false, hasCredential: true }], [], [])
     expect(nextOnboardingStep(registered)).toBe('approved')
 
-    const approvedNoProject = getOnboardingStatus(
-      [{ approved: true, hasCredential: true }],
-      [],
-      []
-    )
-    expect(nextOnboardingStep(approvedNoProject)).toBe('handoff')
-
-    // 主线三步走完才问「关于我」，且题目就在清单那一步的名字上
-    const coreDone = getOnboardingStatus(
+    // 批准之后是档案与约定，不是项目 —— 哪怕项目一个都还没有
+    const approvedNoProfile = getOnboardingStatus(
       [{ approved: true, hasCredential: true }],
       [],
       [],
       [{ archived: false, handoffMarkdown: '# 项目接手说明 / 目标：把文档收成一本' }]
     )
-    expect(nextOnboardingStep(coreDone)).toBe('basics')
-    expect(ONBOARDING_STEP_TITLES.basics).toBe('写下关于我')
+    expect(nextOnboardingStep(approvedNoProfile)).toBe('basics')
+
+    // 档案采纳后才轮到约定
+    const profileDone = getOnboardingStatus(
+      [{ approved: true, hasCredential: true }],
+      [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }],
+      protocolKeys.map((blockKey) => ({ blockKey, body: '默认内容', confirmed: false }))
+    )
+    expect(nextOnboardingStep(profileDone)).toBe('protocol')
+    expect(ONBOARDING_STEP_TITLES.protocol).toBe('确认协作约定')
+
+    // 约定也采纳了，才轮到项目那一步 —— 标题跟判据走（接手说明有内容才算）
+    const protocolDone = getOnboardingStatus(
+      [{ approved: true, hasCredential: true }],
+      [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }],
+      protocolKeys.map((blockKey) => ({ blockKey, body: '内容', confirmed: true }))
+    )
+    expect(nextOnboardingStep(protocolDone)).toBe('handoff')
+    expect(ONBOARDING_STEP_TITLES.handoff).toBe('写清项目接手说明')
 
     const allDone = getOnboardingStatus(
       [{ approved: true, hasCredential: true }],
@@ -132,6 +145,11 @@ describe('新用户上手清单状态', () => {
       [{ archived: false, handoffMarkdown: '# 项目接手说明 / 目标：把文档收成一本' }]
     )
     expect(nextOnboardingStep(allDone)).toBeNull()
+  })
+
+  it('五步顺序是产品设计顺序：项目排在最后', () => {
+    expect(ONBOARDING_STEP_ORDER).toEqual(['agent', 'approved', 'basics', 'protocol', 'handoff'])
+    expect(ONBOARDING_STEP_TITLES.basics).toBe('写下关于我')
   })
 
   it('空基本档案和缺失的协议块不会误报完成', () => {

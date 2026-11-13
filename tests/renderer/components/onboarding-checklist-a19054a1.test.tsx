@@ -20,7 +20,8 @@ import { useUIStore } from '../../../src/renderer/stores/ui.store'
  * ① 当前步骤 ≤45 字、其余步骤只留 ≤8 字的标题（1.0.146 每行 120 字，765 字一屏）；
  * ② 同屏只有一个进度数 `n/5`，且当前行是第一件没做完的事；
  * ③ 第 1 行复制之后进等待态，不弹回原样；
- * ④ 第 3、4 行等主线三步（接入/批准/建项目）做完才出现；
+ * ④ 顺序是产品设计顺序（2026-11-14）：接入 → 批准 → 写下关于我 → 确认协作约定 →
+ *    写清项目接手说明；第 5 行（项目）等前四步做完才出现；
  * ⑤ 五步全完成才自动收起，收起后的那行按钮不再写「接入完成」；
  * ⑥ 复制出去的两段话不是同一段。
  */
@@ -137,9 +138,10 @@ describe('首屏上手清单：只展开当前一行', () => {
     const note = screen.getByTestId('onboarding-note-approved')
     expect(note.textContent).toContain('凭据还没到手')
     expect(note.textContent).toContain('自己领')
-    // 当前行已经是建项目，不再把「批准它的身份」当下一步
+    // 当前行已经是「写下关于我」，不是项目：项目排在档案与约定之后
     expect(screen.queryByTestId('onboarding-action-approved')).toBeNull()
-    expect(screen.getByTestId('onboarding-row-handoff')).toBeTruthy()
+    expect(screen.getByTestId('onboarding-row-basics')).toBeTruthy()
+    expect(screen.queryByTestId('onboarding-row-handoff')).toBeNull()
   })
 
   it('当前步骤一句话不超过 45 字，其余步骤只有不超过 8 字的标题', async () => {
@@ -153,29 +155,86 @@ describe('首屏上手清单：只展开当前一行', () => {
     expect(doneRow.textContent).toBe('让助手来申请')
     expect(chars(doneRow.textContent)).toBeLessThanOrEqual(8)
 
-    // 还没轮到的那几步收成一行灰字路线，不再各占一段
-    expect(screen.getByTestId('onboarding-upcoming').textContent).toBe('接下来：建第一个项目')
+    // 还没轮到的那几步收成一行灰字路线，不再各占一段（顺序 = 产品设计顺序；
+    // 项目那一步要等前四步做完才出现，所以这一行现在只列到约定）
+    expect(screen.getByTestId('onboarding-upcoming').textContent).toBe('接下来：写下关于我 → 确认协作约定')
     expect(screen.queryByTestId('onboarding-next-handoff')).toBeNull()
   })
 
-  it('第 3、4 行要等主线三步做完才出现', async () => {
+  /**
+   * 项目排在**最后**（主用户 2026-11-14）：「审批结束之后，才看有无项目、
+   * 要不要接入项目」，「而不是上来注册审批完就直接建第一个项目」。
+   */
+  it('第 5 行（项目）要等前四步做完才出现', async () => {
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
     render(<OnboardingChecklist />)
     await waitFor(() => expect(screen.getByTestId('onboarding-checklist')).toBeTruthy())
-    // 助手已批准、项目还没建：这一段只有建项目那一行
-    expect(screen.getByTestId('onboarding-row-handoff')).toBeTruthy()
-    expect(screen.queryByTestId('onboarding-row-basics')).toBeNull()
-    expect(screen.queryByTestId('onboarding-row-protocol')).toBeNull()
+    // 批准完、档案与约定还没做：这一段演到档案与约定，没有项目
+    expect(screen.getByTestId('onboarding-row-basics')).toBeTruthy()
+    expect(screen.queryByTestId('onboarding-row-handoff')).toBeNull()
+    expect(screen.getByTestId('onboarding-upcoming').textContent).toBe('接下来：确认协作约定')
 
     cleanup()
+    // 档案与约定都采纳了，项目还没建：第 5 行这时才出现
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+      if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+      if (channel === 'profile:proposals') return [{ id: 'pp1', scope: 'global', projectId: null, status: 'approved' }]
+      if (channel === 'protocol:proposals') return [{ id: 'pc1', scope: 'global', projectId: null, status: 'approved' }]
+      if (channel === 'cli:connectInfo') return null
+      return null
+    })
+    render(<OnboardingChecklist />)
+    await waitFor(() => expect(screen.getByTestId('onboarding-row-handoff')).toBeTruthy())
+    expect(screen.getByText('再花一分钟')).toBeTruthy()
+    expect(screen.getByTestId('onboarding-next-handoff')).toBeTruthy()
+    expect(screen.getByText('4/5', { exact: false })).toBeTruthy()
+  })
+
+  /**
+   * 第三、四步要说出**当前真实状态**：还没提议 / 已提议待采纳 / 已采纳。
+   * 前两种在"当前这一行"的正文里说，最后一种挂在打完勾的那一行下面。
+   */
+  it('档案与约定的三种状态各说各的：还没提议、已提议待采纳、已采纳', async () => {
+    // ① 还没提议：批准完、助手一条提议都还没提
+    useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+    render(<OnboardingChecklist />)
+    const waitHint = await waitFor(() => screen.getByTestId('onboarding-next-basics'))
+    expect(waitHint.textContent).toContain('还没收到档案提议')
+    expect(screen.getByTestId('onboarding-action-basics').textContent).toContain('前往审批')
+
+    // ② 已提议待采纳：正文说"等你采纳"，按钮还是指审批页
+    cleanup()
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '', confirmed: false }] }
+      if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks, gates: {} }
+      if (channel === 'profile:proposals') return [{ id: 'pp1', scope: 'global', projectId: null, status: 'pending' }]
+      if (channel === 'protocol:proposals') return [{ id: 'pc1', scope: 'global', projectId: null, status: 'pending' }]
+      if (channel === 'cli:connectInfo') return null
+      return null
+    })
+    render(<OnboardingChecklist />)
+    const pendingHint = await waitFor(() => screen.getByTestId('onboarding-next-basics'))
+    expect(pendingHint.textContent).toContain('已提议档案')
+    expect(pendingHint.textContent).toContain('等你采纳')
+    expect(screen.getByTestId('onboarding-action-basics').textContent).toContain('前往审批')
+
+    // ③ 已采纳：五步全绿后点开看，勾过的那两行各留一句"已采纳助手的提议"
+    cleanup()
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+      if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+      if (channel === 'profile:proposals') return [{ id: 'pp1', scope: 'global', projectId: null, status: 'approved' }]
+      if (channel === 'protocol:proposals') return [{ id: 'pc1', scope: 'global', projectId: null, status: 'approved' }]
+      if (channel === 'cli:connectInfo') return null
+      return null
+    })
     useProjectStore.setState({ projects: [PROJECT] as never })
     render(<OnboardingChecklist />)
-    await waitFor(() => expect(screen.getByTestId('onboarding-checklist')).toBeTruthy())
-    expect(screen.getByText('再花一分钟')).toBeTruthy()
-    expect(screen.getByTestId('onboarding-row-basics')).toBeTruthy()
-    expect(screen.getByTestId('onboarding-next-basics')).toBeTruthy()
-    expect(screen.getByTestId('onboarding-upcoming').textContent).toBe('接下来：确认协作约定')
-    expect(screen.queryByTestId('onboarding-row-handoff')).toBeNull()
+    fireEvent.click(await waitFor(() => screen.getByTestId('onboarding-checklist-collapsed')))
+    await waitFor(() => expect(screen.getByTestId('onboarding-note-basics')).toBeTruthy())
+    expect(screen.getByTestId('onboarding-note-basics').textContent).toContain('已采纳助手的提议')
+    expect(screen.getByTestId('onboarding-note-protocol').textContent).toContain('已采纳助手的提议')
   })
 
   it('第 1 行复制过之后停在等待态，并留一个「再复制一次」', async () => {
@@ -219,39 +278,42 @@ describe('首屏上手清单：每一步指到真控件', () => {
     expect(useUIStore.getState().mainView).toBe('approval')
   })
 
-  it('「关于我」那一行动作用户页分区，并留下"从清单跳过来"的会话标记', async () => {
+  /**
+   * 档案与约定都是**助手提议、人在审批页采纳**：清单这两步的按钮只能指审批页
+   * （主用户 2026-11-14：「第 3、4 步的动作要指向审批页的采纳，不是『去写关于我』」）。
+   */
+  it('「写下关于我」那一行的动作是「前往审批」，不是跳去用户页自己写', async () => {
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
-    useProjectStore.setState({ projects: [PROJECT] as never })
     render(<OnboardingChecklist />)
     const button = await waitFor(() => screen.getByTestId('onboarding-action-basics'))
-    expect(button.textContent).toContain('去写关于我')
+    expect(button.textContent).toContain('前往审批')
     fireEvent.click(button)
-    expect(useUIStore.getState().mainView).toBe('user')
-    expect(useUIStore.getState().userEntryTarget).toMatchObject({ section: 'about' })
-    expect(window.sessionStorage.getItem('deskpartner.onboardingJump.v1')).toBe('about')
+    expect(useUIStore.getState().mainView).toBe('approval')
   })
 
-  it('「先看看」把用户送到协作协议分区，确认按钮才在那一页', async () => {
+  it('「确认协作约定」同样指审批页；「按默认值先确认」只是助手还没提议时的捷径', async () => {
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
-    useProjectStore.setState({ projects: [PROJECT] as never })
     invokeMock.mockImplementation(async (channel: string) => {
-      // 「关于我」已经写完：当前行才是第 4 步
+      // 档案已采纳：当前行才是第 4 步（约定），且助手还没提约定
       if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
       if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks, gates: {} }
+      if (channel === 'profile:proposals') return [{ id: 'pp1', scope: 'global', projectId: null, status: 'approved' }]
+      if (channel === 'protocol:proposals') return []
       if (channel === 'cli:connectInfo') return null
       return null
     })
     render(<OnboardingChecklist />)
-    const secondary = await waitFor(() => screen.getByTestId('onboarding-secondary-protocol'))
-    expect(secondary.textContent).toContain('先看看')
-    fireEvent.click(secondary)
-    expect(useUIStore.getState().userEntryTarget).toMatchObject({ section: 'protocol' })
-    expect(window.sessionStorage.getItem('deskpartner.onboardingJump.v1')).toBe('protocol')
+    const primary = await waitFor(() => screen.getByTestId('onboarding-action-protocol'))
+    expect(primary.textContent).toContain('前往审批')
+    // 捷径在次按钮上：文案说的是"助手还没提，我先按默认确认"
+    const shortcut = screen.getByTestId('onboarding-secondary-protocol')
+    expect(shortcut.textContent).toContain('按默认值先确认')
+    fireEvent.click(primary)
+    expect(useUIStore.getState().mainView).toBe('approval')
   })
 
   it('一键确认按块调 protocol:set，确认后刷新成已确认', async () => {
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
-    useProjectStore.setState({ projects: [PROJECT] as never })
     invokeMock.mockImplementation(async (channel: string) => {
       if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
       if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks, gates: {} }
@@ -260,8 +322,8 @@ describe('首屏上手清单：每一步指到真控件', () => {
       return null
     })
     render(<OnboardingChecklist />)
-    await waitFor(() => expect(screen.getByTestId('onboarding-action-protocol')).toBeTruthy())
-    fireEvent.click(screen.getByTestId('onboarding-action-protocol'))
+    await waitFor(() => expect(screen.getByTestId('onboarding-secondary-protocol')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('onboarding-secondary-protocol'))
     await waitFor(() => {
       const calls = invokeMock.mock.calls.filter((c) => c[0] === 'protocol:set')
       expect(calls.length).toBe(protocolBlocks.length)
@@ -314,6 +376,13 @@ describe('首屏上手清单：每一步指到真控件', () => {
       }
     })
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+    // 项目是最后一步：档案与约定都采纳了，这一行才轮得到
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+      if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+      if (channel === 'cli:connectInfo') return { cliPath: 'C:/dp/deskpartner.cjs', cliEnvVar: 'DESKPARTNER_CLI', cliEnvAvailable: false, mcpCommand: 'C:/dp/mcp.cmd' }
+      return null
+    })
     render(<OnboardingChecklist />)
     const button = await waitFor(() => screen.getByTestId('onboarding-action-handoff'))
     expect(button.textContent).toContain('复制建项目的话')
@@ -364,7 +433,7 @@ describe('首屏上手清单：收起与复位', () => {
     }
   })
 
-  it('主线三步做完、第 3 行没做也不自动收起', async () => {
+  it('只有项目做完、前四步没做也不自动收起', async () => {
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
     useProjectStore.setState({ projects: [PROJECT] as never })
     render(<OnboardingChecklist />)
@@ -372,7 +441,7 @@ describe('首屏上手清单：收起与复位', () => {
     expect(screen.queryByTestId('onboarding-checklist-collapsed')).toBeNull()
   })
 
-  it('没填名字时，称呼输入行在第二阶段出现，保存走 settings:update', async () => {
+  it('没填名字时，称呼输入行在批准之后出现，保存走 settings:update', async () => {
     useSettingsStore.setState({
       settings: { humanName: '', humanNameAsked: false, appName: 'DeskPartner', appIcon: null } as never
     })

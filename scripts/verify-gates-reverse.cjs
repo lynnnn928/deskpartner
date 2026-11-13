@@ -271,6 +271,39 @@ const GROUPS = [
         'red'
       ]
     ]
+  },
+  {
+    /**
+     * 清单顺序必须与开场提示词一致（2026-11-14，卡 `a19054a1`）
+     *
+     * 这是**源码闸门**：只读提示词与清单两个文件，不碰数据库，所以能挂在
+     * `process.execPath` 起的 vitest 上（bare node 起 better-sqlite3 会红）。
+     */
+    name: '清单顺序 = 开场提示词顺序（onboarding-order-matches-prompt.test.ts）',
+    gate: 'tests/renderer/lib/onboarding-order-matches-prompt.test.ts',
+    cases: [
+      [
+        '① 把建项目提到最前（主用户否掉的"注册审批完就建第一个项目"）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        '请按以下顺序工作：\n1. 按上面的接入地址读取接入说明，了解命令和规则。',
+        '请按以下顺序工作：\n0. 先 project add 把第一个项目建出来，档案回头再补。\n1. 按上面的接入地址读取接入说明，了解命令和规则。',
+        'red'
+      ],
+      [
+        '② 把档案与约定的两步对调（先确认约定再写档案）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        '4. 在对话中与主用户确认其基本情况、工作习惯、授权边界和完成标准，起草档案修改提议（profile propose），交主用户在审批页采纳。\n5. 与主用户确认协作协议内容：**先用 protocol get 看有没有已确认的协议**。已确认就别再发起 protocol propose（那会让人重复审批同一份东西）；未确认或有要改的地方，再起草提议交主用户在审批页采纳。',
+        '5. 与主用户确认协作协议内容：**先用 protocol get 看有没有已确认的协议**。已确认就别再发起 protocol propose（那会让人重复审批同一份东西）；未确认或有要改的地方，再起草提议交主用户在审批页采纳。\n4. 在对话中与主用户确认其基本情况、工作习惯、授权边界和完成标准，起草档案修改提议（profile propose），交主用户在审批页采纳。',
+        'red'
+      ],
+      [
+        '③ 注释里写反序命令（说明文字不该把闸门惹红）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        'const HARD_RULES = `',
+        '// 反例（只是注释）：project add 早于 profile propose 也不是产品顺序\nconst HARD_RULES = `',
+        'green'
+      ]
+    ]
   }
 ]
 

@@ -599,7 +599,7 @@ export const ApprovalView: React.FC = () => {
    * 下一步是哪一行 —— 取清单当前行（`nextOnboardingStep`），不在这里另写一份顺序
    *
    * 主用户的原话是「文案按当前真实清单状态给，别写死」：她这次的下一步可能是
-   * 「写下关于我」，换一个人、换一台机器就可能是「建第一个项目」或者「都做完了」。
+   * 「写下关于我」，换一个人、换一台机器就可能是「写清项目接手说明」或者「都做完了」。
    */
   const onboarding = useOnboardingStatus(agents)
   const nextStepKey = nextOnboardingStep(onboarding.status)

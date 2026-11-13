@@ -24,12 +24,32 @@ import {
  * 用户在用户页确认完协议、切回「我的工作」就能看到勾。
  * 等主进程补上广播后，这条兜底仍可保留（幂等、开销是两次只读查询）。
  */
+/**
+ * 第三、四步的「提议到哪一步了」
+ *
+ * 这两步不是人自己去写：助手先跟你聊，把档案 / 约定用 `profile propose`、
+ * `protocol propose` 提到审批页，人再到那一页**采纳**。所以清单要能说出
+ * 当前真实状态 —— 无提议（等它提）、有提议待采纳（去审批页）、已采纳（打勾）。
+ */
+export interface OnboardingProposalState {
+  /** 有还没处理的档案提议 */
+  profilePending: boolean
+  /** 有还没处理的约定提议 */
+  protocolPending: boolean
+  /** 采纳过助手的档案提议 */
+  profileAdopted: boolean
+  /** 采纳过助手的约定提议 */
+  protocolAdopted: boolean
+}
+
 export interface OnboardingSnapshot {
   status: OnboardingStatus
-  /** 必做的三步（接入 / 批准 / 首个项目）是否全绿 —— 用来决定清单条要不要收起 */
+  /** 项目之前那四步（接入 / 批准 / 关于我 / 约定）是否全绿 —— 决定清单条要不要收起 */
   coreDone: boolean
   /** 已完成项数（含可选项），给进度显示用 */
   doneCount: number
+  /** 助手提议的状态（第三、四步的当前真实状态从这里读） */
+  proposals: OnboardingProposalState
   reload: () => void
 }
 
@@ -40,6 +60,37 @@ const EMPTY: OnboardingStatus = {
   basicsConfirmed: false,
   globalProtocolConfirmed: false,
   projectHandoffConfirmed: false
+}
+
+const NO_PROPOSALS: OnboardingProposalState = {
+  profilePending: false,
+  protocolPending: false,
+  profileAdopted: false,
+  protocolAdopted: false
+}
+
+/** 提案行只关心这几格（`profile:proposals` / `protocol:proposals` 的形状） */
+interface ProposalRow {
+  status?: string
+  scope?: string
+  projectId?: string | null
+}
+
+/**
+ * 从提案清单里读「有没有待采纳 / 采纳过没有」
+ *
+ * 只认**全局**那一层（`projectId` 为空）：清单第三、四步说的就是全局档案与全局约定，
+ * 项目层覆盖是另一个页面的事，混进来会让一项目级提议把上手清单点绿。
+ */
+function proposalStateOf(rows: ProposalRow[] | null | undefined): {
+  pending: boolean
+  adopted: boolean
+} {
+  const global = (rows ?? []).filter((row) => !row.projectId && (row.scope ?? 'global') === 'global')
+  return {
+    pending: global.some((row) => row.status === 'pending'),
+    adopted: global.some((row) => row.status === 'approved')
+  }
 }
 
 /**
@@ -54,6 +105,7 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
   const projects = useProjectStore((s) => s.projects)
   const [profileBlocks, setProfileBlocks] = useState<OnboardingBlockState[]>([])
   const [protocolBlocks, setProtocolBlocks] = useState<OnboardingBlockState[]>([])
+  const [proposals, setProposals] = useState<OnboardingProposalState>(NO_PROPOSALS)
   const aliveRef = useRef(true)
 
   const reload = useCallback(() => {
@@ -69,6 +121,24 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
         if (aliveRef.current) setProtocolBlocks(protocol?.blocks ?? [])
       } catch {
         /* 同上 */
+      }
+      /** 第三、四步要说出「无提议 / 有提议待采纳 / 已采纳」，所以连提案一起读 */
+      try {
+        const [profileProposals, protocolProposals] = (await Promise.all([
+          invoke('profile:proposals'),
+          invoke('protocol:proposals')
+        ])) as unknown as [ProposalRow[] | null, ProposalRow[] | null]
+        if (!aliveRef.current) return
+        const profile = proposalStateOf(profileProposals)
+        const protocol = proposalStateOf(protocolProposals)
+        setProposals({
+          profilePending: profile.pending,
+          protocolPending: protocol.pending,
+          profileAdopted: profile.adopted,
+          protocolAdopted: protocol.adopted
+        })
+      } catch {
+        /* 读不到提案就按"无提议"说，不打断页面 */
       }
     })()
   }, [])
@@ -114,5 +184,5 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
   const done = onboardingStepDone(status)
   const doneCount = ONBOARDING_STEP_ORDER.filter((key) => done[key]).length
 
-  return { status, coreDone, doneCount, reload }
+  return { status, coreDone, doneCount, proposals, reload }
 }

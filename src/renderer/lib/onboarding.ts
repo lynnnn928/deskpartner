@@ -51,11 +51,22 @@ const REQUIRED_PROTOCOL_BLOCKS = ['roles', 'handoff', 'recording', 'communicatio
  * 而下一行还写着「批准它的身份」—— 一个勾说"已经接通"，下一步又说"还没放行"。
  * 现在两步各说一件事，标题跟着判据走：
  *
- *   让助手来申请 = 有助手来敲过门（已登记）。它来了，不代表你放行了。
- *   批准它的身份 = 你亲手点了批准（它能写你的项目了）。凭据是它自己的手续，这一步不等它。
- *   建第一个项目 = 有个项目的接手说明真填了内容（只建出空壳不算）。
- *   写下关于我   = 基本档案有内容、且你确认过。
- *   确认协作约定 = 五条约定的块全部由你确认。
+ *   让助手来申请   = 有助手来敲过门（已登记）。它来了，不代表你放行了。
+ *   批准它的身份   = 你亲手点了批准（它能写你的项目了）。凭据是它自己的手续，这一步不等它。
+ *   写下关于我     = 基本档案有内容、且你确认过。
+ *   确认协作约定   = 五条约定的块全部由你确认。
+ *   写清项目接手说明 = 有个项目的接手说明真填了内容（只建出空壳不算）。
+ *
+ * ── 顺序从哪来（2026-11-14 主用户拍板，卡 `a19054a1`）──
+ *
+ * 产品设计顺序的**唯一出处**是开场提示词（`onboarding-prompts.ts`）：
+ * 注册 → 读说明 → 助手提议档案、人采纳 → 助手提议约定、人采纳 → 之后才建第一个项目。
+ * 主用户原话：「审批结束之后，才看有无项目、要不要接入项目」，
+ * 「而不是上来注册审批完就直接建第一个项目」。
+ *
+ * 所以项目排在**最后**：档案与约定是助手进来后先跟人聊出来的东西，
+ * 项目是要拿这些档案去干的第一摊活。顺序对不上就由
+ * `tests/renderer/lib/onboarding-order-matches-prompt.test.ts` 判红。
  */
 export type OnboardingStepKey = 'agent' | 'approved' | 'basics' | 'protocol' | 'handoff'
 
@@ -64,7 +75,12 @@ export const ONBOARDING_STEP_TITLES: Record<OnboardingStepKey, string> = {
   approved: '批准它的身份',
   basics: '写下关于我',
   protocol: '确认协作约定',
-  handoff: '建第一个项目'
+  /**
+   * 标题跟判据对齐：这一步打勾要的是「接手说明真填了内容」，
+   * 不是「项目建出来了」（`project add` 会塞一份空骨架，那不算）。
+   * 主用户 2026-11-14 未表态是否放宽判据 —— 这里只改标题，判据原样保留，可反转。
+   */
+  handoff: '写清项目接手说明'
 }
 
 /**
@@ -84,17 +100,27 @@ export function onboardingStepDone(status: OnboardingStatus): Record<OnboardingS
   }
 }
 
-/** 主线三步（没有项目接手说明之前，后两步都还不该出现） */
-const STAGE_MAIN: OnboardingStepKey[] = ['agent', 'approved', 'handoff']
-/** 第二阶段：主线走完后才问关于我、协作约定 */
-const STAGE_REST: OnboardingStepKey[] = ['basics', 'protocol']
+/**
+ * 主线四步：不需要项目的四步（接入 → 批准 → 关于我 → 约定）
+ *
+ * 产品设计顺序就是这个：助手进来、人放行、助手跟人把档案与约定聊出来交人采纳，
+ * 这四件事都不需要项目存在。项目排在它们之后（见下面的 `STAGE_REST`）。
+ */
+const STAGE_MAIN: OnboardingStepKey[] = ['agent', 'approved', 'basics', 'protocol']
+/** 第二阶段：前四步走完才问「要不要建第一个项目、接手说明写什么」 */
+const STAGE_REST: OnboardingStepKey[] = ['handoff']
 
 /** 五步全表（全部做完、用户又点开清单看一遍时按这个顺序列） */
 export const ONBOARDING_STEP_ORDER: OnboardingStepKey[] = [...STAGE_MAIN, ...STAGE_REST]
 
-/** 主线的三步是否全绿 —— 决定清单停在第一段还是第二段 */
+/** 项目之前那四步是否全绿 —— 决定清单停在前一段还是只剩「写清项目接手说明」这一行 */
 export function isOnboardingCoreDone(status: OnboardingStatus): boolean {
-  return status.hasRegisteredAgent && status.hasApprovedAgent && status.projectHandoffConfirmed
+  return (
+    status.hasRegisteredAgent &&
+    status.hasApprovedAgent &&
+    status.basicsConfirmed &&
+    status.globalProtocolConfirmed
+  )
 }
 
 /** 清单此刻列出的那几行（按显示顺序） */
