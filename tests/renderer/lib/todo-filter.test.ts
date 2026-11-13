@@ -6,8 +6,12 @@ import type { Todo } from '../../../src/renderer/types/todo'
  * 视角只关心"这条跟谁有关"，所以用例只需要身份字段。
  * 依赖类型用 Pick<真实类型>：待办结构再怎么长，这里也不会被无关字段的改动波及。
  */
-function todo(createdBy: string, executedBy: string | null = null): Pick<Todo, 'createdBy' | 'executedBy'> {
-  return { createdBy, executedBy }
+function todo(
+  createdBy: string,
+  executedBy: string | null = null,
+  status: Todo['status'] = 'todo'
+): Pick<Todo, 'createdBy' | 'executedBy' | 'status'> {
+  return { createdBy, executedBy, status }
 }
 
 describe('matchesViewScope（视角：在看谁的事）', () => {
@@ -26,9 +30,26 @@ describe('matchesViewScope（视角：在看谁的事）', () => {
     expect(matchesViewScope(todo('agent:bob', 'human'), 'mine')).toBe(true)
   })
 
-  it('mine 不命中跟人无关的事', () => {
-    expect(matchesViewScope(todo('agent:bob'), 'mine')).toBe(false)
-    expect(matchesViewScope(todo('agent:alice', 'agent:bob'), 'mine')).toBe(false)
+  it('mine 不命中跟人无关、又不用人做判断的事', () => {
+    expect(matchesViewScope(todo('agent:bob', null, 'in_progress'), 'mine')).toBe(false)
+    expect(matchesViewScope(todo('agent:alice', 'agent:bob', 'todo'), 'mine')).toBe(false)
+    expect(matchesViewScope(todo('agent:bob', null, 'done'), 'mine')).toBe(false)
+  })
+
+  /**
+   * 卡 `821568fa`：助手提的「待确认」等他拍板、助手推来的「待验收」等他核对，
+   * 这两类 createdBy/executedBy 都不是 human，但**最该出现在「我的工作」里**。
+   */
+  it('mine 命中助手提的待确认（等我拍板）', () => {
+    expect(matchesViewScope(todo('agent:bob', null, 'proposed'), 'mine')).toBe(true)
+  })
+
+  it('mine 命中助手推来的待验收（等我核对）', () => {
+    expect(matchesViewScope(todo('agent:bob', 'agent:bob', 'awaiting_review'), 'mine')).toBe(true)
+  })
+
+  it('agent 视角不被这两条语义污染', () => {
+    expect(matchesViewScope(todo('agent:bob', 'agent:bob', 'awaiting_review'), 'agent:alice')).toBe(false)
   })
 
   it('agent 视角：提出者与执行者任一命中', () => {

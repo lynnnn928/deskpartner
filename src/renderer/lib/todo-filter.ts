@@ -249,10 +249,24 @@ export function collectFixedVersions(todos: Array<{ fixedInVersion: string | nul
  *
  * 'all' = 全部（不过滤）；'mine' = 与我相关；'agent:<id>' = 与某个 agent 相关。
  */
-export function matchesViewScope(todo: Todo, scope: string): boolean {
+export function matchesViewScope(
+  todo: Pick<Todo, 'createdBy' | 'executedBy' | 'status'>,
+  scope: string
+): boolean {
   if (!scope || scope === 'all') return true
-  const who = scope === 'mine' ? 'human' : scope
-  return todo.createdBy === who || todo.executedBy === who
+  if (scope === 'mine') {
+    if (todo.createdBy === 'human' || todo.executedBy === 'human') return true
+    /**
+     * 「等我拍板」与「等我验收」天然属于我的工作（卡 `821568fa`）。
+     *
+     * 助手提的 `proposed`：createdBy 是 agent、executedBy 还是 null；
+     * 助手做完推来的 `awaiting_review`：executedBy 也是 agent。
+     * 只按身份判，这两类**最该由人处理**的事反被「我的工作」默认视角滤掉，
+     * 人打开首屏看到"共 0 条待处理"—— 人机闭环正好断在拍板与验收这两步。
+     */
+    return todo.status === 'proposed' || todo.status === 'awaiting_review'
+  }
+  return todo.createdBy === scope || todo.executedBy === scope
 }
 
 /**
