@@ -7,6 +7,7 @@ import { matchesTodoFilter, matchesViewScope, ownerLabel, type TodoFilter } from
 import { matchesDueScope } from '../../lib/due-scope'
 import { TodoStatusPill, TodoPriorityBadge } from '../ui/Badge'
 import type { TodoStatus } from '../../types/enums'
+import { OnboardingChecklist } from './OnboardingChecklist'
 
 const ACTIONABLE: TodoStatus[] = ['proposed', 'todo', 'in_progress', 'awaiting_review']
 
@@ -79,9 +80,15 @@ export const WorkbenchView: React.FC = () => {
           <span className="text-caption text-text-secondary font-mono">共 {total} 条待处理</span>
         </div>
 
+        {/* 上手清单常驻在列表上方：空态会随第一条事项消失，清单不能跟着消失 */}
+        <OnboardingChecklist />
+
         {grouped.length === 0 ? (
-          <div className="rounded-card border border-border bg-bg-card p-10 text-center text-label text-text-secondary">
+          <div className="rounded-card border border-border bg-bg-card p-8 text-center text-label text-text-secondary">
             当前视角下没有需要处理的事项。
+            <div className="text-caption mt-1.5">
+              先按上面第一条把助手接进来，它会替你建第一个项目并登记事项。
+            </div>
           </div>
         ) : grouped.map((group) => (
           <section key={group.projectId ?? 'none'} className="rounded-card border border-border bg-bg-card shadow-sm overflow-hidden">

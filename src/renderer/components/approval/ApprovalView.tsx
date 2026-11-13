@@ -1,3 +1,6 @@
+import { useAgentStore } from '../../stores/agent.store'
+import { useCliAccess } from '../../lib/use-cli-access'
+import { buildMigratePrompt } from '../../lib/onboarding-prompts'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Icon, type IconName } from '../ui/Icon'
@@ -572,6 +575,13 @@ export const ApprovalView: React.FC = () => {
     return () => window.clearTimeout(timer)
   }, [focusGrantId, setFocusGrantId])
 
+  /** 有没有登记过任何助手：没有时"当前无待处理申请"会误导人 —— 那是在叫他去接入，不是"一切正常" */
+  const anyAgent = useAgentStore((state) => state.agents.length > 0)
+  const cliAccess = useCliAccess()
+  const copyPromptForApproval = (): void => {
+    void navigator.clipboard.writeText(buildMigratePrompt(cliAccess)).catch(() => undefined)
+  }
+
   const showPendingPanel = pendingTotal > 0 || Boolean(result) || Boolean(error)
 
   return (
@@ -1075,17 +1085,34 @@ export const ApprovalView: React.FC = () => {
                 <span className="font-mono text-label text-text-secondary">{history.total}</span>
               </div>
 
-              {!showPendingPanel && (
-                <div
-                  aria-label="待审批"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-bg-card px-3 py-1 text-caption text-text-secondary"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-                  <span className="font-medium text-text-primary">待审批</span>
-                  <span>·</span>
-                  <span>当前无待处理申请</span>
-                </div>
-              )}
+              {!showPendingPanel &&
+                (anyAgent ? (
+                  <div
+                    aria-label="待审批"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-bg-card px-3 py-1 text-caption text-text-secondary"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                    <span className="font-medium text-text-primary">待审批</span>
+                    <span>·</span>
+                    <span>当前无待处理申请</span>
+                  </div>
+                ) : (
+                  /** 还没有任何助手：这里的正确答案不是"无待处理"，而是"去接入一个" */
+                  <div
+                    data-testid="approval-no-agent"
+                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-bg-card px-3 py-1 text-caption text-text-secondary"
+                  >
+                    <span className="font-medium text-text-primary">还没有助手接入</span>
+                    <span>·</span>
+                    <button
+                      type="button"
+                      onClick={copyPromptForApproval}
+                      className="text-accent hover:underline decoration-accent/40 underline-offset-2 cursor-pointer"
+                    >
+                      复制开场提示词
+                    </button>
+                  </div>
+                ))}
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">

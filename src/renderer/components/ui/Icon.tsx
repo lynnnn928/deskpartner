@@ -86,6 +86,12 @@ const ICON_PATHS = {
       <rect x="6" y="4" width="4" height="16" rx="1" />
     </>
   ),
+  /** 打勾（上手清单已完成项） */
+  check: (
+    <>
+      <path d="M20 6 9 17l-5-5" />
+    </>
+  ),
   checkCircle: (
     <>
       <circle cx="12" cy="12" r="10" />
