@@ -109,6 +109,35 @@ describe('首屏上手清单', () => {
     )
   })
 
+  /**
+   * 这条是从退役的首启窗口搬过来的（`25caac02` 的残留）：
+   * 那段提示词曾经只写"安装目录下的 resources/cli/deskpartner.cjs"，
+   * 没有本机绝对路径 —— 没接过 DeskPartner 的 agent 第一步就是 `dp: command not found`。
+   * 窗口没了，但"复制出去的那份必须带地址"这条判据不能跟着没。
+   */
+  it('复制出去的开场提示词带本机绝对路径', async () => {
+    const written: string[] = []
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          written.push(text)
+        }
+      }
+    })
+    render(<OnboardingChecklist />)
+    const button = await waitFor(() => screen.getByTestId('onboarding-action-agent'))
+    // 地址是异步取的：等它落地再点，否则复制到的是不含绝对路径的兜底说法
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('cli:connectInfo'))
+    await new Promise((r) => setTimeout(r, 30))
+    fireEvent.click(button)
+
+    await waitFor(() => expect(written).toHaveLength(1))
+    expect(written[0]).toContain(JSON.stringify('C:/dp/deskpartner.cjs'))
+    expect(written[0]).toContain(JSON.stringify('C:/dp/mcp.cmd'))
+    expect(written[0]).not.toMatch(/\bdp (skill|agent register)/)
+  })
+
   it('必做三步全绿后收成一行入口，点开还能看', async () => {
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
     useProjectStore.setState({

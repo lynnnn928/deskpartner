@@ -3,8 +3,6 @@ import FloatBall from './windows/FloatBall'
 import Panel from './windows/Panel'
 import QuickAdd from './windows/QuickAdd'
 import Kanban from './windows/Kanban'
-import Onboarding from './windows/Onboarding'
-import Welcome from './windows/Welcome'
 import ReminderBanner from './windows/ReminderBanner'
 import { useTheme } from './hooks/useTheme'
 import { useTodoStore } from './stores/todo.store'
@@ -30,12 +28,6 @@ const WindowRouter: React.FC = () => {
     case 'kanban':
       return <Kanban />
     /** 1.0.48：设置/统计独立窗口退役，收编为主窗口内容区视图（#/kanban?view=…） */
-    /** 首次启动引导：只出现一次，问人的名字 */
-    case 'onboarding':
-      return <Onboarding />
-    /** 首次见面引导（1.0.64）：只出现一次，讲"怎么把 AI 接进来" */
-    case 'welcome':
-      return <Welcome />
     /** 顶部提醒横幅：待办提醒从屏幕上方弹出（红底警示），替代系统通知 */
     case 'reminder-banner':
       return <ReminderBanner />

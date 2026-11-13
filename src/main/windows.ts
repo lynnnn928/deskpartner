@@ -58,10 +58,6 @@ export class WindowManager {
   private quickAddWin: BrowserWindow | null = null
   private panelWin: BrowserWindow | null = null
   private kanbanWin: BrowserWindow | null = null
-  /** 首次启动引导窗口（只在没问过名字时出现一次） */
-  private onboardingWin: BrowserWindow | null = null
-  /** 首次见面引导窗口（1.0.64：只在没看过时出现一次，讲"怎么把 AI 接进来"） */
-  private welcomeWin: BrowserWindow | null = null
   /** 顶部提醒横幅（1.0.34 起替代 Windows 系统通知：位置与底色要自己说了算） */
   private reminderWin: BrowserWindow | null = null
 
@@ -118,8 +114,6 @@ export class WindowManager {
       this.floatBallWin,
       this.panelWin,
       this.quickAddWin,
-      this.onboardingWin,
-      this.welcomeWin,
       this.reminderWin
     ]
     for (const win of wins) {
@@ -713,113 +707,6 @@ export class WindowManager {
   /** 使用数据入口（1.0.48 起收编为主窗口统计视图） */
   showStats(): void {
     this.showKanban('stats')
-  }
-
-  /**
-   * 首次启动引导：问一次人的名字（v15：human 也要有身份名）
-   *
-   * 只在 settings.humanNameAsked === false 时由 index.ts 唤起一次。
-   * 刻意做成**独立小窗口**而不是塞进设置页：名字这种东西没人会主动去找着改，
-   * 而它决定了动态里所有记录的主语读起来对不对 —— 得在第一次见面时拦一下。
-   * 不填也能过（视为"就叫我『我』"），所以它不是门槛，可以放心弹。
-   */
-  showOnboarding(): void {
-    if (this.onboardingWin && !this.onboardingWin.isDestroyed()) {
-      this.bringToFront(this.onboardingWin)
-      return
-    }
-
-    const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize
-
-    this.onboardingWin = new BrowserWindow({
-      width: 440,
-      height: 380,
-      x: Math.floor(screenWidth / 2 - 220),
-      y: Math.floor(screenHeight / 2 - 190),
-      frame: false,
-      transparent: true,
-      resizable: false,
-      minimizable: false,
-      maximizable: false,
-      alwaysOnTop: true,
-      hasShadow: false,
-      icon: this.resolveWindowIcon(),
-      webPreferences: {
-        preload: path.join(__dirname, '../preload/index.js'),
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    })
-
-    this.loadRoute(this.onboardingWin, '/onboarding')
-
-    this.onboardingWin.on('closed', () => {
-      this.onboardingWin = null
-
-      /**
-       * 问完名字，紧接着接上「首次见面」引导（1.0.64）。
-       *
-       * 为什么挂在这里、而不是在 index.ts 里两个都直接 show：
-       * 两个都是 alwaysOnTop 的居中弹窗，同时弹会**叠在一起**（用户只看得见上面那个，
-       * 关掉一个又冒出一个，像是弹了两遍）。串行才是一次一个。
-       *
-       * 为什么判断放在这一刻再读一次 settings：
-       * 用户可能在问名字那一步就顺手改了什么，也可能 humanNameAsked 本来就是 true
-       * （没弹名字窗）—— 那时这条路根本不会走到，由 index.ts 直接唤起（见 index.ts 第 11 步）。
-       */
-      if (!this.settingsRepo.get().welcomeShown) {
-        this.showWelcome()
-      }
-    })
-
-    this.bringToFront(this.onboardingWin)
-  }
-
-  /**
-   * 首次见面引导：装完之后我拿它干嘛？（1.0.64）
-   *
-   * 只在 settings.welcomeShown === false 时由 index.ts 或 showOnboarding 的 closed 回调唤起一次。
-   * 它回答的是新用户的第一个问题：**下载装好之后，这东西怎么用、怎么把 AI 接进来。**
-   *
-   * 刻意做成独立小窗口而不是塞进设置页：接入说明这种东西没人会主动去找着看，
-   * 而它恰好是产品最不一样的地方 —— 得在第一次见面时递到手上。
-   * 但它**不是门槛**：不想看就点「知道了」，关掉即不再弹（入口常驻用户页）。
-   */
-  showWelcome(): void {
-    if (this.welcomeWin && !this.welcomeWin.isDestroyed()) {
-      this.bringToFront(this.welcomeWin)
-      return
-    }
-
-    const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize
-
-    this.welcomeWin = new BrowserWindow({
-      width: 480,
-      height: 420,
-      x: Math.floor(screenWidth / 2 - 240),
-      y: Math.floor(screenHeight / 2 - 210),
-      frame: false,
-      transparent: true,
-      resizable: false,
-      minimizable: false,
-      maximizable: false,
-      alwaysOnTop: true,
-      hasShadow: false,
-      icon: this.resolveWindowIcon(),
-      webPreferences: {
-        preload: path.join(__dirname, '../preload/index.js'),
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    })
-
-    this.loadRoute(this.welcomeWin, '/welcome')
-
-    this.welcomeWin.on('closed', () => {
-      this.welcomeWin = null
-    })
-
-    this.bringToFront(this.welcomeWin)
   }
 
   /**

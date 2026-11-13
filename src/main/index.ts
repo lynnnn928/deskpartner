@@ -831,57 +831,26 @@ app.whenReady().then(async () => {
   timerService.start()
 
   /**
-   * ── 10. 首次启动：先让主界面出场，再问名字 ──
+   * ── 10. 首次启动：只开主界面，不再弹引导小窗（1.0.146 重做 `a19054a1`）──
    *
-   * 老用户升级上来 humanNameAsked 也是 false，同样会问一次 —— 这是期望行为：
-   * 名字是新增的维度，问一次比让人去设置里翻要好。
-   * 跳过也写 true，绝不第二次打扰。
+   * 1.0.65～1.0.145 是「主窗口 + 440×384 问名字小窗 + 480×424 演三步小窗」。
+   * 用户的原话是「演示式看不懂」：小窗里演一遍、关掉就没了，人手里还是空界面。
    *
-   * 🚨 **首次启动必须把看板主窗口一起打开**（1.0.65 修 `abec1753`）。
+   * 现在唯一的上手入口是「我的工作」顶部那条清单（`OnboardingChecklist`）：
+   * 接入 / 批准 / 确认约定 / 建第一个项目 —— 四步全部由真实数据推算，
+   * 做一步勾一步，与界面同屏。名字输入也搬进了那条清单，问名字的小窗一并停用。
    *
-   * 1.0.64 的症状：新用户装完，第一眼是**空桌面上孤零零一个说明框**，
-   * 产品本身完全没露脸。她的原话：「有点太生硬了，你至少要把界面唤起的同时，
-   * 让它展示出来吧，你光秃秃的展示它也是有点奇怪」。
+   * 🚨 `welcomeShown` 现在指「首启已走过」，不再对应某个窗口。
+   * 首启这条路上**必须**写它：老逻辑靠关掉引导窗写标记，窗口不弹了，
+   * 不写就会每次开机都被当成首启、每次都把主窗口弹到人脸上。
    *
-   * 根因不是"少调了一个函数"这么简单：启动链第 5 步只建了悬浮球，
-   * `showKanban()` **从来不在启动路径上**（只有托盘 / 悬浮球菜单 /
-   * `window:showKanban` 这几条手动路径会调它）。于是"首次见面"这件事
-   * 全部发生在两个 440×380 / 480×420 的置顶小窗里，而它们背后是空的。
-   *
-   * 判据：**回答"这东西是干嘛的"，最好的答案应该是产品本身。**
-   * 说明书替代不了界面在场 —— 引导文案说得再好，也只是让人知道
-   * "有个东西存在"，而不是看见它是样子。
-   *
-   * ⚠️ 为什么放在 `showOnboarding()` 之前而不是之后：
-   * 引导窗是 `alwaysOnTop` 的，主窗口先开、引导窗后弹，才能保证
-   * **引导窗盖在主界面上方**（人先看见产品，再被引导罩住）。
-   * 反过来先弹引导再开主窗口，主窗口会把置顶的引导窗顶到后面去，
-   * 而 `bringToFront` 抢焦点还可能把人正在打的字打断。
-   *
-   * ⚠️ 只在**首次**这么做：老用户启动仍然只出悬浮球（那是他自己配好的形态，
+   * 🚨 仍然只在**首次**开主窗口：老用户启动照旧只出悬浮球（那是他自己配好的形态，
    * 每次开机都弹一个大窗是另一种打扰）。
    */
-  const isFirstRun = !settings.humanNameAsked || !settings.welcomeShown
+  const isFirstRun = !settings.welcomeShown
   if (isFirstRun) {
     windowManager.showKanban()
-  }
-
-  if (!settings.humanNameAsked) {
-    windowManager.showOnboarding()
-  } else if (!settings.welcomeShown) {
-    /**
-     * ── 11. 首次见面引导（1.0.64）──
-     *
-     * 只在**没弹名字窗**的时候直接唤起。弹了名字窗的那条路，
-     * 由 showOnboarding 的 closed 回调接着弹（两个都是居中置顶弹窗，
-     * 同时弹会叠在一起 —— 串行才是一次一个）。
-     *
-     * 这里再读一次 settings 而不是复用上面那个 const：同一段里已不可变，
-     * 但保留"以库里实际值为准"的读法，避免以后有人在中间插一步写设置而漏掉同步。
-     */
-    if (!settingsRepo.get().welcomeShown) {
-      windowManager.showWelcome()
-    }
+    settingsRepo.update({ welcomeShown: true })
   }
 
   if (settings.autoCheckUpdate && (app.isPackaged || Boolean(process.env.DESKPARTNER_UPDATE_FEED_URL))) {

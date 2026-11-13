@@ -27,7 +27,7 @@
 | 用户页 `components/user/UserView.tsx` | 协作方式、关于我、团队与权限、修订历史 | `profile/protocol/rules get` · 提议 · 修订回滚 | C3、C6、C8 | 有出处 |
 | 设置 `components/settings/SettingsView.tsx` | 外观、提醒、接入资料、数据目录、诊断 | `ui get/set` · `doc list/show` · `doctor` · `agent credential` | C16、C13、C14、C1 | 有出处 |
 | 帮助与产品手册 `components/onboarding/QuickStartView.tsx` | 第一次上手、按章查 | `skill`（正文 + 主题）· `doc list/show` | C13 | 有出处（口径更正：整本无出口是定案，逐节可达 23/23） |
-| 首次见面 `windows/Onboarding.tsx`、`windows/Welcome.tsx` | 问名字、讲怎么把 AI 接进来 | `profile` 区段 · 接入说明 | C3、C1 | 有出处 |
+| 上手清单 `components/workbench/OnboardingChecklist.tsx`（常驻「我的工作」顶部，1.0.146 取代两个首启小窗） | 第一次上手：接入、批准、确认约定、建第一个项目 | `agent` 批准 · `profile`/`protocol` 读写 · 接入说明 | C3、C1 | 有出处 |
 | 提醒横幅 `windows/ReminderBanner.tsx` | 到点提醒、一次点掉 | `reminder snooze` | C12 | 有出处 |
 
 ## 逐页清单（判据用）

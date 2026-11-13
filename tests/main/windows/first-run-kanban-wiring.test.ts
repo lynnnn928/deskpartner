@@ -3,29 +3,23 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
- * 首启引导必须与主界面同屏（1.0.65 修 `abec1753`）
+ * 首启必须与主界面同屏，而且只开这一个窗口
  *
  * ## 为什么要有这道闸门
  *
  * 1.0.64 的症状：新用户装完第一眼是**空桌面上孤零零一个说明框**，
- * 产品本身没露脸。根因是启动链里 `showKanban()` **从来不在**那条路径上 ——
- * 只有托盘 / 悬浮球菜单 / `window:showKanban` 这几条手动路径会调它。
+ * 产品本身没露脸 —— 启动链上根本没人调 `showKanban()`（修 `abec1753`）。
  *
- * 这类缺陷 tsc 抓不到、lint 抓不到、单测也几乎抓不到：
- * 它不是"某行写错了"，而是**一整条启动链上少了一个环节**，
- * 编译通过、测试全绿，现象却百分之百复现。
+ * 1.0.146 另一半问题：主界面在场了，但背后还压着两个置顶小窗
+ * （问名字 + 演三步）。用户的原话是「演示式看不懂」：小窗里演一遍、
+ * 关掉就没了，人手里还是空界面。于是两个小窗一并退役，上手内容搬进
+ * 「我的工作」顶部那条由真实数据驱动的清单（卡 `a19054a1`）。
  *
- * 所以这里读源码 + 断言**结构关系**，而不是断言某行代码的存在。
- * 判据来自记忆里那条：结构性闸门能抓 tsc/lint/单测全绿的静默缺陷。
- *
- * ## 为什么断言"顺序"而不只是"出现过"
- *
- * 引导窗是 `alwaysOnTop` 的。只保证 `showKanban()` 出现过是不够的 ——
- * 先弹引导再开主窗口的话，主窗口会把置顶引导窗顶到后面，
- * 而 `bringToFront` 抢焦点还可能打断人正在打的字。
- * 顺序反了 = 修了个寂寞，所以必须断在 `showKanban` 之前。
+ * 这类缺陷 tsc 抓不到、lint 抓不到、单测也几乎抓不到：它不是"某行写错了"，
+ * 而是**一整条启动链上多/少了一个环节**。所以这里读源码、断言结构关系。
  */
-const APP_INDEX = join(__dirname, '../../../src/main/index.ts')
+const ROOT = join(__dirname, '../../..')
+const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
 
 /** 去掉注释与字符串字面量，避免注释里提到 `showKanban()` 就把用例哄绿 */
 function stripCommentsAndStrings(src: string): string {
@@ -62,7 +56,7 @@ function stripCommentsAndStrings(src: string): string {
   return out
 }
 
-const src = stripCommentsAndStrings(readFileSync(APP_INDEX, 'utf-8'))
+const src = stripCommentsAndStrings(read('src/main/index.ts'))
 
 /** 从 `app.whenReady()` 那段里取启动链（引导相关逻辑都在这一段） */
 function startupBlock(): string {
@@ -74,11 +68,10 @@ function startupBlock(): string {
 /**
  * 首启那一段（从 `isFirstRun` 声明起）
  *
- * ⚠️ **不能**直接 `block.indexOf('showKanban(')`：第 6 步的托盘服务里
- * 也有一次 `onShowKanban: () => windowManager.showKanban()`，
- * 它排在首启逻辑**之前**。用它做锚点会让"顺序"断言拿托盘那次来比 ——
- * 那样断言恒成立，等于没断言（我自己第一版就踩了，test 2 是假通过）。
- * 所以锚点必须从 `isFirstRun` 声明**之后**开始找。
+ * ⚠️ **不能**直接 `startupBlock().indexOf('showKanban(')`：第 6 步的托盘服务里
+ * 也有一次 `onShowKanban: () => windowManager.showKanban()`，它排在首启逻辑
+ * **之前**。用它做锚点会让"顺序"断言拿托盘那次来比 —— 那样断言恒成立、
+ * 等于没断言（第一版就踩了，是假通过）。所以锚点必须从 `isFirstRun` 之后找。
  */
 function firstRunBlock(): string {
   const block = startupBlock()
@@ -87,7 +80,17 @@ function firstRunBlock(): string {
   return block.slice(at, at + 1200)
 }
 
-describe('首启引导：主界面必须在场（abec1753）', () => {
+/** `if (isFirstRun) { … }` 的函数体（按 2 空格缩进的收尾括号切） */
+function firstRunBody(): string {
+  const block = firstRunBlock()
+  const start = block.indexOf('if (isFirstRun) {')
+  expect(start, '首启必须被 if (isFirstRun) 包着').toBeGreaterThan(-1)
+  const end = block.indexOf('\n  }', start)
+  expect(end, '应能定位到 if (isFirstRun) 的收尾').toBeGreaterThan(start)
+  return block.slice(start, end)
+}
+
+describe('首启：只开主界面（abec1753 / a19054a1）', () => {
   it('首启判定里存在 showKanban()（首启时它从未被打开过）', () => {
     expect(
       firstRunBlock().includes('showKanban('),
@@ -95,48 +98,49 @@ describe('首启引导：主界面必须在场（abec1753）', () => {
     ).toBe(true)
   })
 
-  it('showKanban 在引导窗之前（顺序反了等于没修）', () => {
-    const block = firstRunBlock()
-    const kanbanAt = block.indexOf('showKanban(')
-    const onboardingAt = block.indexOf('showOnboarding(')
-    const welcomeAt = block.indexOf('showWelcome(')
-
-    expect(kanbanAt, '首启那段应有 showKanban()').toBeGreaterThan(-1)
-    expect(onboardingAt, '首启那段应有 showOnboarding()').toBeGreaterThan(-1)
+  it('showKanban 被 if (isFirstRun) 包着，不在启动链上无条件执行', () => {
     expect(
-      kanbanAt,
-      'showKanban() 必须排在 showOnboarding() 之前：引导窗是 alwaysOnTop 的，' +
-        '后开主窗口会把它顶到后面，还可能抢焦点'
-    ).toBeLessThan(onboardingAt)
-
-    if (welcomeAt > -1) {
-      expect(
-        kanbanAt,
-        'showKanban() 也必须排在 showWelcome() 之前（同上，置顶层级问题）'
-      ).toBeLessThan(welcomeAt)
-    }
+      firstRunBody().includes('showKanban('),
+      '无条件开窗 = 每次开机都弹大窗；这是老用户配好的"只出悬浮球"形态被打断'
+    ).toBe(true)
   })
 
-  it('首启判定同时覆盖 humanNameAsked 与 welcomeShown 两条分支', () => {
+  it('首启判定只看 welcomeShown（名字输入已搬进清单条）', () => {
     const decl = firstRunBlock().slice(0, 200)
-    expect(decl).toContain('humanNameAsked')
+    expect(decl).toContain('welcomeShown')
     expect(
-      decl,
-      'welcomeShown 也必须在内：老用户升级上来会走这条路，只有 humanNameAsked 会漏'
-    ).toContain('welcomeShown')
+      decl.includes('humanNameAsked'),
+      'humanNameAsked 不再参与首启判定：名字行在「我的工作」清单里，不必为它再弹一个窗口'
+    ).toBe(false)
   })
 
-  it('showKanban 被首启判定包着，不在启动链上无条件执行', () => {
-    const block = firstRunBlock()
-    const guardAt = block.indexOf('if (isFirstRun)')
-    const kanbanAt = block.indexOf('showKanban(')
+  it('首启同一次里写回 welcomeShown=true（否则每次都算首启）', () => {
+    const body = firstRunBody()
     expect(
-      guardAt,
-      'showKanban() 必须在 if (isFirstRun) 之内：无条件开窗 = 每次开机都弹大窗'
-    ).toBeGreaterThan(-1)
-    expect(kanbanAt).toBeGreaterThan(guardAt)
-    // 闭合大括号要紧跟在这次调用之后（中间不留别的语句）
-    const between = block.slice(guardAt, kanbanAt)
-    expect(between, 'showKanban 之前只应有 if 判断本身').not.toMatch(/;\s*\w+\s*\(/)
+      body.includes('welcomeShown: true'),
+      '老逻辑靠"关掉引导窗"写这个标记，窗口不弹了就必须在启动链上自己写 —— ' +
+        '否则每次开机都当成首启、每次都把主窗口弹到人脸上'
+    ).toBe(true)
+    // 顺序：先让界面出场，再落标记
+    expect(body.indexOf('showKanban(')).toBeLessThan(body.indexOf('welcomeShown: true'))
+  })
+
+  it('启动链不再唤起引导小窗', () => {
+    const block = startupBlock()
+    expect(block.includes('showOnboarding('), '问名字小窗已退役').toBe(false)
+    expect(block.includes('showWelcome('), '三步演示小窗已退役（改由清单条承接）').toBe(false)
+  })
+
+  it('两个引导窗的实现与路由一并退役，不留死窗口', () => {
+    const windowsTs = stripCommentsAndStrings(read('src/main/windows.ts'))
+    expect(windowsTs).not.toContain('showOnboarding')
+    expect(windowsTs).not.toContain('showWelcome')
+
+    // 路由用原文查：`case 'onboarding':` 是字符串字面量，剥掉就什么都不剩了
+    const appTs = read('src/renderer/App.tsx')
+    expect(appTs).not.toContain("case 'onboarding'")
+    expect(appTs).not.toContain("case 'welcome'")
+    expect(appTs).not.toContain("windows/Onboarding")
+    expect(appTs).not.toContain("windows/Welcome")
   })
 })
