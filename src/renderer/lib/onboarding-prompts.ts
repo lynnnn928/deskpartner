@@ -144,6 +144,35 @@ ${buildAccessBlock(access)}
 ${HARD_RULES}`
 }
 
+/**
+ * 只要求「给已有项目补一份接手说明」的那段话（2026-11-14，复审 round 3 第 ② 条）
+ *
+ * ── 为什么不能沿用 `buildFirstProjectPrompt` ──
+ *
+ * 清单第 5 行在「项目已经建好、接手说明还没采纳」时也要给一个复制按钮
+ * （`OnboardingChecklist` 的第二张脸）。那里如果还复制「建第一个项目」那段话，
+ * 它的第 3 步就是「建项目（project add），接着提议交接说明」——
+ * 人照着发一遍，库里就会多出第二个壳，正是这一行要堵的事（复审实测抓到）。
+ *
+ * 所以这一段只讲一件事：**项目已经有了，别再 add**；找到它、问清楚、提接手说明、
+ * 等采纳。第 2 步把「先 project list、已有就别新建」写成明确约束，
+ * 不靠助手自觉。
+ */
+export function buildHandoffOnlyPrompt(access: CliAccess | null = null): string {
+  return `你是 DeskPartner 的协作 agent，已经接入并获准写入。主用户的库里**已经有这个项目**了，只差它的接手说明。
+
+${buildAccessBlock(access)}
+
+请按以下顺序工作：
+1. 自检身份（agent whoami），未获批就先停下等主用户在「审批」页批准。
+2. 用 project list 找到那个项目。**不要新建项目**：它已经在库里，重复建会让同一摊事出现两个壳。
+3. 用一两个问题问清它的目标、边界和下一步（问过的不要再问）。
+4. 提议接手说明（project handoff-propose <项目名>），交主用户在审批页采纳；采纳之前不要直接改生效内容。
+5. 采纳之后，把已经定下来的事登记成事项，每条在评论里写明来源；**至少留 1 条 --status proposed（待确认）**，让主用户亲手拍板一次。
+
+${HARD_RULES}`
+}
+
 export function buildProjectPrompt(access: CliAccess | null = null): string {
   return `你是 DeskPartner 的协作 agent。主用户希望把一个已有项目接入 DeskPartner。
 

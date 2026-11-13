@@ -1316,6 +1316,16 @@ todoRepo.delete(id, 'gui', 'human')
         const result = agentRepo.setRejected(id, rejected)
         // 同上：拒绝了它，那条"等你批准写入"的横幅同样过期了，一起收掉
         hideReminderBanners()
+        /**
+         * 拒绝/撤销拒绝也必须广播（2026-11-14，复审 round 3 的 b 条）
+         *
+         * 与批准同一条理由：不广播不是"晚一点更新"，而是**界面在说与事实相反的话**。
+         * 上手清单第 2 行靠 agent store 判"有没有人在申请"，而这个 store 只认
+         * `agent_register` 与 `grant` 两类事件（见该 store 的注释）——
+         * 拒绝之后它拿不到任何信号，于是清单继续写「它申请写入你的项目」，
+         * 而库里这个身份已经被结案了。撤销拒绝同理（它回到"等你批准"）。
+         */
+        broadcastDataChanged('grant', getWindows)
         return result
       })
   )

@@ -7,7 +7,7 @@ import { useAgentStore } from '../../stores/agent.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useOnboardingStatus } from '../../lib/use-onboarding-status'
 import { useCliAccess } from '../../lib/use-cli-access'
-import { buildMigratePrompt, buildFirstProjectPrompt } from '../../lib/onboarding-prompts'
+import { buildMigratePrompt, buildFirstProjectPrompt, buildHandoffOnlyPrompt } from '../../lib/onboarding-prompts'
 import { cn } from '../../lib/utils'
 import {
   ONBOARDING_STEP_ORDER,
@@ -88,9 +88,29 @@ interface StepRow {
 
 const ALL_KEYS: StepKey[] = ONBOARDING_STEP_ORDER
 
+/**
+ * 正文里引用的助手名截到 12 字（复审 round 2 第三节第 1 条 / round 3 重申）
+ *
+ * `agent register --name` 不限长度：名字超过 18 字，第 2 行就超过 35；
+ * 超过 28 字，连 45 的总上限都撑破。名字是身份的一部分，显示上截断不影响识别
+ * （完整名字在审批页与团队页都看得到）。
+ */
+const shortName = (name: string): string => {
+  const text = name.trim()
+  const chars = [...text]
+  return chars.length <= 12 ? text : `${chars.slice(0, 12).join('')}…`
+}
+
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const { status, coreDone, doneCount, proposals, hasHandoffProject, reload } = useOnboardingStatus()
   const setMainView = useUIStore((s) => s.setMainView)
+  /**
+   * 拒绝之后要去的地方是**用户页的「团队」**：撤销拒绝那颗按钮在那儿
+   * （`AgentRosterSection` 的「撤销拒绝」）。审批页只列还在等批的身份 ——
+   * 点「前往审批」过去会是一张没有这个助手、也没有任何按钮的页面
+   * （复审 round 3 第 b 条实测）。
+   */
+  const openUserSection = useUIStore((s) => s.openUserSection)
   const dismissed = useUIStore((s) => s.onboardingChecklistDismissed)
   const reopened = useUIStore((s) => s.onboardingChecklistReopened)
   const setChecklistState = useUIStore((s) => s.setOnboardingChecklistState)
@@ -158,8 +178,13 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const pendingAgentName = pendingAgent?.displayName?.trim() ?? ''
   const approvedAgentName = approvedAgent?.displayName?.trim() ?? ''
 
-  const copyPrompt = async (key: 'agent' | 'handoff'): Promise<void> => {
-    const text = key === 'handoff' ? buildFirstProjectPrompt(cliAccess) : buildMigratePrompt(cliAccess)
+  const copyPrompt = async (key: 'agent' | 'handoff' | 'handoffOnly'): Promise<void> => {
+    const text =
+      key === 'handoff'
+        ? buildFirstProjectPrompt(cliAccess)
+        : key === 'handoffOnly'
+          ? buildHandoffOnlyPrompt(cliAccess)
+          : buildMigratePrompt(cliAccess)
     try {
       await navigator.clipboard.writeText(text)
       if (key === 'agent') {
@@ -250,22 +275,24 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
       /** 只认批准：凭据要等助手下次连上才领到，不该让这一行等人等不到的东西 */
       done: done.approved,
       /**
-       * 兜底句按**真实状态**分支（评审 round 2 的 b 条）
+       * 兜底句按**真实状态**分支（评审 round 2 的 b 条，round 3 补正去处）
        *
-       * 原先这里只有一句「它申请写入你的项目。批准前它只能读。」，且按钮恒为 null。
-       * 可走到这一行、又不点名的情形是**全都拒了**：那会儿没有任何人在申请，
-       * 这句话是假的，人也没有可点的东西 —— 这一步就卡死在那里。
-       * 现在被拒时说清「是你拒的、去哪儿改主意」，按钮指向那一页
-       * （审批页对已拒绝的助手有「取消拒绝」，`agent:setRejected`）。
+       * 走到这一行、又不点名，只有一种情形：**助手全被拒了**。那会儿没有任何人
+       * 在申请，「它申请写入你的项目」是假话，按钮还是 null —— 这一步就卡死。
+       *
+       * 被拒之后能把它放回来的按钮是用户页「团队」里的**撤销拒绝**
+       * （`AgentRosterSection`）。审批页只列还在等批的身份，那里没有这个助手、
+       * 也没有任何按钮 —— 所以按钮指向团队页，文案也点明那一颗按钮的名字。
        */
       hint: pendingAgentName
-        ? `${pendingAgentName} 申请写入你的项目。批准前它只能读。`
+        ? `${shortName(pendingAgentName)} 申请写入你的项目。批准前它只能读。`
         : rejectedAgent
-          ? '你拒绝了它的申请。想让它回来，去审批页取消拒绝。'
+          ? '你拒绝了它的申请。想让它回来，去「团队」点「撤销拒绝」。'
           : '还没有助手在申请。先做上面那一步。',
-      action:
-        pendingAgent || rejectedAgent
-          ? { label: '前往审批', onClick: () => setMainView('approval') }
+      action: pendingAgent
+        ? { label: '前往审批', onClick: () => setMainView('approval') }
+        : rejectedAgent
+          ? { label: '去团队页', onClick: () => openUserSection('team') }
           : null,
       note: credentialPending ? '凭据还没到手：它下次连上时会自己领，这一步不用等。' : undefined
     },
@@ -314,23 +341,29 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
        * 人照着它再发一遍，只会多出第二个项目。
        *
        *   ① 提议排着 → 去审批页采纳（按钮也换成它）
-       *   ② 项目有了、提议还没来 → 让它填好再提（这时复制那段话是有用的）
+       *   ② 项目有了、提议还没来（或提议被退回）→ 复制一段**只补齐接手说明**的话
        *   ③ 还没项目 → 建项目
        *
        * ② 的判据是「接手说明有正文」（`project add` 塞的骨架也算），不是
        * 「库里有项目」：迁移兜底建的「未分类」篮子在新库上就存在，
        * 用它当判据会让一上来就说「项目建好了」。
+       *
+       * ② 复制的是 `buildHandoffOnlyPrompt`，不是「建第一个项目」那段
+       * （复审 round 3 第 ② 条实测）：后者的第 3 步就是 `project add`，
+       * 人照着发一遍，库里就多出第二个壳 —— 正好是这一行要堵的事。
        */
       hint: proposals.handoffPending
-        ? `${approvedAgentName || '助手'} 建好了项目，接手说明等你采纳，去审批页。`
+        ? `${shortName(proposals.handoffProposer) || approvedAgentName || '助手'} 建好了项目，接手说明等你采纳，去审批页。`
         : hasHandoffProject
-          ? '项目建好了，接手说明还没提过来：复制这段话发给助手，让它填好再提。'
+          ? '项目建好了，接手说明还没采纳：复制这段话发给助手，让它提一版给你采纳。'
           : approvedAgentName
-            ? `复制这段话发给 ${approvedAgentName}，它会建好项目，再提第一条事项等你拍板。`
+            ? `复制这段话发给 ${shortName(approvedAgentName)}，它会建好项目，再提第一条事项等你拍板。`
             : '复制这段话发给助手，它会建好项目，再提第一条事项等你拍板。',
       action: proposals.handoffPending
         ? { label: '前往审批', onClick: openApproval }
-        : { label: justCopied ? '已复制' : '复制建项目的话', onClick: () => void copyPrompt('handoff') }
+        : hasHandoffProject
+          ? { label: justCopied ? '已复制' : '复制补接手说明的话', onClick: () => void copyPrompt('handoffOnly') }
+          : { label: justCopied ? '已复制' : '复制建项目的话', onClick: () => void copyPrompt('handoff') }
     }
   }
 

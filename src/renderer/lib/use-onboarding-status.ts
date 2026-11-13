@@ -51,6 +51,13 @@ export interface OnboardingProposalState {
    * 上面四格只认全局那一层，不能混。
    */
   handoffPending: boolean
+  /**
+   * 提议接手说明的是谁（`agent:alice` 或 `human`）—— 第 5 行点名用
+   *
+   * 不能拿"第一个已批准的助手"顶替（复审 round 3 第 ④ 条）：接进来的助手可能
+   * 有好几个，张冠李戴比不点名更糟。没有提议时是空串。
+   */
+  handoffProposer: string
 }
 
 export interface OnboardingSnapshot {
@@ -86,7 +93,8 @@ const NO_PROPOSALS: OnboardingProposalState = {
   protocolPending: false,
   profileAdopted: false,
   protocolAdopted: false,
-  handoffPending: false
+  handoffPending: false,
+  handoffProposer: ''
 }
 
 /** 提案行只关心这几格（`profile:proposals` / `protocol:proposals` 的形状） */
@@ -94,6 +102,8 @@ interface ProposalRow {
   status?: string
   scope?: string
   projectId?: string | null
+  /** 接手说明提议带发起人（`agent:alice` / `human`），第 5 行点名用 */
+  proposer?: string
 }
 
 /**
@@ -153,12 +163,15 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
         if (!aliveRef.current) return
         const profile = proposalStateOf(profileProposals)
         const protocol = proposalStateOf(protocolProposals)
+        const pendingHandoff = (handoffProposals ?? []).find((row) => row.status === 'pending')
         setProposals({
           profilePending: profile.pending,
           protocolPending: protocol.pending,
           profileAdopted: profile.adopted,
           protocolAdopted: protocol.adopted,
-          handoffPending: (handoffProposals ?? []).some((row) => row.status === 'pending')
+          handoffPending: Boolean(pendingHandoff),
+          /** `agent:alice` → `alice`：正文里点的是名字，不是身份串 */
+          handoffProposer: (pendingHandoff?.proposer ?? '').replace(/^agent:/, '')
         })
       } catch {
         /* 读不到提案就按"无提议"说，不打断页面 */

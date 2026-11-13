@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import React from 'react'
 import { OnboardingChecklist } from '../../../src/renderer/components/workbench/OnboardingChecklist'
 import { useAgentStore } from '../../../src/renderer/stores/agent.store'
@@ -190,19 +192,53 @@ describe('首屏上手清单：只展开当前一行', () => {
    *
    * 走到这一行、又不点名的情形只有一种：**助手全被拒了**。那会儿没有任何人在申请，
    * 旧文案「它申请写入你的项目」是假话，按钮还是 null —— 这一步就卡死在那儿。
+   *
+   * 去处是**用户页的「团队」**（复审 round 3 实测）：撤销拒绝那颗按钮在
+   * `AgentRosterSection` 里，审批页只列还在等批的身份 —— 那里过去什么都没有。
    */
-  it('助手被拒绝时，第 2 行说实话并给出「前往审批」（那一页有「取消拒绝」）', async () => {
+  it('助手被拒绝时，第 2 行说实话并送到「团队」页的「撤销拒绝」', async () => {
     useAgentStore.setState({ agents: [rejectedAgentOf()] as never, loading: false })
     render(<OnboardingChecklist />)
     const hint = await waitFor(() => screen.getByTestId('onboarding-next-approved'))
     expect(hint.textContent).toContain('你拒绝了它的申请')
-    expect(hint.textContent).toContain('取消拒绝')
+    expect(hint.textContent).toContain('撤销拒绝')
     // 没有人在申请，就不能再写"它在申请"
     expect(hint.textContent).not.toContain('它申请写入你的项目')
+    expect(chars(hint.textContent)).toBeLessThanOrEqual(45)
     const button = screen.getByTestId('onboarding-action-approved')
-    expect(button.textContent).toContain('前往审批')
+    expect(button.textContent).toContain('去团队页')
     fireEvent.click(button)
-    expect(useUIStore.getState().mainView).toBe('approval')
+    // 去的必须是用户页的「团队」分区 —— 不是审批页（那儿没有这个助手）
+    expect(useUIStore.getState().mainView).toBe('user')
+    expect(useUIStore.getState().userEntryTarget).toMatchObject({ section: 'team' })
+  })
+
+  /** 「撤销拒绝」这颗按钮真的在团队页里（去处不能只写在文案上） */
+  it('用户页的团队分区里确实有「撤销拒绝」这颗按钮', () => {
+    const roster = readFileSync(
+      join(__dirname, '../../../src/renderer/components/user/AgentRosterSection.tsx'),
+      'utf8'
+    )
+    expect(roster).toContain('撤销拒绝')
+    const userView = readFileSync(
+      join(__dirname, '../../../src/renderer/components/user/UserView.tsx'),
+      'utf8'
+    )
+    expect(userView).toContain('AgentRosterSection')
+  })
+
+  /** 长名字不能把那一行撑破（复审 round 2 第三节第 1 条） */
+  it('名字超过 12 字时正文里截断加省略号', async () => {
+    const longName = '一个特别特别特别长的助手展示名字'
+    useAgentStore.setState({
+      agents: [{ ...agentOf(false, false), displayName: longName }] as never,
+      loading: false
+    })
+    render(<OnboardingChecklist />)
+    const hint = await waitFor(() => screen.getByTestId('onboarding-next-approved'))
+    expect(hint.textContent).toContain('…')
+    expect(hint.textContent).not.toContain(longName)
+    expect(chars(hint.textContent)).toBeLessThanOrEqual(45)
   })
 
   /**
@@ -292,15 +328,44 @@ describe('首屏上手清单：只展开当前一行', () => {
       expect(useUIStore.getState().mainView).toBe('approval')
     })
 
-    it('项目有了、提议还没来 → 让它填好再提（这时复制那段话才是有用的）', async () => {
+    it('项目有了、提议还没来 → 复制的话只补接手说明，不许再建项目', async () => {
+      const written: string[] = []
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            written.push(text)
+          }
+        }
+      })
       useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
       useProjectStore.setState({ projects: [skeletonProject] as never })
       coreDoneMock()
+      invokeMock.mockImplementation(async (channel: string) => {
+        if (channel === 'cli:connectInfo') return { cliPath: 'C:/dp/deskpartner.cjs', cliEnvVar: 'DESKPARTNER_CLI', cliEnvAvailable: false, mcpCommand: 'C:/dp/mcp.cmd' }
+        if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+        if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+        return null
+      })
       render(<OnboardingChecklist />)
       const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
-      expect(hint.textContent).toContain('接手说明还没提过来')
-      expect(hint.textContent).toContain('让它填好再提')
-      expect(screen.getByTestId('onboarding-action-handoff').textContent).toContain('复制建项目的话')
+      expect(hint.textContent).toContain('接手说明还没采纳')
+      expect(chars(hint.textContent)).toBeLessThanOrEqual(45)
+      const button = screen.getByTestId('onboarding-action-handoff')
+      expect(button.textContent).toContain('复制补接手说明的话')
+      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('cli:connectInfo'))
+      await new Promise((r) => setTimeout(r, 30))
+      fireEvent.click(button)
+
+      await waitFor(() => expect(written).toHaveLength(1))
+      /**
+       * 复审 round 3 第 ② 条：这一段话如果是「建第一个项目」那段，
+       * 它的第 3 步就是 `project add` —— 人照着发一遍就多出第二个壳。
+       */
+      expect(written[0]).not.toMatch(/建项目（project add）/)
+      expect(written[0]).toContain('不要新建项目')
+      expect(written[0]).toContain('handoff-propose')
+      expect(written[0]).toContain('已经有这个项目')
     })
 
     /**
