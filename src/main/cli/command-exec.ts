@@ -585,11 +585,36 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
    * 写入类命令成功后追加一条变更事件，
    * 让正在运行的 GUI 通过轮询察觉到"数据被别的进程改了"。
    * 这是通道 B（无头执行）的兜底补偿 —— 正常路径由 GUI 自广播覆盖。
+   *
+   * ── 为什么不再只认 `todo *`（2026-11-14，复审 round 3 第 ③ 条）──
+   *
+   * 界面各个 store 只认自己那一类事件（`project.store` 只认 `type === 'project'`）。
+   * 此前这条兜底只给 `todo *` 记事件，于是**助手在命令行建的项目，界面收不到**：
+   * 「我的工作」侧栏的项目列表、上手清单第 5 行都停在原地，直到下一次真正的
+   * project 事件（例如 handoff-propose）或者重启。上手走查里实测到过 ——
+   * `project:list` 已经有那个项目，界面还写着「它会建好项目」。
+   *
+   * 现在按命令前缀映射事件类型，并跳过只读命令。写成"前缀表 + 只读判定"是因为
+   * 事件类型必须与渲染层订阅的那几种对齐（`todo` / `project`），
+   * 拼错一个字符就是静默不刷新。
    */
-  if (cmd.name.startsWith('todo ') && cmd.name !== 'todo list') {
+  const changeTypeOf = (name: string): string | null => {
+    if (name.startsWith('todo ')) return 'todo'
+    if (name.startsWith('project ')) return 'project'
+    return null
+  }
+  /**
+   * 命令自己说"什么都没改"（例如 rollback 回到与当前相同的版本）就不广播：
+   * 这条事件的意思是**数据被改了**，没改就没有要刷的东西，也不该让人以为变了。
+   * 判据取 `data.changed === false`（`project handoff-rollback` 用这个字段）。
+   */
+  const changedNothing =
+    data && typeof data === 'object' && (data as { changed?: boolean }).changed === false
+  const changeType = changeTypeOf(cmd.name)
+  if (changeType && riskOf(cmd) !== 'read' && !changedNothing) {
     try {
-      ctx.deps.events.append('todo', 'cli', { cmd: cmd.name })
-     } catch {
+      ctx.deps.events.append(changeType, 'cli', { cmd: cmd.name })
+    } catch {
       // 广播失败不能让命令本身失败
     }
   }

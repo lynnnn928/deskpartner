@@ -5308,6 +5308,30 @@ describe('project handoff-history / handoff-revision / handoff-rollback 命令�
     expect(noFlag.ok).toBe(false)
   })
 
+  /**
+   * 跨进程广播：写命令要把「数据变了」告诉正在跑的界面（复审 round 3 第 ③ 条）
+   *
+   * 兜底此前只认 `todo *`：助手在命令行建的项目，界面收不到，侧栏与上手清单
+   * 第 5 行都停在原地（走查实测：project:list 已有该项目、界面还写着
+   * 「它会建好项目」）。现在按前缀映射事件类型，只读命令不发。
+   */
+  it('project add 追加一条 project 事件；project list 这种只读命令不发', async () => {
+    const append = vi.fn()
+    const c = { ...ctx, deps: { ...ctx.deps, events: { append } } } as never
+
+    const added = await executeOne(c, ['project', 'add', '--name', '广播验证项目'])
+    expect(added.ok).toBe(true)
+    const call = append.mock.calls.find((args) => args[0] === 'project')
+    expect(call, 'project add 应当追加一条 type=project 的事件').toBeTruthy()
+    expect(call![1]).toBe('cli')
+    expect(call![2]).toMatchObject({ cmd: 'project add' })
+
+    append.mockClear()
+    const listed = await executeOne(c, ['project', 'list'])
+    expect(listed.ok).toBe(true)
+    expect(append.mock.calls.filter((args) => args[0] === 'project')).toHaveLength(0)
+  })
+
   it('handoff-rollback 是写档：无人值守的匿名调用被门禁拦下（走身份链，不绕开）', async () => {
     const anon = { ...ctx, actor: 'human', interactive: false } as never
     const res = await executeOne(anon, ['project', 'handoff-rollback', projectId, '--revision', '1'])
