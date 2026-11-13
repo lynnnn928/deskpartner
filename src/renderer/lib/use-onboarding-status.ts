@@ -40,6 +40,17 @@ export interface OnboardingProposalState {
   profileAdopted: boolean
   /** 采纳过助手的约定提议 */
   protocolAdopted: boolean
+  /**
+   * 有项目接手说明的提议还在等采纳 —— 清单第 5 行据此改口
+   *
+   * 主用户 2026-11-14（评审 round 2 的 a 条）：助手照第 1 行那段话建完项目、
+   * 把接手说明提到审批页之后，第 5 行还在叫「复制这段话发给助手」，
+   * 而这一步真正的动作已经在审批页排着了。这一格就是为了让那一行说出实情。
+   *
+   * 与上面四格的区别：接手说明是**项目级**的（提议带 `projectId`），
+   * 上面四格只认全局那一层，不能混。
+   */
+  handoffPending: boolean
 }
 
 export interface OnboardingSnapshot {
@@ -50,6 +61,14 @@ export interface OnboardingSnapshot {
   doneCount: number
   /** 助手提议的状态（第三、四步的当前真实状态从这里读） */
   proposals: OnboardingProposalState
+  /**
+   * 有没有「助手真建出来的项目」—— 第 5 行据此说「建项目」还是「填接手说明」
+   *
+   * 判据是**接手说明有正文**（`project add` 会塞一份章节骨架，所以建过的项目
+   * 一定有；迁移时兜底建的「未分类」篮子没有）。不能用"库里有项目"：
+   * 那个篮子在新库上就存在，否则一上来第 5 行就会说「项目建好了」。
+   */
+  hasHandoffProject: boolean
   reload: () => void
 }
 
@@ -66,7 +85,8 @@ const NO_PROPOSALS: OnboardingProposalState = {
   profilePending: false,
   protocolPending: false,
   profileAdopted: false,
-  protocolAdopted: false
+  protocolAdopted: false,
+  handoffPending: false
 }
 
 /** 提案行只关心这几格（`profile:proposals` / `protocol:proposals` 的形状） */
@@ -124,10 +144,12 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
       }
       /** 第三、四步要说出「无提议 / 有提议待采纳 / 已采纳」，所以连提案一起读 */
       try {
-        const [profileProposals, protocolProposals] = (await Promise.all([
+        const [profileProposals, protocolProposals, handoffProposals] = (await Promise.all([
           invoke('profile:proposals'),
-          invoke('protocol:proposals')
-        ])) as unknown as [ProposalRow[] | null, ProposalRow[] | null]
+          invoke('protocol:proposals'),
+          /** 接手说明是项目级的：第 5 行要据此从「去建项目」改成「去采纳」 */
+          invoke('project:handoffProposals')
+        ])) as unknown as [ProposalRow[] | null, ProposalRow[] | null, ProposalRow[] | null]
         if (!aliveRef.current) return
         const profile = proposalStateOf(profileProposals)
         const protocol = proposalStateOf(protocolProposals)
@@ -135,7 +157,8 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
           profilePending: profile.pending,
           protocolPending: protocol.pending,
           profileAdopted: profile.adopted,
-          protocolAdopted: protocol.adopted
+          protocolAdopted: protocol.adopted,
+          handoffPending: (handoffProposals ?? []).some((row) => row.status === 'pending')
         })
       } catch {
         /* 读不到提案就按"无提议"说，不打断页面 */
@@ -184,5 +207,12 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
   const done = onboardingStepDone(status)
   const doneCount = ONBOARDING_STEP_ORDER.filter((key) => done[key]).length
 
-  return { status, coreDone, doneCount, proposals, reload }
+  /**
+   * 助手建出来的项目：接手说明有正文（骨架也算，见上面 `hasHandoffProject` 的注释）
+   */
+  const hasHandoffProject = (projects ?? []).some(
+    (project) => !project.archived && Boolean(project.handoffMarkdown?.trim())
+  )
+
+  return { status, coreDone, doneCount, proposals, hasHandoffProject, reload }
 }

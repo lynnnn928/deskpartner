@@ -89,7 +89,7 @@ interface StepRow {
 const ALL_KEYS: StepKey[] = ONBOARDING_STEP_ORDER
 
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
-  const { status, coreDone, doneCount, proposals, reload } = useOnboardingStatus()
+  const { status, coreDone, doneCount, proposals, hasHandoffProject, reload } = useOnboardingStatus()
   const setMainView = useUIStore((s) => s.setMainView)
   const dismissed = useUIStore((s) => s.onboardingChecklistDismissed)
   const reopened = useUIStore((s) => s.onboardingChecklistReopened)
@@ -153,6 +153,8 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const approvedAgent = agents.find((agent) => agent.approved)
   /** 批准了、但凭据还没到手：只补一句说明，不打回未完成 */
   const credentialPending = agents.some((agent) => agent.approved && !agent.hasCredential)
+  /** 被拒绝过的助手：这一步卡在这里时，人手上的动作是去审批页取消拒绝 */
+  const rejectedAgent = agents.find((agent) => agent.rejectedAt && !agent.approved)
   const pendingAgentName = pendingAgent?.displayName?.trim() ?? ''
   const approvedAgentName = approvedAgent?.displayName?.trim() ?? ''
 
@@ -211,7 +213,12 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
           className={allDone ? undefined : 'rotate-180'}
         />
 
-        {allDone ? '上手已完成 · 查看清单' : `上手清单 · 还差 ${Math.max(0, remaining)} 步`}
+        {allDone
+          ? '上手已完成 · 查看清单'
+          : /** 五步都绿、只差称呼时不能写「还差 0 步」（评审 round 2 的 d 条） */
+            remaining === 0
+            ? '上手清单 · 还差称呼没填'
+            : `上手清单 · 还差 ${Math.max(0, remaining)} 步`}
       </button>
     )
   }
@@ -221,9 +228,17 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
       key: 'agent',
       title: ONBOARDING_STEP_TITLES.agent,
       done: done.agent,
+      /**
+       * ⚠️ 别在这里承诺「名字会出现在**这一行**」（评审 round 2 第 4 条）
+       *
+       * 1.0.147 的这句是照评审 round 1 抄的，抄完才发现兑现不了：助手一注册，
+       * 第 1 行就收成「让助手来申请」加一个勾（`doneRows` 只渲染标题），
+       * 名字出现在**第 2 行**的正文里。承诺兑现不了，比不承诺更伤人。
+       * 现在这句话说的是名字真正出现的地方。
+       */
       hint: agentPromptCopied
         ? '已复制。发给助手后回到这里——它申请接入时，这一行会自己变。'
-        : '复制这段话发给你正在用的助手。它来登记后这一行会勾上——只代表它来了，还不算放行。',
+        : '复制这段话发给你正在用的助手。它来登记后，下一行会写上它的名字——只代表它来了。',
       action: {
         label: agentPromptCopied ? '再复制一次' : '复制开场提示词',
         onClick: () => void copyPrompt('agent')
@@ -234,10 +249,24 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
       title: ONBOARDING_STEP_TITLES.approved,
       /** 只认批准：凭据要等助手下次连上才领到，不该让这一行等人等不到的东西 */
       done: done.approved,
+      /**
+       * 兜底句按**真实状态**分支（评审 round 2 的 b 条）
+       *
+       * 原先这里只有一句「它申请写入你的项目。批准前它只能读。」，且按钮恒为 null。
+       * 可走到这一行、又不点名的情形是**全都拒了**：那会儿没有任何人在申请，
+       * 这句话是假的，人也没有可点的东西 —— 这一步就卡死在那里。
+       * 现在被拒时说清「是你拒的、去哪儿改主意」，按钮指向那一页
+       * （审批页对已拒绝的助手有「取消拒绝」，`agent:setRejected`）。
+       */
       hint: pendingAgentName
         ? `${pendingAgentName} 申请写入你的项目。批准前它只能读。`
-        : '它申请写入你的项目。批准前它只能读。',
-      action: pendingAgent ? { label: '前往审批', onClick: () => setMainView('approval') } : null,
+        : rejectedAgent
+          ? '你拒绝了它的申请。想让它回来，去审批页取消拒绝。'
+          : '还没有助手在申请。先做上面那一步。',
+      action:
+        pendingAgent || rejectedAgent
+          ? { label: '前往审批', onClick: () => setMainView('approval') }
+          : null,
       note: credentialPending ? '凭据还没到手：它下次连上时会自己领，这一步不用等。' : undefined
     },
     basics: {
@@ -276,13 +305,32 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
       key: 'handoff',
       title: ONBOARDING_STEP_TITLES.handoff,
       done: done.handoff,
-      hint: approvedAgentName
-        ? `复制这段话发给 ${approvedAgentName}，它会建好项目，再提第一条事项等你拍板。`
-        : '复制这段话发给助手，它会建好项目，再提第一条事项等你拍板。',
-      action: {
-        label: justCopied ? '已复制' : '复制建项目的话',
-        onClick: () => void copyPrompt('handoff')
-      }
+      /**
+       * 这一行有三张脸，按真实状态给（评审 round 2 的 a 条）
+       *
+       * 判据是「接手说明被采纳了、且不是默认骨架」，而采纳发生在审批页。
+       * 1.0.147 无论走到哪儿都只说「复制这段话发给助手」：助手照第 1 行那段话
+       * 已经把项目建好、接手说明也提过来了，这一行却没有任何一处提到「去采纳」——
+       * 人照着它再发一遍，只会多出第二个项目。
+       *
+       *   ① 提议排着 → 去审批页采纳（按钮也换成它）
+       *   ② 项目有了、提议还没来 → 让它填好再提（这时复制那段话是有用的）
+       *   ③ 还没项目 → 建项目
+       *
+       * ② 的判据是「接手说明有正文」（`project add` 塞的骨架也算），不是
+       * 「库里有项目」：迁移兜底建的「未分类」篮子在新库上就存在，
+       * 用它当判据会让一上来就说「项目建好了」。
+       */
+      hint: proposals.handoffPending
+        ? `${approvedAgentName || '助手'} 建好了项目，接手说明等你采纳，去审批页。`
+        : hasHandoffProject
+          ? '项目建好了，接手说明还没提过来：复制这段话发给助手，让它填好再提。'
+          : approvedAgentName
+            ? `复制这段话发给 ${approvedAgentName}，它会建好项目，再提第一条事项等你拍板。`
+            : '复制这段话发给助手，它会建好项目，再提第一条事项等你拍板。',
+      action: proposals.handoffPending
+        ? { label: '前往审批', onClick: openApproval }
+        : { label: justCopied ? '已复制' : '复制建项目的话', onClick: () => void copyPrompt('handoff') }
     }
   }
 

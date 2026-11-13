@@ -7,6 +7,7 @@ import { useAgentStore } from '../../../src/renderer/stores/agent.store'
 import { useProjectStore } from '../../../src/renderer/stores/project.store'
 import { useSettingsStore } from '../../../src/renderer/stores/settings.store'
 import { useUIStore } from '../../../src/renderer/stores/ui.store'
+import { PROJECT_HANDOFF_TEMPLATE } from '../../../src/renderer/types/project'
 
 /**
  * 首屏上手清单（卡 `a19054a1`）
@@ -51,6 +52,12 @@ const agentOf = (approved: boolean, hasCredential = approved) => ({
   lastSeenAt: null,
   lastWriteAt: approved ? '2026-11-13T00:10:00.000Z' : null,
   lastWriteCommand: null
+})
+
+/** 被拒绝的助手：`rejectedAt` 有值，且 approved=false（审批页「取消拒绝」能把它放回来） */
+const rejectedAgentOf = () => ({
+  ...agentOf(false, false),
+  rejectedAt: '2026-11-13T00:20:00.000Z'
 })
 
 /** 字数按字符数算（评审的上限就是这么给的） */
@@ -102,11 +109,28 @@ describe('首屏上手清单：只展开当前一行', () => {
     expect(hint).toContain('发给你正在用的助手')
     // 这一勾的含义必须写在正文里：它来了 ≠ 你放行了（主用户 2026-11-13 抓到的错）
     expect(hint).toContain('只代表它来了')
-    expect(hint).toContain('不算放行')
+    /**
+     * 名字的落点必须说对（评审 round 2 第 4 条）：助手一注册，第 1 行就收成
+     * 「让助手来申请」加一个勾，名字出现在**第 2 行**。上一版写的是
+     * 「下一行会出现它的名字」的兄弟说法「这一行会勾上」，承诺不了名字——
+     * 现在这句说的是名字真正出现的地方，下面就逐字核对它兑现了。
+     */
+    expect(hint).toContain('下一行会写上它的名字')
     expect(screen.getByTestId('onboarding-action-agent').textContent).toContain('复制开场提示词')
     // 它还停在"先做第 1 步"，指向审批页等于让人去看一张空列表
     expect(screen.queryByTestId('onboarding-action-approved')).toBeNull()
     expect(screen.getByText('0/5', { exact: false })).toBeTruthy()
+  })
+
+  /**
+   * 第 1 行那句承诺的**反向核对**：它说「下一行会写上它的名字」，
+   * 那就得真写上 —— 否则这一句只是换个说法继续骗人。
+   */
+  it('助手一登记，下一行（第 2 步）真的写上它的名字', async () => {
+    useAgentStore.setState({ agents: [agentOf(false, false)] as never, loading: false })
+    render(<OnboardingChecklist />)
+    const approvedHint = await waitFor(() => screen.getByTestId('onboarding-next-approved'))
+    expect(approvedHint.textContent).toContain('Bob')
   })
 
   /** 主用户 2026-11-13：「接入打勾不就是批准身份了吗，怎么还要批准身份呢？」 */
@@ -162,9 +186,38 @@ describe('首屏上手清单：只展开当前一行', () => {
   })
 
   /**
-   * 项目排在**最后**（主用户 2026-11-14）：「审批结束之后，才看有无项目、
-   * 要不要接入项目」，「而不是上来注册审批完就直接建第一个项目」。
+   * 第 2 行的兜底句按真实状态分支（评审 round 2 的 b 条）
+   *
+   * 走到这一行、又不点名的情形只有一种：**助手全被拒了**。那会儿没有任何人在申请，
+   * 旧文案「它申请写入你的项目」是假话，按钮还是 null —— 这一步就卡死在那儿。
    */
+  it('助手被拒绝时，第 2 行说实话并给出「前往审批」（那一页有「取消拒绝」）', async () => {
+    useAgentStore.setState({ agents: [rejectedAgentOf()] as never, loading: false })
+    render(<OnboardingChecklist />)
+    const hint = await waitFor(() => screen.getByTestId('onboarding-next-approved'))
+    expect(hint.textContent).toContain('你拒绝了它的申请')
+    expect(hint.textContent).toContain('取消拒绝')
+    // 没有人在申请，就不能再写"它在申请"
+    expect(hint.textContent).not.toContain('它申请写入你的项目')
+    const button = screen.getByTestId('onboarding-action-approved')
+    expect(button.textContent).toContain('前往审批')
+    fireEvent.click(button)
+    expect(useUIStore.getState().mainView).toBe('approval')
+  })
+
+  /**
+   * 批准了、凭据还没到：这一行已经打勾，凭据之说挂在勾下面（不打回未完成），
+   * 所以它不会再变成"当前行"去说一句没人听的话。
+   */
+  it('已批准但凭据没到手：第 2 行照常打勾，只在勾下补一句', async () => {
+    useAgentStore.setState({ agents: [agentOf(true, false)] as never, loading: false })
+    render(<OnboardingChecklist />)
+    await waitFor(() => expect(screen.getByTestId('onboarding-note-approved')).toBeTruthy())
+    expect(screen.queryByTestId('onboarding-next-approved')).toBeNull()
+    expect(screen.getByText('2/5', { exact: false })).toBeTruthy()
+  })
+
+  /** 评审 round 2 第 10 条：项目排在最后 */
   it('第 5 行（项目）要等前四步做完才出现', async () => {
     useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
     render(<OnboardingChecklist />)
@@ -189,6 +242,92 @@ describe('首屏上手清单：只展开当前一行', () => {
     expect(screen.getByText('再花一分钟')).toBeTruthy()
     expect(screen.getByTestId('onboarding-next-handoff')).toBeTruthy()
     expect(screen.getByText('4/5', { exact: false })).toBeTruthy()
+  })
+
+  /**
+   * 第 5 行的三张脸（评审 round 2 的 a 条）
+   *
+   * 助手照第 1 行那段话建了项目、接手说明也提到审批页了，可这一行还在叫
+   * 「复制这段话发给助手」—— 人照着再发一遍，只会多出第二个项目。
+   */
+  describe('第 5 行按真实状态改口', () => {
+    /** 前四步全绿的桩：档案与约定都采纳过 */
+    const coreDoneMock = (): void => {
+      invokeMock.mockImplementation(async (channel: string) => {
+        if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+        if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+        if (channel === 'profile:proposals') return [{ id: 'pp1', scope: 'global', projectId: null, status: 'approved' }]
+        if (channel === 'protocol:proposals') return [{ id: 'pc1', scope: 'global', projectId: null, status: 'approved' }]
+        if (channel === 'cli:connectInfo') return null
+        return null
+      })
+    }
+
+    /** `project add` 建出来的空壳：接手说明还是空的（所以这一步没打勾） */
+    const shellProject = { id: 'p1', name: '示例项目', archived: false, handoffMarkdown: '', color: '#123456' }
+    /**
+     * `project add` 真建出来的样子：接手说明里已经有一份**章节骨架**
+     * （主进程塞的就是 `PROJECT_HANDOFF_TEMPLATE`）。原样骨架不算"填过"，
+     * 所以这一步仍然没打勾 —— 正好是「项目建好了、提议还没来」那一格。
+     */
+    const skeletonProject = { ...shellProject, handoffMarkdown: PROJECT_HANDOFF_TEMPLATE }
+
+    it('接手说明在审批页排着 → 说「去采纳」，按钮也换成「前往审批」', async () => {
+      useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+      useProjectStore.setState({ projects: [shellProject] as never })
+      coreDoneMock()
+      invokeMock.mockImplementation(async (channel: string) => {
+        if (channel === 'project:handoffProposals') return [{ id: 'h1', projectId: 'p1', status: 'pending' }]
+        if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+        if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+        return null
+      })
+      render(<OnboardingChecklist />)
+      const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
+      expect(hint.textContent).toContain('接手说明等你采纳')
+      expect(hint.textContent).toContain('去审批页')
+      const button = screen.getByTestId('onboarding-action-handoff')
+      expect(button.textContent).toContain('前往审批')
+      fireEvent.click(button)
+      expect(useUIStore.getState().mainView).toBe('approval')
+    })
+
+    it('项目有了、提议还没来 → 让它填好再提（这时复制那段话才是有用的）', async () => {
+      useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+      useProjectStore.setState({ projects: [skeletonProject] as never })
+      coreDoneMock()
+      render(<OnboardingChecklist />)
+      const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
+      expect(hint.textContent).toContain('接手说明还没提过来')
+      expect(hint.textContent).toContain('让它填好再提')
+      expect(screen.getByTestId('onboarding-action-handoff').textContent).toContain('复制建项目的话')
+    })
+
+    /**
+     * 迁移兜底建的「未分类」篮子在新库上就存在，它**不是**「助手建好了项目」。
+     * 拿"库里有项目"当判据，一装上就会说「项目建好了」，那是假话。
+     */
+    it('库里只有「未分类」篮子 → 仍说「它会建好项目」', async () => {
+      useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+      useProjectStore.setState({
+        projects: [{ id: 'migrated-default-project', name: '未分类', archived: false, handoffMarkdown: '', color: '#8E8E93' }] as never
+      })
+      coreDoneMock()
+      render(<OnboardingChecklist />)
+      const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
+      expect(hint.textContent).toContain('它会建好项目')
+      expect(hint.textContent).not.toContain('项目建好了')
+    })
+
+    it('还没项目 → 仍是「复制这段话，它会建好项目」', async () => {
+      useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+      coreDoneMock()
+      render(<OnboardingChecklist />)
+      const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
+      expect(hint.textContent).toContain('它会建好项目')
+      expect(hint.textContent).toContain('Bob')
+      expect(screen.getByTestId('onboarding-action-handoff').textContent).toContain('复制建项目的话')
+    })
   })
 
   /**
@@ -439,6 +578,34 @@ describe('首屏上手清单：收起与复位', () => {
     render(<OnboardingChecklist />)
     await waitFor(() => expect(screen.getByTestId('onboarding-checklist')).toBeTruthy())
     expect(screen.queryByTestId('onboarding-checklist-collapsed')).toBeNull()
+  })
+
+  /**
+   * 五步全绿、只差称呼时，收起那行不能写「还差 0 步」（评审 round 2 的 d 条）
+   *
+   * 计数按五个布尔走，称呼不在里面；可 `allDone` 又要求称呼问过。
+   * 于是五个布尔全真时 `remaining` 是 0、卡片却不收，收起后那行写着「还差 0 步」。
+   */
+  it('五步全绿只差称呼时，收起那行写「还差称呼没填」，不写「还差 0 步」', async () => {
+    useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+    useProjectStore.setState({ projects: [PROJECT] as never })
+    useSettingsStore.setState({
+      settings: { humanName: '', humanNameAsked: false, appName: 'DeskPartner', appIcon: null } as never
+    })
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+      if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+      if (channel === 'cli:connectInfo') return null
+      return null
+    })
+    useUIStore.setState({ onboardingChecklistDismissed: true })
+    render(<OnboardingChecklist />)
+    const collapsed = await waitFor(() => screen.getByTestId('onboarding-checklist-collapsed'))
+    expect(collapsed.textContent).toContain('还差称呼没填')
+    expect(collapsed.textContent).not.toContain('0 步')
+    // 点开就能填：称呼那一行在展开后看得见
+    fireEvent.click(collapsed)
+    await waitFor(() => expect(screen.getByTestId('onboarding-name-row')).toBeTruthy())
   })
 
   it('没填名字时，称呼输入行在批准之后出现，保存走 settings:update', async () => {
