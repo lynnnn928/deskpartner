@@ -235,23 +235,24 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
   const doneCount = ONBOARDING_STEP_ORDER.filter((key) => done[key]).length
 
   /**
-   * 助手建出来的项目：接手说明有正文（骨架也算，见上面 `hasHandoffProject` 的注释）
+   * 那个"已经有接手说明"的项目本身（骨架也算，见下面 `hasHandoffProject` 的注释）
    *
-   * 有提议排着时优先认**那一条提议的项目**（提议带 projectId），
-   * 否则取第一个有接手说明的项目 —— 现在库里只有一个这样的项目，
-   * 将来多个时至少要让人看到"正在等你的那一份是哪个项目"。
+   * ⚠️ 两条路各有各的用处，别把它们说成一条（复审 round 3 第三轮）：
+   *
+   * - **有提议排着**时取那一条提议的项目（提议带 projectId）。这条只对第 5 行
+   *   第一张脸（「去审批页」）有意义 —— 那张脸不复制话；
+   * - **没有提议**时（也就是会复制话的第 5 行第二张脸）只能取第一个有接手说明的
+   *   项目，按 `sort_order`。库里有好几个骨架项目时，点名的可能不是助手刚建的那个——
+   *   后果只是"给另一个真实项目补了接手说明"，不会多建壳，第 5 步照样能完成。
+   *   真要在多骨架时点名，得先能分清"哪一个才是它刚建的"，现在没有这个信息。
    */
   const activeProjects = (projects ?? []).filter((project) => !project.archived)
   const withHandoff = activeProjects.filter((project) => Boolean(project.handoffMarkdown?.trim()))
   const proposedProject = proposals.handoffProjectId
     ? activeProjects.find((project) => project.id === proposals.handoffProjectId)
     : undefined
-  const handoffProject = (proposedProject ?? withHandoff[0])
-    ? {
-        id: (proposedProject ?? withHandoff[0]).id,
-        name: (proposedProject ?? withHandoff[0]).name
-      }
-    : null
+  const named = proposedProject ?? withHandoff[0]
+  const handoffProject = named ? { id: named.id, name: named.name } : null
 
   return {
     status,

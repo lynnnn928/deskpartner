@@ -153,7 +153,7 @@ export const AgentRosterSection: React.FC = () => {
                           撤销拒绝
                         </Button>
                       )}
-                      {!a.approved && !a.rejectedAt && (
+                      {isPendingAgent(a) && (
                         <Button
                           variant="ghost"
                           size="sm"

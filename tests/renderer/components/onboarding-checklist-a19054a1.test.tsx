@@ -335,6 +335,46 @@ describe('首屏上手清单：只展开当前一行', () => {
       expect(useUIStore.getState().mainView).toBe('approval')
     })
 
+    /**
+     * 点名还有两条退路，复审 round 3 第三轮要求各自有用例：
+     * 人自己提的提议不能说成「human 建好了项目」；名单里找不到的助手不能露出身份串。
+     */
+    it('人自己提的提议 → 说「你」，不说 human', async () => {
+      useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+      useProjectStore.setState({ projects: [shellProject] as never })
+      coreDoneMock()
+      invokeMock.mockImplementation(async (channel: string) => {
+        if (channel === 'project:handoffProposals')
+          return [{ id: 'h1', projectId: 'p1', status: 'pending', proposer: 'human' }]
+        if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+        if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+        return null
+      })
+      render(<OnboardingChecklist />)
+      const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
+      expect(hint.textContent).toContain('你建好了项目')
+      expect(hint.textContent).not.toContain('human')
+      expect(chars(hint.textContent)).toBeLessThanOrEqual(45)
+    })
+
+    it('提议人不在 agents 名单里 → 退化成去掉 agent: 前缀的名字，不露身份串', async () => {
+      useAgentStore.setState({ agents: [agentOf(true)] as never, loading: false })
+      useProjectStore.setState({ projects: [shellProject] as never })
+      coreDoneMock()
+      invokeMock.mockImplementation(async (channel: string) => {
+        if (channel === 'project:handoffProposals')
+          return [{ id: 'h1', projectId: 'p1', status: 'pending', proposer: 'agent:zed' }]
+        if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
+        if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
+        return null
+      })
+      render(<OnboardingChecklist />)
+      const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
+      expect(hint.textContent).toContain('zed 建好了项目')
+      expect(hint.textContent).not.toContain('agent:')
+      expect(chars(hint.textContent)).toBeLessThanOrEqual(45)
+    })
+
     it('项目有了、提议还没来 → 复制的话只补接手说明，不许再建项目', async () => {
       const written: string[] = []
       Object.defineProperty(navigator, 'clipboard', {

@@ -7,6 +7,7 @@ import { useAgentStore } from '../../stores/agent.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useOnboardingStatus } from '../../lib/use-onboarding-status'
 import { useCliAccess } from '../../lib/use-cli-access'
+import { isPendingAgent } from '../../lib/grant-state'
 import { buildMigratePrompt, buildFirstProjectPrompt, buildHandoffOnlyPrompt } from '../../lib/onboarding-prompts'
 import { cn } from '../../lib/utils'
 import {
@@ -169,7 +170,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const hidden = dismissed || (allDone && !reopened)
   const remaining = 5 - doneCount
 
-  const pendingAgent = agents.find((agent) => !agent.approved && !agent.rejectedAt)
+  const pendingAgent = agents.find(isPendingAgent)
   /** 已批准的助手（凭据可能还没到 —— 那是它自己的手续，见下面第 2 行的说明） */
   const approvedAgent = agents.find((agent) => agent.approved)
   /** 批准了、但凭据还没到手：只补一句说明，不打回未完成 */

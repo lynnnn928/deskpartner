@@ -4,6 +4,7 @@ import { useAgentStore } from '../../stores/agent.store'
 import { useTodoStore } from '../../stores/todo.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useOnboardingStatus } from '../../lib/use-onboarding-status'
+import { isPendingAgent } from '../../lib/grant-state'
 import {
   pickCoachMark,
   readOnboardingJump,
@@ -138,7 +139,7 @@ export const CoachMarkHost: React.FC = () => {
 
   const mark = pickCoachMark(
     {
-      pendingApproval: agents.some((a) => !a.approved && !a.rejectedAt),
+      pendingApproval: agents.some(isPendingAgent),
       approvalPage: mainView === 'approval',
       checklistQuiet,
       jumpedToAbout: readOnboardingJump() === 'about' && !status.basicsConfirmed,
