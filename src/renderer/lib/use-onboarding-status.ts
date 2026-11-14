@@ -51,11 +51,15 @@ export interface OnboardingProposalState {
    * 上面四格只认全局那一层，不能混。
    */
   handoffPending: boolean
+  /** 那条待采纳的接手说明提议挂在哪一个项目上（没有提议时是空串） */
+  handoffProjectId: string
   /**
-   * 提议接手说明的是谁（`agent:alice` 或 `human`）—— 第 5 行点名用
+   * 提议接手说明的是谁（原样的 `agent:alice` / `human`）—— 第 5 行点名用
    *
    * 不能拿"第一个已批准的助手"顶替（复审 round 3 第 ④ 条）：接进来的助手可能
-   * 有好几个，张冠李戴比不点名更糟。没有提议时是空串。
+   * 有好几个，张冠李戴比不点名更糟。**也不要在这里剥前缀**：剥成 `alice` 之后
+   * 界面只能拿它当名字显示，而助手真正的展示名是 `Alice`（复审第二轮实测抓到的
+   * 「alice 建好了项目」）。解析交给调用方，那里有 agents 名单。
    */
   handoffProposer: string
 }
@@ -76,6 +80,14 @@ export interface OnboardingSnapshot {
    * 那个篮子在新库上就存在，否则一上来第 5 行就会说「项目建好了」。
    */
   hasHandoffProject: boolean
+  /**
+   * 那个"已经有接手说明"的项目本身（没有就是 null）
+   *
+   * 第 5 行第二张脸复制的话要把**项目名与 id** 写进去（复审 round 3 第二轮）：
+   * 那段话只说「用 project list 找到那个项目」，可库里本来就有「未分类」篮子，
+   * 助手不一定找得对 —— 找不到时会自己建一个，正是这一行要堵的事。
+   */
+  handoffProject: { id: string; name: string } | null
   reload: () => void
 }
 
@@ -94,6 +106,7 @@ const NO_PROPOSALS: OnboardingProposalState = {
   profileAdopted: false,
   protocolAdopted: false,
   handoffPending: false,
+  handoffProjectId: '',
   handoffProposer: ''
 }
 
@@ -170,8 +183,9 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
           profileAdopted: profile.adopted,
           protocolAdopted: protocol.adopted,
           handoffPending: Boolean(pendingHandoff),
-          /** `agent:alice` → `alice`：正文里点的是名字，不是身份串 */
-          handoffProposer: (pendingHandoff?.proposer ?? '').replace(/^agent:/, '')
+          handoffProjectId: pendingHandoff?.projectId ?? '',
+          /** 原样留着（`agent:alice` / `human`）：显示名在组件里按 agents 名单解析 */
+          handoffProposer: pendingHandoff?.proposer ?? ''
         })
       } catch {
         /* 读不到提案就按"无提议"说，不打断页面 */
@@ -222,10 +236,30 @@ export function useOnboardingStatus(freshAgents?: OnboardingAgentState[]): Onboa
 
   /**
    * 助手建出来的项目：接手说明有正文（骨架也算，见上面 `hasHandoffProject` 的注释）
+   *
+   * 有提议排着时优先认**那一条提议的项目**（提议带 projectId），
+   * 否则取第一个有接手说明的项目 —— 现在库里只有一个这样的项目，
+   * 将来多个时至少要让人看到"正在等你的那一份是哪个项目"。
    */
-  const hasHandoffProject = (projects ?? []).some(
-    (project) => !project.archived && Boolean(project.handoffMarkdown?.trim())
-  )
+  const activeProjects = (projects ?? []).filter((project) => !project.archived)
+  const withHandoff = activeProjects.filter((project) => Boolean(project.handoffMarkdown?.trim()))
+  const proposedProject = proposals.handoffProjectId
+    ? activeProjects.find((project) => project.id === proposals.handoffProjectId)
+    : undefined
+  const handoffProject = (proposedProject ?? withHandoff[0])
+    ? {
+        id: (proposedProject ?? withHandoff[0]).id,
+        name: (proposedProject ?? withHandoff[0]).name
+      }
+    : null
 
-  return { status, coreDone, doneCount, proposals, hasHandoffProject, reload }
+  return {
+    status,
+    coreDone,
+    doneCount,
+    proposals,
+    hasHandoffProject: withHandoff.length > 0,
+    handoffProject,
+    reload
+  }
 }

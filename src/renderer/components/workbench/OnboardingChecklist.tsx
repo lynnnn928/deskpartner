@@ -102,7 +102,8 @@ const shortName = (name: string): string => {
 }
 
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
-  const { status, coreDone, doneCount, proposals, hasHandoffProject, reload } = useOnboardingStatus()
+  const { status, coreDone, doneCount, proposals, hasHandoffProject, handoffProject, reload } =
+    useOnboardingStatus()
   const setMainView = useUIStore((s) => s.setMainView)
   /**
    * 拒绝之后要去的地方是**用户页的「团队」**：撤销拒绝那颗按钮在那儿
@@ -177,13 +178,28 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
   const rejectedAgent = agents.find((agent) => agent.rejectedAt && !agent.approved)
   const pendingAgentName = pendingAgent?.displayName?.trim() ?? ''
   const approvedAgentName = approvedAgent?.displayName?.trim() ?? ''
+  /**
+   * 提议接手说明的是谁 —— 用**显示名**，不是身份串（复审 round 3 第二轮）
+   *
+   * 上一版把 `agent:alice` 剥成 `alice` 直接显示，而助手的展示名是 `Alice`；
+   * 人自己提的时候还会写出「human 建好了项目」。现在按 agents 名单解析，
+   * 自己的提议就说「你」。
+   */
+  const handoffProposerLabel = (() => {
+    const id = proposals.handoffProposer
+    if (!id) return ''
+    if (id === 'human') return '你'
+    const agent = agents.find((item) => item.id === id)
+    return shortName(agent?.displayName?.trim() || id.replace(/^agent:/, ''))
+  })()
 
   const copyPrompt = async (key: 'agent' | 'handoff' | 'handoffOnly'): Promise<void> => {
     const text =
       key === 'handoff'
         ? buildFirstProjectPrompt(cliAccess)
         : key === 'handoffOnly'
-          ? buildHandoffOnlyPrompt(cliAccess)
+          ? /** 项目名与 id 写进复制出去的话：库里本来就有别的项目，不说清助教会自己建一个 */
+            buildHandoffOnlyPrompt(cliAccess, handoffProject)
           : buildMigratePrompt(cliAccess)
     try {
       await navigator.clipboard.writeText(text)
@@ -353,7 +369,9 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
        * 人照着发一遍，库里就多出第二个壳 —— 正好是这一行要堵的事。
        */
       hint: proposals.handoffPending
-        ? `${shortName(proposals.handoffProposer) || approvedAgentName || '助手'} 建好了项目，接手说明等你采纳，去审批页。`
+        ? handoffProposerLabel === '你'
+          ? '你建好了项目，接手说明等你采纳，去审批页。'
+          : `${handoffProposerLabel || approvedAgentName || '助手'} 建好了项目，接手说明等你采纳，去审批页。`
         : hasHandoffProject
           ? '项目建好了，接手说明还没采纳：复制这段话发给助手，让它提一版给你采纳。'
           : approvedAgentName
@@ -362,7 +380,10 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = () => {
       action: proposals.handoffPending
         ? { label: '前往审批', onClick: openApproval }
         : hasHandoffProject
-          ? { label: justCopied ? '已复制' : '复制补接手说明的话', onClick: () => void copyPrompt('handoffOnly') }
+          ? {
+              label: justCopied ? '已复制' : '复制补接手说明的话',
+              onClick: () => void copyPrompt('handoffOnly')
+            }
           : { label: justCopied ? '已复制' : '复制建项目的话', onClick: () => void copyPrompt('handoff') }
     }
   }

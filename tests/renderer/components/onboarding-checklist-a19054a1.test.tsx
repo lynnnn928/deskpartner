@@ -44,7 +44,8 @@ const protocolBlocks = [
 ]
 
 const agentOf = (approved: boolean, hasCredential = approved) => ({
-  id: 'bob',
+  /** 与真实登记一致：agent 的 id 是 `agent:<名字>`（不是裸名字） */
+  id: 'agent:bob',
   displayName: 'Bob',
   color: null,
   approved,
@@ -313,7 +314,8 @@ describe('首屏上手清单：只展开当前一行', () => {
       useProjectStore.setState({ projects: [shellProject] as never })
       coreDoneMock()
       invokeMock.mockImplementation(async (channel: string) => {
-        if (channel === 'project:handoffProposals') return [{ id: 'h1', projectId: 'p1', status: 'pending' }]
+        if (channel === 'project:handoffProposals')
+          return [{ id: 'h1', projectId: 'p1', status: 'pending', proposer: 'agent:bob' }]
         if (channel === 'profile:get') return { scope: 'global', blocks: [{ blockKey: 'basics', body: '称呼：Alex', confirmed: true }] }
         if (channel === 'protocol:get') return { scope: 'global', blocks: protocolBlocks.map((b) => ({ ...b, confirmed: true })), gates: {} }
         return null
@@ -322,6 +324,11 @@ describe('首屏上手清单：只展开当前一行', () => {
       const hint = await waitFor(() => screen.getByTestId('onboarding-next-handoff'))
       expect(hint.textContent).toContain('接手说明等你采纳')
       expect(hint.textContent).toContain('去审批页')
+      // 点名用显示名 Bob，不是身份串 bob / agent:bob（复审 round 3 第二轮）
+      expect(hint.textContent).toContain('Bob')
+      expect(hint.textContent).not.toContain('agent:')
+      expect(hint.textContent).not.toContain('bob 建好了')
+      expect(chars(hint.textContent)).toBeLessThanOrEqual(45)
       const button = screen.getByTestId('onboarding-action-handoff')
       expect(button.textContent).toContain('前往审批')
       fireEvent.click(button)
@@ -362,10 +369,13 @@ describe('首屏上手清单：只展开当前一行', () => {
        * 复审 round 3 第 ② 条：这一段话如果是「建第一个项目」那段，
        * 它的第 3 步就是 `project add` —— 人照着发一遍就多出第二个壳。
        */
-      expect(written[0]).not.toMatch(/建项目（project add）/)
+      expect(written[0]).not.toContain('project add')
       expect(written[0]).toContain('不要新建项目')
       expect(written[0]).toContain('handoff-propose')
       expect(written[0]).toContain('已经有这个项目')
+      // 说清是哪一个项目：库里本来就有「未分类」篮子，不说清助手会自己建一个
+      expect(written[0]).toContain(skeletonProject.name)
+      expect(written[0]).toContain(skeletonProject.id)
     })
 
     /**

@@ -158,14 +158,31 @@ ${HARD_RULES}`
  * 等采纳。第 2 步把「先 project list、已有就别新建」写成明确约束，
  * 不靠助手自觉。
  */
-export function buildHandoffOnlyPrompt(access: CliAccess | null = null): string {
-  return `你是 DeskPartner 的协作 agent，已经接入并获准写入。主用户的库里**已经有这个项目**了，只差它的接手说明。
+export function buildHandoffOnlyPrompt(
+  access: CliAccess | null = null,
+  project?: { id: string; name: string } | null
+): string {
+  /**
+   * 项目名与 id 一定要写进去（复审 round 3 第二轮）
+   *
+   * 上一版只说「用 project list 找到那个项目」—— 可库里一开始就有「未分类」篮子，
+   * 面前不止一个项目时，助手不一定找对；找不到它就自己建一个，正是这一行要堵的事。
+   * 写清楚是哪一个、并且明说"对不上就问人、不要新建"，才关得掉"多出第二个壳"。
+   */
+  const target = project
+    ? `\n\n【这次要补的就是它】\n- 项目：${project.name}（id ${project.id}）`
+    : ''
+  return `你是 DeskPartner 的协作 agent，已经接入并获准写入。主用户的库里**已经有这个项目**了，只差它的接手说明。${target}
 
 ${buildAccessBlock(access)}
 
 请按以下顺序工作：
 1. 自检身份（agent whoami），未获批就先停下等主用户在「审批」页批准。
-2. 用 project list 找到那个项目。**不要新建项目**：它已经在库里，重复建会让同一摊事出现两个壳。
+2. ${
+    project
+      ? '用 project get 确认上面那个项目在库里（名字和 id 对得上就够），**不要新建项目**。'
+      : '用 project list 找到那个项目，**不要新建项目**：它已经在库里，重复建会让同一摊事出现两个壳。'
+  }对不上或者找不到，就问主用户，不要自己新建一个来填。
 3. 用一两个问题问清它的目标、边界和下一步（问过的不要再问）。
 4. 提议接手说明（project handoff-propose <项目名>），交主用户在审批页采纳；采纳之前不要直接改生效内容。
 5. 采纳之后，把已经定下来的事登记成事项，每条在评论里写明来源；**至少留 1 条 --status proposed（待确认）**，让主用户亲手拍板一次。
