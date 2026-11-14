@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { buildFreshPrompt, buildMigratePrompt } from '../../../src/renderer/lib/onboarding-prompts'
 import {
   ONBOARDING_STEP_ORDER,
@@ -175,18 +177,41 @@ function assertNumbering(steps: NumberedStep[], label: string): void {
 const EARLY_WORDS = /项目|project|handoff|接手|交接/i
 
 /**
- * 步骤段以外（开头一段 + 标题行的剩余部分 + 【硬要求】）的白名单
+ * 步骤段以外（开头一段 + 标题行的剩余部分 + 【硬要求】）：**冻结原文**，不判词
  *
- * 复审 round 3 第三轮：上一版 C 还在穷举"建项目怎么说"（黑名单），它试了 6 种正常写法，
- * 闸门全判绿：标题行里夹一句「（获批后先 project add…）」、开头一段大写 `Project add`、
- * `create_project`、【硬要求】里的「先开个项目」「先登记第一个项目」。
+ * 复审 round 3 走过的三段路，每一段都被它自己试穿的写法推翻：
  *
- * 现在反过来：这两段里**本来就不该谈到项目/交接**，只许出现下面这几个合法短语 ——
- * 「项目资料」是迁入版开头在说用户的资料目录，「接手说明」是硬要求在说它只能走提议。
- * 以后要在这两段写别的说法，就得在这张表里明确加一项；这份摩擦正是闸门要的。
+ * ① 关键词黑名单（`project add|建项目|…`）：换个说法就漏；
+ * ② 白名单（禁 `项目|project|handoff|交接`、豁免两个短语）：它试了 20 种写法，
+ *    18 种判绿 —— 全角 `ｐｒｏｊｅｃｔ`、零宽字符、拆词、「立项」「建壳」，
+ *    还有**借豁免短语**（「先把项目资料建成看板」「接手说明先于档案提交」）。
+ *    词表永远追不上说法，豁免短语本身还开新缺口。
+ * ③ 所以现在**不判词，冻结原文**：这三块逐字与
+ *    `tests/renderer/fixtures/onboarding-prompt-outside.json` 一致。
+ *
+ * 要改这三块，得显式跑一次
+ * `node scripts/update-onboarding-outside-snapshot.mjs`，把那条命令留在 git 历史里，
+ * 评审看 diff 才有得看 —— 这就是我们想要的摩擦。
+ *
+ * ⚠️ 已知限制（别在别处写成"都拦住了"）：**B 与 A 都只是按字面判**。
+ * - B 只查「约定那一步及之前」的行，拦不住后来的步骤写「第 3 步之前先建项目」，
+ *   也拦不住同义词（「立项」「建一个工作区」）；
+ * - A 只要求那几行是编号行，不判它说了什么（内容靠 B）。
  */
-const OUTSIDE_ALLOWED = ['项目资料', '接手说明']
-const OUTSIDE_FORBIDDEN = /项目|project|handoff|交接/i
+const SNAPSHOT_PATH = join(__dirname, '../fixtures/onboarding-prompt-outside.json')
+
+/** 段外三块：开头一段 / 标题行 / 【硬要求】（含标题行本身） */
+function outsideRegionsOf(prompt: string): { intro: string; header: string; hardRules: string } {
+  const headerAt = prompt.indexOf(STEPS_HEADER)
+  expect(headerAt, `里找不到「${STEPS_HEADER}」`).toBeGreaterThan(-1)
+  const headerLineEnd = prompt.indexOf('\n', headerAt)
+  const hardAt = prompt.indexOf(STEPS_END)
+  return {
+    intro: prompt.slice(0, headerAt),
+    header: headerLineEnd >= 0 ? prompt.slice(headerAt, headerLineEnd) : prompt.slice(headerAt),
+    hardRules: hardAt >= 0 ? prompt.slice(hardAt) : ''
+  }
+}
 
 /**
  * 步骤段里每一行都必须是 `n. ` 开头的编号行
@@ -248,30 +273,30 @@ function hardRulesOf(prompt: string): string {
 }
 
 /**
- * 步骤段以外也不许谈到项目（开头一段 + 标题行的剩余部分 + 【硬要求】）
+ * 步骤段以外也不许谈到项目：逐字比对冻结原文
  *
- * 这三块都不在编号步骤里，上面所有断言都看不见它们，助手却照样会照做
- * （Q3 就是往「请按以下顺序工作」上面加一句；第三轮实测，把标题行改成
- * 「请按以下顺序工作（获批后先 project add 建第一个项目）：」同样是绿的）。
+ * 这三块不在编号步骤里，上面所有断言都看不见它们，助手却照样会照做 ——
+ * 往「请按以下顺序工作」上面加一句、把标题行改成「（获批后先 project add…）」、
+ * 在【硬要求】里补一条，全都在这一条上红。
  */
-function assertNoBuildOutsideSteps(prompt: string, label: string): void {
-  const headerAt = prompt.indexOf(STEPS_HEADER)
-  expect(headerAt, `${label} 里找不到「${STEPS_HEADER}」`).toBeGreaterThan(-1)
-  /** 标题那一行的**剩余部分**也算段外 —— 它不在编号步骤里，却写在助手看得见的地方 */
-  const headerLineEnd = prompt.indexOf('\n', headerAt)
-  const intro = headerLineEnd >= 0 ? prompt.slice(0, headerLineEnd) : prompt
-  const regions: Array<[string, string]> = [
-    ['开头一段与标题行', intro],
-    ['【硬要求】', hardRulesOf(prompt)]
+function assertOutsideMatchesSnapshot(prompt: string, key: 'migrate' | 'fresh', label: string): void {
+  const frozen = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as Record<
+    'migrate' | 'fresh',
+    { intro: string; header: string; hardRules: string }
+  >
+  const actual = outsideRegionsOf(prompt)
+  const names: Array<[keyof typeof actual, string]> = [
+    ['intro', '开头一段（含接入地址段）'],
+    ['header', '标题行'],
+    ['hardRules', '【硬要求】']
   ]
-  for (const [where, text] of regions) {
-    const stripped = OUTSIDE_ALLOWED.reduce((acc, phrase) => acc.split(phrase).join(''), text)
-    const hit = stripped.match(OUTSIDE_FORBIDDEN)
+  for (const [region, where] of names) {
     expect(
-      hit?.[0] ?? null,
-      `${label} 的${where}里出现了「${hit?.[0]}」：那一段不在编号步骤里，` +
-        '闸门看不见，助手却照样会照做'
-    ).toBe(null)
+      actual[region],
+      `${label} 的${where}与冻结原文不一致：那一段不在编号步骤里，改一个字都要先跑 ` +
+        '`node scripts/update-onboarding-outside-snapshot.mjs` 刷新快照，' +
+        '并让这条命令留在 git 历史里'
+    ).toBe(frozen[key][region])
   }
 }
 
@@ -289,13 +314,25 @@ function statusWith(doneKeys: OnboardingStepKey[]): OnboardingStatus {
 }
 
 /** 两版全流程提示词（用户真拿到的那两份成品） */
-const PROMPTS: Array<[string, string]> = [
-  ['整理迁入版 buildMigratePrompt', buildMigratePrompt(null)],
-  ['从零开始版 buildFreshPrompt', buildFreshPrompt(null)]
+const PROMPTS: Array<[string, string, 'migrate' | 'fresh']> = [
+  ['整理迁入版 buildMigratePrompt', buildMigratePrompt(null), 'migrate'],
+  ['从零开始版 buildFreshPrompt', buildFreshPrompt(null), 'fresh']
 ]
 
 describe('清单顺序 = 开场提示词顺序（读成品文本）', () => {
-  for (const [label, prompt] of PROMPTS) {
+  /**
+   * 刷新段外快照只走 `node scripts/update-onboarding-outside-snapshot.mjs`
+   * （那个脚本把 `UPDATE_ONBOARDING_OUTSIDE=1` 带进 vitest）—— 与 `docs/generated`
+   * 的刷新同一套讲究：刷新动作要留在命令历史里，评审看 diff 才有得看。
+   * 在用例里加 `--update` 开关会把这件事变成没人看得见的副作用。
+   */
+  if (process.env.UPDATE_ONBOARDING_OUTSIDE === '1') {
+    const snapshot = Object.fromEntries(PROMPTS.map(([, prompt, key]) => [key, outsideRegionsOf(prompt)]))
+    writeFileSync(SNAPSHOT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`)
+    console.log(`[onboarding] 段外快照已刷新：${SNAPSHOT_PATH}`)
+  }
+
+  for (const [label, prompt, key] of PROMPTS) {
     it(`${label}：编号步骤里推出来的顺序就是清单顺序`, () => {
       expect(
         orderOf(prompt, label),
@@ -316,11 +353,11 @@ describe('清单顺序 = 开场提示词顺序（读成品文本）', () => {
     })
   }
 
-  for (const [label, prompt] of PROMPTS) {
+  for (const [label, prompt, key] of PROMPTS) {
     it(`${label}：项目排在档案与约定之后（步骤里不提、段外也只字不提）`, () => {
       const order = orderOf(prompt, label)
       assertNothingAboutProjectEarly(numberedSteps(prompt, label), order, label)
-      assertNoBuildOutsideSteps(prompt, label)
+      assertOutsideMatchesSnapshot(prompt, key, label)
     })
   }
 
