@@ -40,6 +40,10 @@ Electron 33 / Vite 5 / React 18 / TS 5.6 / better-sqlite3 / Zustand 5 / Radix / 
 - 前端改动要带**渲染断言**（`@testing-library/react` + happy-dom，用例写成 `.tsx`）：存量不补、增量必带（样板见 `tests/renderer/components/ui/button-render-935ea1e9.test.tsx`）
 - CLI 命令层要有单测——"参数收下了没传下去"这类 bug 只长在这一层
 - 交付：先升 `package.json` 版本号再打包；打包后必测 `resources/cli/deskpartner.cjs doctor`
+- **截图造数一律用 `scripts/demo-seed.mjs`**（官网配图 / 社媒宣传图 / CHANGELOG 配图同一套数据）：
+  `node scripts/demo-seed.mjs --data-dir .tmp-check/<名字>/data` → `node outputs/social-146/shoot.mjs`。
+  数据固定为「独立播客助手 / 文献知识库整理 / 个人主页改版」三个项目 + 八条不同状态的事项 +
+  一条带图评论 + 一条待审批记录；**别再各任务各造一套** —— 每次换一批项目名，几组图放一起就是三种产品
 - 静默安装路径**必须纯 ASCII**（中文路径会让 NSIS 的 `/D=` 字节错乱，生成乱码目录）
 
 ## 当前状态（2026-10-20，运行时事实以校验脚本为准）
