@@ -19,10 +19,12 @@ import {
  * - 助手与项目在 store 里（`agent.store` / `project.store`）
  * - 档案与协议要现拉（`profile:get` / `protocol:get`），它们没有全量 store
  *
- * 跨视图刷新：`profile:*` / `protocol:*` 改完主进程目前不发 `dataChanged`
- * （只有 todo/project/settings… 会发），所以这里在「窗口重新获得焦点」时补一次拉取 ——
- * 用户在用户页确认完协议、切回「我的工作」就能看到勾。
- * 等主进程补上广播后，这条兜底仍可保留（幂等、开销是两次只读查询）。
+ * 跨视图刷新：写命令成功后主进程会发 `event:dataChanged`（1.0.146 起
+ * `profile propose` / `protocol propose` / `project handoff-propose` 也发，
+ * 见 command-exec.ts 的前缀表），所以助手在命令行提交完提议，清单自己就往前走，
+ * 不必等窗口焦点。下面那条「重新获得焦点时补一次拉取」仍保留作兜底 ——
+ * 广播有丢失的余地（另一个进程写完就退出、轮询刚好没赶上），而它是幂等的，
+ * 开销只是几条只读查询。
  */
 /**
  * 第三、四步的「提议到哪一步了」

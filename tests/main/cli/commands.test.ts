@@ -5341,6 +5341,57 @@ describe('project handoff-history / handoff-revision / handoff-rollback 命令�
   })
 })
 
+/**
+ * 提议写完后必须通知界面（1.0.146 走查）
+ *
+ * 走查实测：助手在命令行 `profile propose` 之后，上手清单卡的卡头一直停在
+ * 「下一步：写下关于我」—— 要切一次窗口（focus 兜底）才变成「助手已提议档案」。
+ * 根因是 `command-exec.ts` 的前缀表：`todo *` / `project *` 有映射，
+ * `profile *` / `protocol *` 没有，于是写完一条事件都不落，界面不知道去重拉。
+ *
+ * 判据分两层：事件**落了**（append 被调用、类型与界面订阅的那几种对齐），
+ * 且不许借用 `grant` / `agent_register` —— 那两类会被跨进程轮询当"等你点头"弹横幅。
+ */
+describe('提议写入后的跨进程广播（1.0.146 走查）', () => {
+  it('profile propose / protocol propose 追加一条 settings 事件；project handoff-propose 追加 project 事件', async () => {
+    const append = vi.fn()
+    const c = { ...ctx, deps: { ...ctx.deps, events: { append } } } as never
+
+    const profile = await executeOne(c, ['profile', 'propose', '--block', 'basics', '--body', '关于我：做产品'])
+    expect(profile.ok, JSON.stringify(profile).slice(0, 200)).toBe(true)
+    expect(append).toHaveBeenCalledWith('settings', 'cli', { cmd: 'profile propose' })
+
+    append.mockClear()
+    const protocol = await executeOne(c, ['protocol', 'propose', '--block', 'roles', '--body', '我定方向'])
+    expect(protocol.ok, JSON.stringify(protocol).slice(0, 200)).toBe(true)
+    expect(append).toHaveBeenCalledWith('settings', 'cli', { cmd: 'protocol propose' })
+
+    append.mockClear()
+    const proj = projectRepo.create({ name: '广播提议项目' })
+    projectRepo.saveHandoff(proj.id, '第一版说明', 'human')
+    const handoff = await executeOne(c, ['project', 'handoff-propose', proj.id, '--body', '助手的新说明'])
+    expect(handoff.ok, JSON.stringify(handoff).slice(0, 200)).toBe(true)
+    expect(append).toHaveBeenCalledWith('project', 'cli', { cmd: 'project handoff-propose' })
+  })
+
+  it('广播种类不借用 grant / agent_register（那两类会被当成"等你点头"弹横幅）', async () => {
+    const append = vi.fn()
+    const c = { ...ctx, deps: { ...ctx.deps, events: { append } } } as never
+    await executeOne(c, ['profile', 'propose', '--block', 'basics', '--body', '又一个提议'])
+    const types = append.mock.calls.map((args) => args[0])
+    expect(types).not.toContain('grant')
+    expect(types).not.toContain('agent_register')
+  })
+
+  it('只读的 profile get / protocol proposals 不广播：事件的含义是"数据被改了"', async () => {
+    const append = vi.fn()
+    const c = { ...ctx, deps: { ...ctx.deps, events: { append } } } as never
+    await executeOne(c, ['profile', 'get'])
+    await executeOne(c, ['protocol', 'proposals'])
+    expect(append).not.toHaveBeenCalled()
+  })
+})
+
 describe('todo list 描述摘要（列表不带全文，全文用 todo get）', () => {
   it('短描述原样返回，不标截断', () => {
     expect(summarizeDescription('短描述')).toBe('短描述')

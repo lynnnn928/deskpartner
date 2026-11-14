@@ -601,6 +601,20 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
   const changeTypeOf = (name: string): string | null => {
     if (name.startsWith('todo ')) return 'todo'
     if (name.startsWith('project ')) return 'project'
+    /**
+     * 用户档案 / 协作约定（1.0.146 走查）：`profile propose` / `protocol propose` 写的是
+     * **排队等采纳的提议**，人要去审批页点头，上手清单第 3、4 步也要当场改口说
+     * 「助手已提议…」。原先这两类前缀不在表里，命令跑完界面毫不知情 ——
+     * 走查实测：`profile propose` 之后清单卡头一直停在「下一步：写下关于我」，
+     * 切一次窗口（focus 兜底）才动。
+     *
+     * 种类取 `settings`：档案与约定就是"人的配置"这一层，`settings.store` 会跟着重拉
+     * 一次（幂等只读查询，界面不会闪）。**不能借 `grant` / `agent_register`** ——
+     * 跨进程轮询把这两类当"有人正卡在那条命令上等你点头"去弹横幅
+     * （见 change-broadcast.service.ts 的 onGrantRequest / onAgentRegistered），
+     * 而一条提议只是排进审批队列，不是卡住的授权申请。
+     */
+    if (name.startsWith('profile ') || name.startsWith('protocol ')) return 'settings'
     return null
   }
   /**
