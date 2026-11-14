@@ -346,8 +346,56 @@ const GROUPS = [
         'red'
       ],
       [
+        /** 复审第二轮 P3：在第 3 步末尾补一句"若还没有项目，先 project add" */
+        '⑤ 第 3 步末尾补一句「若还没有项目，先 project add」（P3）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^3\. 获批后读取用户档案[^\n]*$/m,
+        (matched) => `${matched}若还没有项目，先 project add 建一个。`,
+        'red'
+      ],
+      [
+        /** 复审第二轮 P4：把「获批后先 project add」写进【硬要求】 */
+        '⑥ 在【硬要求】里加一条「获批后先 project add 建第一个项目」（P4）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^9\. 只使用产品中真实存在的命令[^\n]*$/m,
+        (matched) => `${matched}\n10. 获批后先 project add 建第一个项目。`,
+        'red'
+      ],
+      [
+        /** 复审第二轮 P5：编号重号（两个「4.」） */
+        '⑦ 编号重号：把「协作约定」那一步的编号改成 4（P5）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^5\. 与主用户确认协作协议内容/m,
+        '4. 与主用户确认协作协议内容',
+        'red'
+      ],
+      [
+        /** 复审第二轮 Q3：在「请按以下顺序工作」**上面**加一段「先 project add」 */
+        '⑧ 步骤段上方加一段「获批后第一件事：先 project add」（Q3）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        '请按以下顺序工作：',
+        '获批后第一件事：先 project add 把项目建出来。\n\n请按以下顺序工作：',
+        'red'
+      ],
+      [
+        /** 复审第二轮 Q4：步骤段里插一条子弹行 */
+        '⑨ 第 3 步下面插一条子弹行「- 获批后先 project add」（Q4）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^3\. 获批后读取用户档案[^\n]*$/m,
+        (matched) => `${matched}\n- 获批后先 project add`,
+        'red'
+      ],
+      [
+        /** 复审第二轮 Q9：命令名里两个空格也照样算「先建项目」 */
+        '⑩ 「project  add」（两个空格）写进第 3 步（Q9）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^3\. 获批后读取用户档案[^\n]*$/m,
+        (matched) => `${matched}随后 project  add 把项目建出来。`,
+        'red'
+      ],
+      [
         /** P2：只把第 6 行挪到第 4 行前面、编号不动 —— 助手读到的先后变了 */
-        '⑤ 只把第 6 行挪到第 4 行前面、编号不动（P2）',
+        '⑪ 只把第 6 行挪到第 4 行前面、编号不动（P2）',
         'src/renderer/lib/onboarding-prompts.ts',
         /^4\. 在对话中与主用户确认[\s\S]*?^6\. 询问主用户是否要把现有项目登记[^\n]*$/m,
         (matched) => {
@@ -365,7 +413,7 @@ const GROUPS = [
          * 一旦提前，全文件顺序就变了），而它真正该守的东西一点没变。
          * 这一条就是那个假红的回归用例。
          */
-        '⑥ 只把函数定义搬了位置（提示词一个字没改，不该变红）',
+        '⑫ 只把函数定义搬了位置（提示词一个字没改，不该变红）',
         'src/renderer/lib/onboarding-prompts.ts',
         /^export function buildMigratePrompt\([\s\S]*$/m,
         (matched) => {
@@ -377,7 +425,7 @@ const GROUPS = [
         'green'
       ],
       [
-        '⑦ 注释里写反序命令（说明文字不该把闸门惹红）',
+        '⑬ 注释里写反序命令（说明文字不该把闸门惹红）',
         'src/renderer/lib/onboarding-prompts.ts',
         'const HARD_RULES = `',
         '// 反例（只是注释）：project add 早于 profile propose 也不是产品顺序\nconst HARD_RULES = `',

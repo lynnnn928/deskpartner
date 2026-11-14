@@ -42,8 +42,11 @@ import {
  * 同一件事被写了两遍，顺序也就无从判起）。
  *
  * 顺序 = 命中步骤的编号（同步内按锚点在步骤正文里的先后），再要求
- * 它等于清单的 `ONBOARDING_STEP_ORDER`，并且 `nextOnboardingStep` 循着同一顺序
- * 一步一步往前指、最后落到 null（不跳步、不停在错的行）。
+ * 它等于清单的 `ONBOARDING_STEP_ORDER`。
+ *
+ * `nextOnboardingStep` 那条推进用例**只是内部一致性检查**（清单的分段逻辑与自己的
+ * 顺序表对得上），不是「产品顺序」的证据 —— 复审 round 3 原话：「它算一条内部一致性
+ * 检查，不能当作产品顺序的证据」。真证据是上面那条：从成品文本推出来的顺序。
  *
  * 这里**不手写一份顺序**、也不正则剥源码：挪一步就是挪真的一行，闸门只有一种
  * 变红的理由 —— 提示词里说的顺序变了。
@@ -83,8 +86,11 @@ function numberedSteps(prompt: string, label: string): NumberedStep[] {
   const start = prompt.indexOf(STEPS_HEADER)
   expect(start, `${label} 里找不到「${STEPS_HEADER}」`).toBeGreaterThan(-1)
   const afterHeader = prompt.slice(start + STEPS_HEADER.length)
-  const end = afterHeader.indexOf(STEPS_END)
-  const section = end >= 0 ? afterHeader.slice(0, end) : afterHeader
+  /** 标题那一行的剩余部分（「：」）不是步骤 */
+  const body = afterHeader.slice(afterHeader.indexOf(`
+`) + 1)
+  const end = body.indexOf(STEPS_END)
+  const section = end >= 0 ? body.slice(0, end) : body
   const steps: NumberedStep[] = []
   for (const line of section.split('\n')) {
     const matched = line.trim().match(/^(\d+)\.\s+(\S.*)$/)
@@ -101,6 +107,7 @@ function numberedSteps(prompt: string, label: string): NumberedStep[] {
  * 抛错（而不是返回一份残缺的顺序）是刻意的：闸门要变红，理由要指名道姓。
  */
 function orderOf(prompt: string, label: string): OnboardingStepKey[] {
+  assertEveryLineNumbered(prompt, label)
   const steps = numberedSteps(prompt, label)
   assertNumbering(steps, label)
   const hits = (ONBOARDING_STEP_ORDER).map((key) => {
@@ -153,36 +160,102 @@ function assertNumbering(steps: NumberedStep[], label: string): void {
  * 所以另立一条：凡提到"建项目"这件事的编号步骤，必须排在**档案与约定之后**。
  * 现在两版提示词里只有第 6 步提到它，这条是绿的；P1/P3 会红。
  */
-const PROJECT_STEP_PATTERN = /project add|建(第一个|出)?项目|创建第一个项目|逐个建项目/
+/**
+ * 「建项目」这件事的两种判据，缺一不可（复审 round 3 第二轮：上一版是关键词黑名单）
+ *
+ * 上一版只拿一张"建项目"的说法表去匹配，换个说法就漏（"先新开一个项目"、
+ * "project  add" 两个空格、"提议项目交接说明"），而漏掉的正是主用户否掉的顺序。
+ * 现在反过来：**先划白名单** —— 档案与约定走完之前，那几步里根本不该出现
+ * 项目、交接、接手这类词；命中了就红，不管用什么说法。
+ */
+const EARLY_WORDS = /项目|project\s|handoff|接手|交接/i
 
-function assertProjectAfterBasics(steps: NumberedStep[], order: OnboardingStepKey[], label: string): void {
+/**
+ * 步骤段以外（开头那段 + 【硬要求】）也不许出现"建项目"的动作
+ *
+ * 这两段不在编号步骤里，上面所有断言都看不见它们，助手却照样会照做
+ * （复审给的 Q3：在「请按以下顺序工作」上面加一句「获批后第一件事：先 project add」）。
+ * 这里不能用「项目」这种宽词：开头那段本来就会说「项目资料」，
+ * 【硬要求】里也会说「项目」—— 判的是**动作**，不是这个词。
+ */
+const BUILD_ACTION =
+  /project\s|project add|建(一个|第一个)?项目|创建(一个|第一个)?项目|新开(一个)?项目|立一个项目|搭[^，。]{0,6}壳/
+
+/**
+ * 步骤段里每一行都必须是 `n. ` 开头的编号行
+ *
+ * 复审给的 Q4/Q5/Q6：子弹行「- 获批后先 project add」、编号写成「3、」或「2.1」，
+ * 都会被"只认严格编号行"的解析器整条跳过 —— 于是那一步做什么，闸门根本看不见。
+ * 判据改成：段里**每一条非空行**都得是一个编号步骤，不是就红。
+ */
+function assertEveryLineNumbered(prompt: string, label: string): void {
+  const headerAt = prompt.indexOf(STEPS_HEADER)
+  expect(headerAt, `${label} 里找不到「${STEPS_HEADER}」`).toBeGreaterThan(-1)
+  /** 标题那一行的剩余部分（「：」）不算步骤，跳过它 */
+  const afterHeader = prompt.slice(headerAt + STEPS_HEADER.length)
+  const after = afterHeader.slice(afterHeader.indexOf(`
+`) + 1)
+  const end = after.indexOf(STEPS_END)
+  const section = end >= 0 ? after.slice(0, end) : after
+  for (const line of section.split('\n')) {
+    const text = line.trim()
+    if (!text) continue
+    expect(text, `${label} 的步骤段里有一行不是编号步骤：「${text.slice(0, 40)}」`).toMatch(/^\d+\.\s+\S/)
+  }
+}
+
+/**
+ * 档案与约定之前，不许有任何一步提到项目 / 交接 / 接手
+ *
+ * 这是白名单那一半：不穷举"建项目"的说法，而是直接规定"那几步行里不该有这些词"。
+ * 提示词里项目只能排在档案与约定之后，所以这个限制本来就是产品顺序的一部分。
+ */
+function assertNothingAboutProjectEarly(
+  steps: NumberedStep[],
+  order: OnboardingStepKey[],
+  label: string
+): void {
   const stepOf = (key: OnboardingStepKey): number => {
     const anchor = STEP_ANCHOR[key]
     const hit = steps.find((step) => step.text.includes(anchor))
     expect(hit, `${label} 里找不到「${anchor}」`).toBeTruthy()
     return (hit as NumberedStep).n
   }
-  const basicsAt = stepOf('basics')
   const protocolAt = stepOf('protocol')
-  const projectSteps = steps.filter((step) => PROJECT_STEP_PATTERN.test(step.text))
-  expect(projectSteps.length, `${label} 里一条都没提到建项目 —— 这一步是产品流程的一部分`).toBeGreaterThan(0)
-  for (const step of projectSteps) {
+  for (const step of steps) {
+    if (step.n > protocolAt) continue
     expect(
-      step.n,
-      `${label} 第 ${step.n} 步在讲建项目，却排在档案（第 ${basicsAt} 步）或约定（第 ${protocolAt} 步）之前`
-    ).toBeGreaterThan(Math.max(basicsAt, protocolAt))
+      EARLY_WORDS.test(step.text),
+      `${label} 第 ${step.n} 步在档案与约定之前就提到了项目/交接：「${step.text.slice(0, 40)}」`
+    ).toBe(false)
   }
+  /** 建项目这件事总得在某一步里 —— 一句话都不写，等于流程里没有这一步 */
+  const mentions = steps.filter((step) => EARLY_WORDS.test(step.text))
+  expect(mentions.length, `${label} 里一条都没提到接手说明/项目 —— 那一步是流程的一部分`).toBeGreaterThan(0)
 }
 
-/**
- * 【硬要求】段里也不许出现"建项目"
- *
- * 复审 round 3 的 P4：把「注册审批完先 project add 建第一个项目」写进【硬要求】，
- * 那一段不在编号步骤里，上面所有断言都看不见它，但助手照样会照做。
- */
+/** 【硬要求】那一段（含标题行本身） */
 function hardRulesOf(prompt: string): string {
   const at = prompt.indexOf(STEPS_END)
   return at >= 0 ? prompt.slice(at) : ''
+}
+
+/**
+ * 步骤段以外也不许出现"建项目"的动作（开头一段 + 【硬要求】）
+ */
+function assertNoBuildOutsideSteps(prompt: string, label: string): void {
+  const headerAt = prompt.indexOf(STEPS_HEADER)
+  expect(headerAt).toBeGreaterThan(-1)
+  const intro = prompt.slice(0, headerAt)
+  const hardRules = hardRulesOf(prompt)
+  expect(
+    BUILD_ACTION.test(intro),
+    `${label} 的开头一段里出现建项目的动作：那一段不在编号步骤里，助手照样会照做`
+  ).toBe(false)
+  expect(
+    BUILD_ACTION.test(hardRules),
+    `${label} 的【硬要求】里出现建项目的动作：同上`
+  ).toBe(false)
 }
 
 /** 只把某几步做完的清单状态 */
@@ -224,13 +297,10 @@ describe('清单顺序 = 开场提示词顺序（读成品文本）', () => {
   }
 
   for (const [label, prompt] of PROMPTS) {
-    it(`${label}：讲建项目的那一步在档案与约定之后（不在之前、也不在硬要求里）`, () => {
+    it(`${label}：项目排在档案与约定之后（步骤里不提、段外也只字不提）`, () => {
       const order = orderOf(prompt, label)
-      assertProjectAfterBasics(numberedSteps(prompt, label), order, label)
-      expect(
-        PROJECT_STEP_PATTERN.test(hardRulesOf(prompt)),
-        `${label} 的【硬要求】里出现了建项目：那一段不在编号步骤里，助手照样会照做`
-      ).toBe(false)
+      assertNothingAboutProjectEarly(numberedSteps(prompt, label), order, label)
+      assertNoBuildOutsideSteps(prompt, label)
     })
   }
 
