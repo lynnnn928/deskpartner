@@ -32,6 +32,12 @@ import {
  *
  * 屏幕外的窗口里 rAF 不跑（离屏探针实测），气泡就会永远量不到位置。
  * 400ms 轮询只在"有提示要显示、锚点还没出现"时跑，量到即停。
+ *
+ * ── 蒙版与「下一步」（1.0.147 用户要求，参考一套 1/7 引导卡的样式）──
+ *
+ * 气泡出现时整窗压暗，只留锚点那一块亮着 —— 这样"指着谁"不用读文案也看得出来。
+ * 底部只放两个动作：`跳过引导` / `下一步`，点遮罩与按 Esc 等同于「下一步」。
+ * 计数 `n/N` **刻意不做**：清单卡头有 `doneCount/5`，两者会出现在同一屏。
  */
 /**
  * 气泡尺寸
@@ -44,6 +50,13 @@ import {
 const ESTIMATED_SIZE: { width: number; height: number } = { width: 252, height: 160 }
 const GAP = 10
 const MARGIN = 12
+/**
+ * 遮罩给锚点留的亮区余量
+ *
+ * 亮区不贴着控件边：留一圈余量，高亮框才不会压在控件自己的边界上，
+ * 也让"没被压暗的那块"看起来是**框出来的**，而不是遮罩漏了。
+ */
+const HOLE_PAD = 4
 
 interface Placement {
   top: number
@@ -89,6 +102,51 @@ function placeBeside(rect: DOMRect, size: BubbleSize, mode: 'beside' | 'below' =
   }
 }
 
+/** 视口内的一块矩形（遮罩挡板与亮区都用它摆位） */
+interface Box {
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
+/** 锚点周围那块不压暗的亮区，含 `HOLE_PAD` 的余量，并夹在视口内 */
+function holeAround(rect: DOMRect): Box {
+  const left = Math.max(0, rect.left - HOLE_PAD)
+  const top = Math.max(0, rect.top - HOLE_PAD)
+  const right = Math.min(window.innerWidth, rect.right + HOLE_PAD)
+  const bottom = Math.min(window.innerHeight, rect.bottom + HOLE_PAD)
+  return { top, left, width: Math.max(0, right - left), height: Math.max(0, bottom - top) }
+}
+
+/**
+ * 遮罩的四块挡板：把亮区让出来，其余四边压暗
+ *
+ * ── 为什么不是「整窗压一层 + 锚点上再叠一块亮色」──
+ *
+ * 叠不回去：遮罩是半透明的，锚点透出来的像素已经被拉灰了，
+ * 「肉眼可见」就打了折。真正留一个洞，锚点还是原来的亮度与颜色。
+ *
+ * ── 为什么是四块，而不是 `box-shadow: 0 0 0 9999px …` 挖洞 ──
+ *
+ * 那是最省事的写法，但它必须是内联色值 —— 阴影闸门（1.0.116）之后
+ * 内联 `boxShadow` 字面量是明确的盲区禁写法。四块挡板只写几何，
+ * 颜色仍旧经工具类（`bg-black/40`，与对话框遮罩同一档）。
+ *
+ * 四块**互不重叠**：上 / 下是通栏的，左右两块只占亮区那一段高度 ——
+ * 叠起来会在拼缝处压两遍、黑一道。用例按"任何一块都盖不到锚点"钉住这条几何。
+ */
+function maskPanels(hole: Box): Box[] {
+  const right = hole.left + hole.width
+  const bottom = hole.top + hole.height
+  return [
+    { top: 0, left: 0, width: window.innerWidth, height: hole.top },
+    { top: bottom, left: 0, width: window.innerWidth, height: Math.max(0, window.innerHeight - bottom) },
+    { top: hole.top, left: 0, width: hole.left, height: hole.height },
+    { top: hole.top, left: right, width: Math.max(0, window.innerWidth - right), height: hole.height }
+  ]
+}
+
 /**
  * 清单此刻有没有在替我们指路
  *
@@ -121,6 +179,14 @@ export const CoachMarkHost: React.FC = () => {
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
   /** 气泡自己的真实尺寸：渲染出来才知道这次文案有几行 */
   const [bubbleSize, setBubbleSize] = useState<BubbleSize | null>(null)
+  /**
+   * 视口尺寸（`宽x高`），只用来**触发重画**
+   *
+   * 遮罩的四块挡板按 `innerWidth/innerHeight` 铺满：窗口被拉大之后不重算，
+   * 边上就会留一条没压暗的缝。锚点矩形不一定会跟着变（纵向拉伸时行宽、行高都不动），
+   * 所以不能指望上面那轮 400ms 轮询顺手把遮罩带出来。
+   */
+  const [viewport, setViewport] = useState<string>(() => `${window.innerWidth}x${window.innerHeight}`)
   const bubbleRef = useRef<HTMLDivElement | null>(null)
   /** 首帧把视口外的锚点滚进来这件事只做一次（见 measure 里的注释） */
   const didScrollRef = useRef(false)
@@ -248,8 +314,22 @@ export const CoachMarkHost: React.FC = () => {
   }, [mark, anchorRect, bubbleSize])
 
   const placement = anchorRect ? placeBeside(anchorRect, bubbleSize ?? ESTIMATED_SIZE, mark?.placement) : null
+  /** 锚点周围那块亮区；遮罩与高亮框都按它摆 */
+  const hole = anchorRect ? holeAround(anchorRect) : null
+  const visible = Boolean(mark && placement && hole)
 
-  const dismiss = useCallback(() => {
+  /**
+   * 关掉这一条，下一条按顺序接上
+   *
+   * 只记「这一条关过」（`rememberSeen`），不碰 `skipped`：下一条该不该出现由它
+   * 自己的触发条件决定 —— 条件不成立就自然没有，而不是硬塞一条出来指空气。
+   *
+   * 点遮罩、按 Esc、点「下一步」都走这**同一个**动作。遮罩选的是「知道了」那种
+   * 含义，不是「跳过引导」：误点的最坏结果只是这一条少看了，用户页的
+   * 「重新看引导」能把它调回来；若遮罩等于跳过，一次误点就把后面五条全关掉，
+   * 那个不可逆。
+   */
+  const acknowledge = useCallback(() => {
     if (!mark) return
     setSeen(rememberSeen(mark.id))
     setAnchorRect(null)
@@ -260,40 +340,100 @@ export const CoachMarkHost: React.FC = () => {
     setAnchorRect(null)
   }, [])
 
-  if (!mark || !placement) return null
+  /** Esc 等同于「下一步」：气泡出来之后随手一按就能收掉，不必去找那颗按钮 */
+  useEffect(() => {
+    if (!visible) return
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      acknowledge()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    /** 窗口被拉伸时重算挡板尺寸，避免边上留一条没压暗的缝 */
+    const onResize = (): void => {
+      setViewport((current) => {
+        const next = `${window.innerWidth}x${window.innerHeight}`
+        return current === next ? current : next
+      })
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [visible, acknowledge])
+
+  if (!mark || !placement || !hole) return null
+  /** ⚠️ 没有 `n/N`：清单卡头就在同一页写着 `doneCount/5`（见下方注释） */
+  const panels = maskPanels(hole)
 
   return (
-    <div
-      ref={bubbleRef}
-      role="dialog"
-      aria-label={mark.title}
-      data-testid="coach-mark"
-      className="fixed z-50 w-72 rounded-card border border-border bg-bg-card shadow-card px-3 py-2.5"
-      style={{ top: placement.top, left: placement.left }}
-    >
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={skipRest}
-          data-testid="coach-mark-skip"
-          className="text-caption text-text-secondary hover:text-text-primary cursor-pointer"
-        >
-          跳过引导
-        </button>
+    <>
+      {/**
+       * 遮罩：四块挡板把锚点让出来
+       *
+       * 容器 `pointer-events-none`、挡板 `pointer-events-auto` —— 亮区里**没有**
+       * 任何东西接事件，点击照旧落到被高亮的那个控件上。气泡自己 z-50，
+       * 在遮罩之上。
+       *
+       * 为什么右下角不要 `n/N`（此前评审已经删过一次 `n/3`）：
+       * 上手清单卡头写着 `doneCount/5`，而清单与列表在同一个视图里
+       * （`WorkbenchView`：清单在上、`todo-row` 在下），气泡 3 指的就是列表里那一行 ——
+       * 两个进度数同屏并存，人会以为有两套进度。所以这里只留动作，不留计数。
+       */}
+      <div
+        data-testid="coach-mark-mask"
+        data-viewport={viewport}
+        aria-hidden="true"
+        className="fixed inset-0 z-40 pointer-events-none"
+      >
+        {panels.map((panel, index) => (
+          <div
+            key={index}
+            data-testid="coach-mark-mask-panel"
+            onClick={acknowledge}
+            className="absolute bg-black/40 pointer-events-auto"
+            style={{ top: panel.top, left: panel.left, width: panel.width, height: panel.height }}
+          />
+        ))}
+        {/**
+         * 高亮框：亮区外边再描一道，让人一眼看出气泡指的是哪一块。
+         * 只做视觉，不接事件（否则又挡住它框住的那个控件）。
+         */}
+        <div
+          data-testid="coach-mark-hole"
+          aria-hidden="true"
+          className="absolute rounded-button border-2 border-accent pointer-events-none"
+          style={{ top: hole.top, left: hole.left, width: hole.width, height: hole.height }}
+        />
       </div>
-      <div className="mt-1 text-label font-semibold text-text-primary">{mark.title}</div>
-      <p className="mt-0.5 text-caption leading-relaxed text-text-secondary">{mark.body}</p>
-      <div className="mt-2 flex justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={dismiss}
-          data-testid="coach-mark-dismiss"
-          className="border border-border bg-surface-subtle px-2.5"
-        >
-          知道了
-        </Button>
+      <div
+        ref={bubbleRef}
+        role="dialog"
+        aria-label={mark.title}
+        aria-describedby="coach-mark-body"
+        data-testid="coach-mark"
+        className="fixed z-50 w-72 rounded-card border border-border bg-bg-card shadow-card px-3 py-2.5"
+        style={{ top: placement.top, left: placement.left }}
+      >
+        <div className="text-label font-semibold text-text-primary">{mark.title}</div>
+        <p id="coach-mark-body" className="mt-0.5 text-caption leading-relaxed text-text-secondary">
+          {mark.body}
+        </p>
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={skipRest}
+            data-testid="coach-mark-skip"
+            className="text-caption text-text-secondary hover:text-text-primary cursor-pointer"
+          >
+            跳过引导
+          </button>
+          <Button variant="primary" size="sm" onClick={acknowledge} data-testid="coach-mark-next">
+            下一步
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

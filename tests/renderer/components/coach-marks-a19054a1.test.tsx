@@ -269,12 +269,12 @@ describe('就地提示：真的画出来', () => {
     expect(screen.queryByTestId('coach-mark')).toBeNull()
   })
 
-  it('点「知道了」之后消失，并记住关过（重挂也不再出现）', async () => {
+  it('点「下一步」之后消失，并记住关过（重挂也不再出现）', async () => {
     mountAnchor({ 'data-coach-target': 'approval-nav' })
     useAgentStore.setState({ agents: [agentOf(false)] as never, loading: false })
     render(<CoachMarkHost />)
     await waitFor(() => screen.getByTestId('coach-mark'))
-    fireEvent.click(screen.getByTestId('coach-mark-dismiss'))
+    fireEvent.click(screen.getByTestId('coach-mark-next'))
     await waitFor(() => expect(screen.queryByTestId('coach-mark')).toBeNull())
 
     cleanup()
@@ -346,5 +346,147 @@ describe('就地提示：真的画出来', () => {
     await waitFor(() => screen.getByTestId('coach-mark'))
     anchor.remove()
     await waitFor(() => expect(screen.queryByTestId('coach-mark')).toBeNull(), { timeout: 3000 })
+  })
+})
+
+/**
+ * 蒙版与底部动作（1.0.147，主用户参考一套 1/7 引导卡提出）
+ *
+ * 要钉住的是四件事：
+ * ① 气泡出现时整窗压暗，**锚点那块留亮** —— 判据是任何一块挡板都盖不到锚点；
+ * ② 点遮罩不是「跳过引导」，而是「下一步」：只关这一条，后面那条还在；
+ * ③ 气泡里没有 `n/N` —— 清单卡头就在同一个视图里写着 `doneCount/5`；
+ * ④ 键盘可达：两颗按钮都可聚焦，Esc 等同「下一步」。
+ */
+describe('就地提示：蒙版与底部动作', () => {
+  /** React 把 px 写进 style 里，happy-dom 不排版，只能按 style 上的值算几何 */
+  const boxOf = (el: HTMLElement): { top: number; left: number; width: number; height: number } => ({
+    top: parseFloat(el.style.top || '0'),
+    left: parseFloat(el.style.left || '0'),
+    width: parseFloat(el.style.width || '0'),
+    height: parseFloat(el.style.height || '0')
+  })
+
+  const overlaps = (
+    a: { top: number; left: number; width: number; height: number },
+    b: { top: number; left: number; width: number; height: number }
+  ): boolean =>
+    a.left < b.left + b.width &&
+    b.left < a.left + a.width &&
+    a.top < b.top + b.height &&
+    b.top < a.top + a.height
+
+  const seenNow = (): { seen: Record<string, boolean>; skipped: boolean } =>
+    JSON.parse(window.localStorage.getItem('deskpartner.coachMarks.v1') ?? '{}')
+
+  it('整窗压暗，四块挡板把锚点让出来（气泡指的那个控件肉眼可见）', async () => {
+    const anchor = mountAnchor({ 'data-coach-target': 'approval-nav' })
+    useAgentStore.setState({ agents: [agentOf(false)] as never, loading: false })
+    render(<CoachMarkHost />)
+
+    const mask = await waitFor(() => screen.getByTestId('coach-mark-mask'))
+    expect(mask.className).toContain('fixed')
+    expect(mask.getAttribute('aria-hidden')).toBe('true')
+
+    const panels = screen.getAllByTestId('coach-mark-mask-panel')
+    expect(panels).toHaveLength(4)
+    for (const panel of panels) expect(panel.className).toContain('bg-black/40')
+
+    /** ① 任何一块挡板都不许压在锚点上 */
+    const rect = anchor.getBoundingClientRect()
+    const target = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
+    for (const panel of panels) {
+      expect(overlaps(boxOf(panel), target), '有一块挡板压住了锚点').toBe(false)
+    }
+
+    /** 亮区框必须把锚点整个包住 */
+    const hole = boxOf(screen.getByTestId('coach-mark-hole'))
+    expect(hole.top).toBeLessThanOrEqual(rect.top)
+    expect(hole.left).toBeLessThanOrEqual(rect.left)
+    expect(hole.top + hole.height).toBeGreaterThanOrEqual(rect.bottom)
+    expect(hole.left + hole.width).toBeGreaterThanOrEqual(rect.right)
+
+    /** 挡板之间不重叠、也不留缝：面积相加正好补满「视口 − 亮区」 */
+    const sum = panels.reduce((acc, panel) => {
+      const box = boxOf(panel)
+      return acc + box.width * box.height
+    }, 0)
+    expect(sum).toBe(window.innerWidth * window.innerHeight - hole.width * hole.height)
+  })
+
+  it('点遮罩等同于「下一步」：只关这一条，后面那条照样按顺序出现', async () => {
+    mountAnchor({ 'data-coach-target': 'approval-nav' })
+    mountAnchor({ 'data-coach-target': 'about-save' })
+    useAgentStore.setState({ agents: [agentOf(false)] as never, loading: false })
+    rememberOnboardingJump('about')
+    render(<CoachMarkHost />)
+    await waitFor(() => screen.getByTestId('coach-mark'))
+
+    fireEvent.click(screen.getAllByTestId('coach-mark-mask-panel')[0])
+
+    await waitFor(() => expect(screen.getByTestId('coach-mark').textContent).toContain('写下关于我'))
+    const seen = seenNow()
+    expect(seen.seen.approval).toBe(true)
+    /** 遮罩不等于「跳过引导」：整轮没被掐掉，误点的代价只是这一条少看了 */
+    expect(seen.skipped).toBeFalsy()
+  })
+
+  it('「下一步」之后下一条条件不成立就自然消失，遮罩一并不留', async () => {
+    mountAnchor({ 'data-coach-target': 'approval-nav' })
+    useAgentStore.setState({ agents: [agentOf(false)] as never, loading: false })
+    render(<CoachMarkHost />)
+    await waitFor(() => screen.getByTestId('coach-mark'))
+
+    fireEvent.click(screen.getByTestId('coach-mark-next'))
+    await waitFor(() => expect(screen.queryByTestId('coach-mark')).toBeNull())
+    expect(screen.queryByTestId('coach-mark-mask')).toBeNull()
+    // 给轮询几轮机会：没有锚点就不该把空遮罩一直留在窗口上
+    await new Promise((r) => setTimeout(r, 500))
+    expect(screen.queryByTestId('coach-mark-mask')).toBeNull()
+    expect(screen.queryByTestId('coach-mark')).toBeNull()
+  })
+
+  it('气泡里没有 n/N：清单卡头同一个视图就有 doneCount/5，两个进度数不许同屏', async () => {
+    const read = (p: string): string => readFileSync(join(ROOT, p), 'utf8')
+    /** 判据：清单与气泡 3 的锚点在同一个视图里（清单在上、列表在下） */
+    const workbench = read('src/renderer/components/workbench/WorkbenchView.tsx')
+    expect(workbench).toContain('<OnboardingChecklist />')
+    expect(workbench).toContain('data-coach-target="todo-row"')
+    expect(read('src/renderer/components/workbench/OnboardingChecklist.tsx')).toContain('{doneCount}/5')
+
+    mountAnchor({ 'data-coach-target': 'todo-row', 'data-todo-status': 'proposed' })
+    mountAnchor(
+      { 'data-testid': 'onboarding-checklist' },
+      { top: 80, bottom: 380, height: 300, width: 640, right: 780 }
+    )
+    useTodoStore.setState({ todos: [todoOf('t1', 'proposed')] as never })
+    render(<CoachMarkHost />)
+    const bubble = await waitFor(() => screen.getByTestId('coach-mark'))
+    expect(bubble.textContent).toContain('有一条等你拍板')
+    expect(bubble.textContent).not.toMatch(/\d+\s*[/／]\s*\d+/)
+    expect(screen.queryByTestId('coach-mark-step')).toBeNull()
+    /** 底部只有这两颗：跳过引导 / 下一步 */
+    expect(screen.getByTestId('coach-mark-skip').textContent).toBe('跳过引导')
+    expect(screen.getByTestId('coach-mark-next').textContent).toBe('下一步')
+  })
+
+  it('键盘可达：两颗按钮都能聚焦，Esc 等同「下一步」', async () => {
+    mountAnchor({ 'data-coach-target': 'approval-nav' })
+    useAgentStore.setState({ agents: [agentOf(false)] as never, loading: false })
+    render(<CoachMarkHost />)
+
+    const next = (await waitFor(() => screen.getByTestId('coach-mark-next'))) as HTMLButtonElement
+    const skip = screen.getByTestId('coach-mark-skip') as HTMLButtonElement
+    for (const el of [next, skip]) {
+      expect(el.tagName).toBe('BUTTON')
+      expect(el.disabled).toBe(false)
+    }
+    next.focus()
+    expect(document.activeElement).toBe(next)
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByTestId('coach-mark')).toBeNull())
+    expect(seenNow().seen.approval).toBe(true)
+    expect(seenNow().skipped).toBeFalsy()
   })
 })
