@@ -43,7 +43,7 @@
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -768,7 +768,7 @@ writeFileSync(idsFile, JSON.stringify(ids, null, 2))
 console.log(`\n=== 4. 完成 ===`)
 log(`数据目录：${DATA}`)
 log(`事项 id 清单：${resolve(idsFile)}`)
-log(`重拍截图：node outputs/social-146/shoot.mjs all`)
+log(`重拍截图：node outputs/social-146/shoot.mjs --data-dir ${path.relative(process.cwd(), DATA)}`)
 
 if (argv.keepOpen) {
   console.log(`\n--keep-open：再用同一数据目录起实例即可连 CDP ${argv.cdpPort}`)
