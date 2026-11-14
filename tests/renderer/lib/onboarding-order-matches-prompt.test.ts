@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { buildFreshPrompt, buildMigratePrompt } from '../../../src/renderer/lib/onboarding-prompts'
+import {
+  buildFreshPrompt,
+  buildMigratePrompt,
+  type CliAccess
+} from '../../../src/renderer/lib/onboarding-prompts'
 import {
   ONBOARDING_STEP_ORDER,
   nextOnboardingStep,
@@ -190,8 +194,11 @@ const EARLY_WORDS = /项目|project|handoff|接手|交接/i
  *    `tests/renderer/fixtures/onboarding-prompt-outside.json` 一致。
  *
  * 要改这三块，得显式跑一次
- * `node scripts/update-onboarding-outside-snapshot.mjs`，把那条命令留在 git 历史里，
- * 评审看 diff 才有得看 —— 这就是我们想要的摩擦。
+ * `node scripts/update-onboarding-outside-snapshot.mjs`：快照的 diff 会和提示词的改动
+ * 落在同一个提交里，评审看 diff 才有得看 —— 这就是我们想要的摩擦。
+ *
+ * ⚠️ 冻结不是防有意改。刷新脚本对谁都一样好用；真正的保障是人看那个 diff
+ * （复审第五轮的话：它是绊线，不是锁）。
  *
  * ⚠️ 已知限制（别在别处写成"都拦住了"）：**B 与 A 都只是按字面判**。
  * - B 只查「约定那一步及之前」的行，拦不住后来的步骤写「第 3 步之前先建项目」，
@@ -279,9 +286,9 @@ function hardRulesOf(prompt: string): string {
  * 往「请按以下顺序工作」上面加一句、把标题行改成「（获批后先 project add…）」、
  * 在【硬要求】里补一条，全都在这一条上红。
  */
-function assertOutsideMatchesSnapshot(prompt: string, key: 'migrate' | 'fresh', label: string): void {
+function assertOutsideMatchesSnapshot(prompt: string, key: PromptKey, label: string): void {
   const frozen = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as Record<
-    'migrate' | 'fresh',
+    PromptKey,
     { intro: string; header: string; hardRules: string }
   >
   const actual = outsideRegionsOf(prompt)
@@ -313,10 +320,29 @@ function statusWith(doneKeys: OnboardingStepKey[]): OnboardingStatus {
   }
 }
 
-/** 两版全流程提示词（用户真拿到的那两份成品） */
-const PROMPTS: Array<[string, string, 'migrate' | 'fresh']> = [
+/** 四份成品提示词：两版 × （无地址 / 带本机地址） */
+type PromptKey = 'migrate' | 'fresh' | 'migrateWithAccess' | 'freshWithAccess'
+
+/**
+ * 一份**固定的假地址**：带本机地址的那一份提示词也要冻结（复审 round 3 第五轮）
+ *
+ * `envLine` 只在 `cliEnvAvailable` 为真时出现，而界面复制给用户、助手动手术的正是
+ * `buildMigratePrompt(access)` 这一份（QuickStartView / ApprovalView / OnboardingChecklist）。
+ * 只冻结 null 那一份的话，往 envLine 里塞一句「获批后先 project add」谁都看不见。
+ * 路径写成固定的假路径（斜杠写法，不用真安装目录），快照才是确定的。
+ */
+const FIXTURE_ACCESS: CliAccess = {
+  cliPath: 'C:/DeskPartner/resources/cli/deskpartner.cjs',
+  cliEnvVar: 'DESKPARTNER_CLI',
+  cliEnvAvailable: true,
+  mcpCommand: 'C:/DeskPartner/resources/cli/mcp.cmd'
+}
+
+const PROMPTS: Array<[string, string, PromptKey]> = [
   ['整理迁入版 buildMigratePrompt', buildMigratePrompt(null), 'migrate'],
-  ['从零开始版 buildFreshPrompt', buildFreshPrompt(null), 'fresh']
+  ['从零开始版 buildFreshPrompt', buildFreshPrompt(null), 'fresh'],
+  ['整理迁入版（带本机地址） buildMigratePrompt(access)', buildMigratePrompt(FIXTURE_ACCESS), 'migrateWithAccess'],
+  ['从零开始版（带本机地址） buildFreshPrompt(access)', buildFreshPrompt(FIXTURE_ACCESS), 'freshWithAccess']
 ]
 
 describe('清单顺序 = 开场提示词顺序（读成品文本）', () => {

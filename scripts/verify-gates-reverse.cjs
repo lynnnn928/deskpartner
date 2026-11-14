@@ -523,6 +523,29 @@ const GROUPS = [
         '7. 接手说明先于档案提交，档案回头再补。',
         'red',
         '与冻结原文不一致'
+      ],
+      /**
+       * ── 第五轮补的两条：冻结只覆盖了 null 那一份时的洞 ──
+       *
+       * `envLine` 只在 `cliEnvAvailable` 为真时出现，而界面复制给用户的正是
+       * `buildMigratePrompt(access)`。这两条都只改"带本机地址"那一份，
+       * 上一版快照只冻了 null 那一份，所以它们当时是绿的。
+       */
+      [
+        '㉑ 往 envLine「本机已配好环境变量…」里塞一句「获批后先 project add」',
+        'src/renderer/lib/onboarding-prompts.ts',
+        '等价写法不怕安装目录搬家：node "$${envVar}" skill）',
+        '等价写法不怕安装目录搬家：node "$${envVar}" skill；获批后先 project add）',
+        'red',
+        '与冻结原文不一致'
+      ],
+      [
+        '㉒ 命令行那一步挂个条件：有本机地址时多说一句「获批后先 project add」',
+        'src/renderer/lib/onboarding-prompts.ts',
+        '2. 命令行：node ${JSON.stringify(cli)} skill${envLine}',
+        "2. 命令行：node ${JSON.stringify(cli)} skill${envLine}${access ? '\\n获批后先 project add 建第一个项目' : ''}",
+        'red',
+        '与冻结原文不一致'
       ]
     ]
   }
