@@ -167,19 +167,26 @@ function assertNumbering(steps: NumberedStep[], label: string): void {
  * "project  add" 两个空格、"提议项目交接说明"），而漏掉的正是主用户否掉的顺序。
  * 现在反过来：**先划白名单** —— 档案与约定走完之前，那几步里根本不该出现
  * 项目、交接、接手这类词；命中了就红，不管用什么说法。
+ *
+ * ⚠️ `project\s` 是第三轮补的坑：MCP 里建项目的工具叫 `create_project`
+ * （`src/cli/mcp-tools-from-schema.ts`），下划线不是空白，旧写法放它过去。
+ * 第 1–5 步里没有 "project" 这个词，直接用光词判。
  */
-const EARLY_WORDS = /项目|project\s|handoff|接手|交接/i
+const EARLY_WORDS = /项目|project|handoff|接手|交接/i
 
 /**
- * 步骤段以外（开头那段 + 【硬要求】）也不许出现"建项目"的动作
+ * 步骤段以外（开头一段 + 标题行的剩余部分 + 【硬要求】）的白名单
  *
- * 这两段不在编号步骤里，上面所有断言都看不见它们，助手却照样会照做
- * （复审给的 Q3：在「请按以下顺序工作」上面加一句「获批后第一件事：先 project add」）。
- * 这里不能用「项目」这种宽词：开头那段本来就会说「项目资料」，
- * 【硬要求】里也会说「项目」—— 判的是**动作**，不是这个词。
+ * 复审 round 3 第三轮：上一版 C 还在穷举"建项目怎么说"（黑名单），它试了 6 种正常写法，
+ * 闸门全判绿：标题行里夹一句「（获批后先 project add…）」、开头一段大写 `Project add`、
+ * `create_project`、【硬要求】里的「先开个项目」「先登记第一个项目」。
+ *
+ * 现在反过来：这两段里**本来就不该谈到项目/交接**，只许出现下面这几个合法短语 ——
+ * 「项目资料」是迁入版开头在说用户的资料目录，「接手说明」是硬要求在说它只能走提议。
+ * 以后要在这两段写别的说法，就得在这张表里明确加一项；这份摩擦正是闸门要的。
  */
-const BUILD_ACTION =
-  /project\s|project add|建(一个|第一个)?项目|创建(一个|第一个)?项目|新开(一个)?项目|立一个项目|搭[^，。]{0,6}壳/
+const OUTSIDE_ALLOWED = ['项目资料', '接手说明']
+const OUTSIDE_FORBIDDEN = /项目|project|handoff|交接/i
 
 /**
  * 步骤段里每一行都必须是 `n. ` 开头的编号行
@@ -241,21 +248,31 @@ function hardRulesOf(prompt: string): string {
 }
 
 /**
- * 步骤段以外也不许出现"建项目"的动作（开头一段 + 【硬要求】）
+ * 步骤段以外也不许谈到项目（开头一段 + 标题行的剩余部分 + 【硬要求】）
+ *
+ * 这三块都不在编号步骤里，上面所有断言都看不见它们，助手却照样会照做
+ * （Q3 就是往「请按以下顺序工作」上面加一句；第三轮实测，把标题行改成
+ * 「请按以下顺序工作（获批后先 project add 建第一个项目）：」同样是绿的）。
  */
 function assertNoBuildOutsideSteps(prompt: string, label: string): void {
   const headerAt = prompt.indexOf(STEPS_HEADER)
-  expect(headerAt).toBeGreaterThan(-1)
-  const intro = prompt.slice(0, headerAt)
-  const hardRules = hardRulesOf(prompt)
-  expect(
-    BUILD_ACTION.test(intro),
-    `${label} 的开头一段里出现建项目的动作：那一段不在编号步骤里，助手照样会照做`
-  ).toBe(false)
-  expect(
-    BUILD_ACTION.test(hardRules),
-    `${label} 的【硬要求】里出现建项目的动作：同上`
-  ).toBe(false)
+  expect(headerAt, `${label} 里找不到「${STEPS_HEADER}」`).toBeGreaterThan(-1)
+  /** 标题那一行的**剩余部分**也算段外 —— 它不在编号步骤里，却写在助手看得见的地方 */
+  const headerLineEnd = prompt.indexOf('\n', headerAt)
+  const intro = headerLineEnd >= 0 ? prompt.slice(0, headerLineEnd) : prompt
+  const regions: Array<[string, string]> = [
+    ['开头一段与标题行', intro],
+    ['【硬要求】', hardRulesOf(prompt)]
+  ]
+  for (const [where, text] of regions) {
+    const stripped = OUTSIDE_ALLOWED.reduce((acc, phrase) => acc.split(phrase).join(''), text)
+    const hit = stripped.match(OUTSIDE_FORBIDDEN)
+    expect(
+      hit?.[0] ?? null,
+      `${label} 的${where}里出现了「${hit?.[0]}」：那一段不在编号步骤里，` +
+        '闸门看不见，助手却照样会照做'
+    ).toBe(null)
+  }
 }
 
 /** 只把某几步做完的清单状态 */
@@ -280,7 +297,10 @@ const PROMPTS: Array<[string, string]> = [
 describe('清单顺序 = 开场提示词顺序（读成品文本）', () => {
   for (const [label, prompt] of PROMPTS) {
     it(`${label}：编号步骤里推出来的顺序就是清单顺序`, () => {
-      expect(orderOf(prompt, label)).toEqual(ONBOARDING_STEP_ORDER)
+      expect(
+        orderOf(prompt, label),
+        `${label}：编号步骤的顺序与清单顺序不一致 —— 提示词里说的顺序变了`
+      ).toEqual(ONBOARDING_STEP_ORDER)
     })
 
     it(`${label}：nextOnboardingStep 循着同一顺序一步步往前指，最后落到 null`, () => {

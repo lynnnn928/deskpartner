@@ -297,6 +297,8 @@ const GROUPS = [
      */
     name: '清单顺序 = 开场提示词顺序（onboarding-order-matches-prompt.test.ts）',
     gate: 'tests/renderer/lib/onboarding-order-matches-prompt.test.ts',
+    /** 这一组的每条红都要说出「为什么红」（见下面循环里的说明） */
+    requireReason: true,
     cases: [
       [
         '① 把项目那一步剪到档案之前（真实三行重排，编号留在原地 —— 主用户否掉的顺序）',
@@ -307,14 +309,16 @@ const GROUPS = [
           [2, 0, 1]
             .map((from, i) => `${4 + i}. ${matched.split('\n')[from].replace(/^\d+\.\s+/, '')}`)
             .join('\n'),
-        'red'
+        'red',
+        '编号步骤的顺序与清单顺序不一致'
       ],
       [
         '② 把「接手说明」那一步整行删掉（编号跟着断 → 编号连续性判红）',
         'src/renderer/lib/onboarding-prompts.ts',
         /^6\. 询问主用户是否要把现有项目登记[^\n]*\n/m,
         '',
-        'red'
+        'red',
+        '编号必须从 1 开始连续'
       ],
       [
         '③ 把「协作约定」的正文又抄进下一步（同一件事写了两遍 → 锚点命中 2 个编号步骤）',
@@ -324,7 +328,8 @@ const GROUPS = [
           const [fifth, sixth] = matched.split('\n')
           return `${fifth}\n${sixth}${fifth.replace(/^5\.\s+/, '')}`
         },
-        'red'
+        'red',
+        '命中了 2 个编号步骤'
       ],
       [
         /**
@@ -343,7 +348,8 @@ const GROUPS = [
           const bodies = ['逐个建项目。', ...lines.map((line) => line.replace(/^\d+\.\s+/, ''))]
           return bodies.map((body, i) => `${first + i}. ${body}`).join('\n')
         },
-        'red'
+        'red',
+        '在档案与约定之前就提到了项目/交接'
       ],
       [
         /** 复审第二轮 P3：在第 3 步末尾补一句"若还没有项目，先 project add" */
@@ -351,15 +357,24 @@ const GROUPS = [
         'src/renderer/lib/onboarding-prompts.ts',
         /^3\. 获批后读取用户档案[^\n]*$/m,
         (matched) => `${matched}若还没有项目，先 project add 建一个。`,
-        'red'
+        'red',
+        '在档案与约定之前就提到了项目/交接'
       ],
       [
-        /** 复审第二轮 P4：把「获批后先 project add」写进【硬要求】 */
+        /**
+         * 复审第二轮 P4：把「获批后先 project add」写进【硬要求】
+         *
+         * ⚠️ 锚点必须**把结尾那个反引号留在外面**（`[^\n`]*`）：HARD_RULES 的最后一行
+         * 以 `。\`` 收尾，用 `[^\n]*$` 会把反引号一起吃进匹配，新加的第 10 条就落到
+         * 模板字符串外面 —— 文件语法错误、vitest 一律红，于是这条用例**恒红**，
+         * 什么都没验证（复审 round 3 第三轮逐条查过：把注入换成一句无害的话照样红）。
+         */
         '⑥ 在【硬要求】里加一条「获批后先 project add 建第一个项目」（P4）',
         'src/renderer/lib/onboarding-prompts.ts',
-        /^9\. 只使用产品中真实存在的命令[^\n]*$/m,
+        /^(9\. 只使用产品中真实存在的命令[^\n`]*)/m,
         (matched) => `${matched}\n10. 获批后先 project add 建第一个项目。`,
-        'red'
+        'red',
+        '【硬要求】里出现了'
       ],
       [
         /** 复审第二轮 P5：编号重号（两个「4.」） */
@@ -367,7 +382,8 @@ const GROUPS = [
         'src/renderer/lib/onboarding-prompts.ts',
         /^5\. 与主用户确认协作协议内容/m,
         '4. 与主用户确认协作协议内容',
-        'red'
+        'red',
+        '编号必须从 1 开始连续'
       ],
       [
         /** 复审第二轮 Q3：在「请按以下顺序工作」**上面**加一段「先 project add」 */
@@ -375,7 +391,8 @@ const GROUPS = [
         'src/renderer/lib/onboarding-prompts.ts',
         '请按以下顺序工作：',
         '获批后第一件事：先 project add 把项目建出来。\n\n请按以下顺序工作：',
-        'red'
+        'red',
+        '开头一段与标题行里出现了'
       ],
       [
         /** 复审第二轮 Q4：步骤段里插一条子弹行 */
@@ -383,7 +400,8 @@ const GROUPS = [
         'src/renderer/lib/onboarding-prompts.ts',
         /^3\. 获批后读取用户档案[^\n]*$/m,
         (matched) => `${matched}\n- 获批后先 project add`,
-        'red'
+        'red',
+        '不是编号步骤'
       ],
       [
         /** 复审第二轮 Q9：命令名里两个空格也照样算「先建项目」 */
@@ -391,7 +409,8 @@ const GROUPS = [
         'src/renderer/lib/onboarding-prompts.ts',
         /^3\. 获批后读取用户档案[^\n]*$/m,
         (matched) => `${matched}随后 project  add 把项目建出来。`,
-        'red'
+        'red',
+        '在档案与约定之前就提到了项目/交接'
       ],
       [
         /** P2：只把第 6 行挪到第 4 行前面、编号不动 —— 助手读到的先后变了 */
@@ -402,7 +421,8 @@ const GROUPS = [
           const lines = matched.split('\n')
           return [lines[2], lines[0], lines[1]].join('\n')
         },
-        'red'
+        'red',
+        '编号必须从 1 开始连续'
       ],
       [
         /**
@@ -430,6 +450,44 @@ const GROUPS = [
         'const HARD_RULES = `',
         '// 反例（只是注释）：project add 早于 profile propose 也不是产品顺序\nconst HARD_RULES = `',
         'green'
+      ],
+      /**
+       * ── 第三轮补的四条：都是复审第三轮自己试出来的、上一版判绿的写法 ──
+       *
+       * 前三条打的是步骤段**以外**（C 改成白名单之后才拦得住），第四条打的是 B 的
+       * `project\s` —— MCP 里建项目的工具叫 `create_project`，下划线不是空白。
+       */
+      [
+        '⑭ 标题行里夹一句「（获批后先 project add 建第一个项目）」（标题行也是段外）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        '请按以下顺序工作：',
+        '请按以下顺序工作（获批后先 project add 建第一个项目）：',
+        'red',
+        '开头一段与标题行里出现了'
+      ],
+      [
+        '⑮ 开头一段写「获批后先 Project add」（大写 —— 上一版 C 没有 /i）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        '你是 DeskPartner 的协作 agent。主用户已有 AI 助手使用经验',
+        '获批后先 Project add 把项目建出来。\n\n你是 DeskPartner 的协作 agent。主用户已有 AI 助手使用经验',
+        'red',
+        '开头一段与标题行里出现了'
+      ],
+      [
+        '⑯ 第 3 步补一句「然后先调 create_project」（MCP 的工具名，下划线不是空白）',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^3\. 获批后读取用户档案[^\n]*$/m,
+        (matched) => `${matched}然后先调 create_project。`,
+        'red',
+        '在档案与约定之前就提到了项目/交接'
+      ],
+      [
+        '⑰ 【硬要求】加一条「获批后先开个项目，档案回头再补」',
+        'src/renderer/lib/onboarding-prompts.ts',
+        /^(9\. 只使用产品中真实存在的命令[^\n`]*)/m,
+        (matched) => `${matched}\n10. 获批后先开个项目，档案回头再补。`,
+        'red',
+        '【硬要求】里出现了'
       ]
     ]
   }
@@ -449,20 +507,33 @@ function runGate(gate) {
     ],
     { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   )
-  return r.status === 0
+  /** 输出一起带回去：只看退出码的话，注入写坏了文件（语法错误）也会"红" */
+  return { green: r.status === 0, output: `${r.stdout ?? ''}${r.stderr ?? ''}` }
 }
 
 const all = []
 
 for (const g of GROUPS) {
   console.log(`\n── ${g.name} ──`)
-  if (!runGate(g.gate)) {
+  const baseline = runGate(g.gate)
+  if (!baseline.green) {
     console.log('基线就是红的 —— 先修好再来做反向验证')
     process.exit(1)
   }
   console.log('基线：绿')
 
-  for (const [name, rel, from, to, expect] of g.cases) {
+  for (const [name, rel, from, to, expect, reason] of g.cases) {
+    /**
+     * 这一组要求「变红 = 因为闸门自己的判据变红」（`requireReason: true`）
+     *
+     * 起因是复审 round 3 第三轮抓到的纸面用例：注入点落在模板字符串外面，
+     * 文件语法错误，vitest 一律红 —— 那条用例便恒红，什么都没验证，
+     * 而只看退出码分不出这两种红。其余几组暂时仍只看退出码（那是更早的卡），
+     * 逐条补原因片段记成待办。
+     */
+    if (g.requireReason && expect === 'red' && !reason) {
+      throw new Error(`[反向验证] 「${name}」期望变红却没写期望的报错片段 —— 语法错误会冒充闸门生效`)
+    }
     const abs = path.join(ROOT, rel)
     const original = fs.readFileSync(abs, 'utf8')
     /**
@@ -486,25 +557,36 @@ for (const g of GROUPS) {
     const injected = normalized.replace(from, to)
     fs.writeFileSync(abs, crlf ? injected.replace(/\n/g, '\r\n') : injected)
     let green
+    let output = ''
     try {
-      green = runGate(g.gate)
+      const run = runGate(g.gate)
+      green = run.green
+      output = run.output
     } finally {
       fs.writeFileSync(abs, original)
     }
-    // 期望：注入真违规 → 变红；注入注释噪音 → 仍绿
-    const ok = expect === 'red' ? !green : green
+    // 期望：注入真违规 → 变红（**且因为闸门自己的判据变红**）；注入注释噪音 → 仍绿
+    let ok = expect === 'red' ? !green : green
+    let why = ''
+    if (ok && expect === 'red' && reason) {
+      const matched = reason instanceof RegExp ? reason.test(output) : output.includes(reason)
+      if (!matched) {
+        ok = false
+        why = `，但红的原因不对：输出里找不到「${reason}」（语法错误冒充了闸门生效？）`
+      }
+    }
     const actual = green ? '绿' : '红'
     console.log(
       `${ok ? '✓' : '✗'} ${name}：闸门${actual}` +
-        `（期望${expect === 'red' ? '红' : '绿'}）`
+        `（期望${expect === 'red' ? '红' : '绿'}${expect === 'red' && reason ? '，原因「' + reason + '」' : ''}${why}）`
     )
     all.push([g.name, name, ok ? 'PASS' : 'FAIL', expect])
   }
 
   // 还原后再跑一次，确认没把文件改坏
   const back = runGate(g.gate)
-  console.log(`还原后复跑：${back ? '绿（文件完好）' : '红（还原失败，需检查）'}`)
-  if (!back) all.push([g.name, '还原复跑', 'FAIL', 'green'])
+  console.log(`还原后复跑：${back.green ? '绿（文件完好）' : '红（还原失败，需检查）'}`)
+  if (!back.green) all.push([g.name, '还原复跑', 'FAIL', 'green'])
 }
 
 const passed = all.filter(([, , r]) => r === 'PASS')
