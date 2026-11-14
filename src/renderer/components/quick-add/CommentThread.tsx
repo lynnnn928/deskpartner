@@ -7,7 +7,7 @@ import { invoke } from '../../lib/ipc-client'
 import { cn } from '../../lib/utils'
 import { ownerLabel } from '../../lib/todo-filter'
 import { useSettingsStore } from '../../stores/settings.store'
-import type { TodoComment, CommentAuthorType, CommentKind } from '../../types/todo'
+import type { TodoComment, TodoAttachment, CommentAuthorType, CommentKind } from '../../types/todo'
 
 interface CommentThreadProps {
   todoId: string
@@ -187,6 +187,56 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ todoId, refreshTok
     null
   )
 
+  /**
+   * 评论附图的大图预览（1.0.147）
+   *
+   * 缩略图长边只有几百像素，截图里的字看不清 —— 点一下按需取一张大图
+   * （主进程 `todo:attachmentPreview`，与附件区共用同一条通道，不另开）。
+   *
+   * 失败**不吞**：缩略图能点、点了却什么都没发生，比不给点更让人困惑。
+   * 所以预览框照开，框里换成一句读得懂的话。
+   */
+  const [preview, setPreview] = useState<{ name: string } | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+
+  const openPreview = async (item: TodoAttachment) => {
+    setPreviewError(null)
+    setPreviewUrl(null)
+    setPreview({ name: item.name })
+    try {
+      const res = await invoke('todo:attachmentPreview', { id: item.id })
+      if (!res.dataUrl) throw new Error('读不出这张图片的内容')
+      setPreviewUrl(res.dataUrl)
+    } catch (err) {
+      setPreviewError(errText(err))
+    }
+  }
+
+  const closePreview = React.useCallback(() => {
+    setPreview(null)
+    setPreviewUrl(null)
+    setPreviewError(null)
+  }, [])
+
+  /**
+   * Esc 关预览，并且**不再传给外层**
+   *
+   * 详情外壳（TodoDetailShell）在 window 上听 Esc = 退出整个详情。预览开着时
+   * 那一份会把详情一起关掉，所以这里用捕获阶段先拿到事件并掐断传播：
+   * 一个 Esc 只关最上面这一层。
+   */
+  useEffect(() => {
+    if (!preview) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      closePreview()
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [preview, closePreview])
+
   const doRemove = async () => {
     if (!deletePrompt) return
     const target = deletePrompt.comment
@@ -233,6 +283,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ todoId, refreshTok
               humanName={settings?.humanName}
               focusCommentId={focusCommentId}
               onReply={setReplyTo}
+              onPreview={openPreview}
               onDelete={(item) =>
                 setDeletePrompt({
                   comment: item,
@@ -313,8 +364,60 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ todoId, refreshTok
           </div>
         )}
       </Dialog>
+
+      {/*
+        评论附图预览：走 Dialog、走既有附件预览通道，不另造模态框。
+        标题是文件名 —— 同一批截图常连着好几个名字，现在看的是哪张要写清楚。
+      */}
+      <Dialog open={!!preview} onClose={closePreview}>
+        <div className="flex flex-col gap-3" data-testid="comment-attachment-preview">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-body font-medium text-text-primary truncate">
+              {preview?.name ?? ''}
+            </h3>
+            <button
+              type="button"
+              data-testid="comment-attachment-preview-close"
+              aria-label="关闭预览"
+              title="关闭（Esc）"
+              onClick={closePreview}
+              className={cn(
+                'shrink-0 w-6 h-6 flex items-center justify-center rounded-button',
+                'text-text-secondary transition-colors hover:bg-black/5 hover:text-text-primary cursor-pointer'
+              )}
+            >
+              <Icon name="x" size={13} />
+            </button>
+          </div>
+          <div className="flex items-center justify-center min-h-32 bg-surface-subtle rounded-card border border-border p-2">
+            {previewError ? (
+              <p
+                data-testid="comment-attachment-preview-error"
+                className="text-label text-danger px-2 py-8 text-center break-all"
+              >
+                打不开这张图片：{previewError}
+              </p>
+            ) : previewUrl ? (
+              <img
+                data-testid="comment-attachment-preview-image"
+                src={previewUrl}
+                alt={preview?.name ?? ''}
+                className="max-w-full max-h-96 object-contain"
+              />
+            ) : (
+              <span className="text-label text-text-secondary py-8">读取中…</span>
+            )}
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
+}
+
+/** 通道报错的原文带 `[IPC] channel:` 前缀，对用户没有意义，去掉 */
+function errText(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  return raw.replace(/^\[IPC\][^:]*:\s*/, '')
 }
 
 /** 作者显示名：human 用设置里的人类名，agent 用 ownerLabel 的短名 */
@@ -344,7 +447,8 @@ const CommentItem: React.FC<{
   focusCommentId?: string | null
   onReply: (c: TodoComment) => void
   onDelete: (c: TodoComment) => void
-}> = ({ comment, replies, thumbs, humanName, focusCommentId, onReply, onDelete }) => {
+  onPreview: (item: TodoAttachment) => void
+}> = ({ comment, replies, thumbs, humanName, focusCommentId, onReply, onDelete, onPreview }) => {
   const kind = KIND_META[comment.kind]
   const author = AUTHOR_META[comment.authorType]
   return (
@@ -358,6 +462,7 @@ const CommentItem: React.FC<{
         highlighted={comment.id === focusCommentId}
         onReply={onReply}
         onDelete={onDelete}
+        onPreview={onPreview}
       />
       {/* 楼中楼：缩进一级，不递归（只支持一层回复） */}
       {replies.map((r) => (
@@ -371,6 +476,7 @@ const CommentItem: React.FC<{
             highlighted={r.id === focusCommentId}
             onReply={onReply}
             onDelete={onDelete}
+            onPreview={onPreview}
           />
         </div>
       ))}
@@ -387,7 +493,8 @@ const CommentRow: React.FC<{
   highlighted?: boolean
   onReply: (c: TodoComment) => void
   onDelete: (c: TodoComment) => void
-}> = ({ comment, kind, author, thumbs, humanName, highlighted, onReply, onDelete }) => (
+  onPreview: (item: TodoAttachment) => void
+}> = ({ comment, kind, author, thumbs, humanName, highlighted, onReply, onDelete, onPreview }) => (
   <div
     id={`todo-comment-${comment.id}`}
     data-comment-id={comment.id}
@@ -422,20 +529,36 @@ const CommentRow: React.FC<{
        * 评论附图（1.0.146）：截图直接显示在评论下面，不再是一行路径文字。
        * 非图片附件只列名字 —— 点开交给系统默认程序这件事在卡片附件区已经做了，
        * 这里再放一份入口只会让人不知道点哪个。
+       *
+       * 图片本身是一个 `<button>`（1.0.147）：缩略图只有几百像素，截图里的字
+       * 看不清，所以点一下开大图。用按钮而不是给 img 挂 onClick —— 键盘能聚焦、
+       * 读屏能念出文件名，这两点 img 给不了。
        */}
       {!!comment.attachments?.length && (
         <div className="mt-1.5 flex flex-wrap items-start gap-1.5" data-testid={`comment-attachments-${comment.id}`}>
           {comment.attachments.map((item) =>
             item.kind === 'image' ? (
               thumbs[item.id] ? (
-                <img
+                <button
                   key={item.id}
-                  src={thumbs[item.id]}
-                  alt={item.name}
-                  title={item.name}
-                  data-testid={`comment-attachment-image-${item.id}`}
-                  className="max-h-40 w-auto rounded-button border border-border bg-surface-subtle"
-                />
+                  type="button"
+                  data-testid={`comment-attachment-open-${item.id}`}
+                  aria-label={`查看图片 ${item.name}`}
+                  title={`查看大图：${item.name}`}
+                  onClick={() => onPreview(item)}
+                  className={cn(
+                    'rounded-button border border-border bg-surface-subtle overflow-hidden cursor-pointer',
+                    'transition-colors hover:border-accent/60 hover:opacity-90',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60'
+                  )}
+                >
+                  <img
+                    src={thumbs[item.id]}
+                    alt={item.name}
+                    data-testid={`comment-attachment-image-${item.id}`}
+                    className="block max-h-40 w-auto"
+                  />
+                </button>
               ) : (
                 <span key={item.id} className="text-caption text-text-secondary">
                   {item.name}

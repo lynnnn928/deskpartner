@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { CommentThread } from '../../../src/renderer/components/quick-add/CommentThread'
 import { useSettingsStore } from '../../../src/renderer/stores/settings.store'
@@ -65,5 +65,52 @@ describe('评论附图', () => {
     expect(img.getAttribute('src')).toBe('data:image/png;base64,AAAA')
     expect(img.getAttribute('alt')).toBe('验收.png')
     expect(invokeMock).toHaveBeenCalledWith('todo:attachmentThumbs', { ids: ['a1'] })
+  })
+
+  /**
+   * 点缩略图开大图（1.0.147）
+   *
+   * 起因：缩略图只有几百像素，截图里的字看不清，而点它之前什么都不发生 ——
+   * 看着像图，用起来像死图。这里盯两件事：点击真的去要了大图（且走的是附件区
+   * 已经在用的那条通道），以及拿到的大图真的画在了预览框里。
+   */
+  it('点击缩略图会去要预览大图，并在预览框里显示出来', async () => {
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'todo:comments') return [COMMENT]
+      if (channel === 'todo:attachmentThumbs') return { a1: 'data:image/png;base64,AAAA' }
+      if (channel === 'todo:attachmentPreview') {
+        return { dataUrl: 'data:image/png;base64,PREVIEW', name: '验收.png' }
+      }
+      return null
+    })
+
+    render(<CommentThread todoId="t1" />)
+    fireEvent.click(await screen.findByTestId('comment-attachment-open-a1'))
+
+    await waitFor(() => expect(screen.getByTestId('comment-attachment-preview-image')).toBeTruthy())
+    expect(invokeMock).toHaveBeenCalledWith('todo:attachmentPreview', { id: 'a1' })
+    const big = screen.getByTestId('comment-attachment-preview-image')
+    expect(big.getAttribute('src')).toBe('data:image/png;base64,PREVIEW')
+    // 标题写文件名：连着几张截图时，得知道现在看的是哪一张
+    expect(screen.getByTestId('comment-attachment-preview').textContent).toContain('验收.png')
+  })
+
+  /** 预览通道报错时给一句读得懂的话，而不是点了没反应 */
+  it('预览通道报错时显示提示，不静默也不崩', async () => {
+    invokeMock.mockImplementation(async (channel: string) => {
+      if (channel === 'todo:comments') return [COMMENT]
+      if (channel === 'todo:attachmentThumbs') return { a1: 'data:image/png;base64,AAAA' }
+      if (channel === 'todo:attachmentPreview') throw new Error('附件不存在，可能已被删除')
+      return null
+    })
+
+    render(<CommentThread todoId="t1" />)
+    fireEvent.click(await screen.findByTestId('comment-attachment-open-a1'))
+
+    const err = await screen.findByTestId('comment-attachment-preview-error')
+    expect(err.textContent).toContain('附件不存在')
+    expect(screen.queryByTestId('comment-attachment-preview-image')).toBeNull()
+    // 线程还在，提示之外什么都不该塌
+    expect(screen.getByTestId('comment-attachments-c1')).toBeTruthy()
   })
 })
