@@ -12,6 +12,8 @@ import { getOnboardingStatus } from '../../lib/onboarding'
 import { resetCoaches } from '../../lib/coach-marks'
 import { ownerLabel } from '../../lib/todo-filter'
 import { stripMarkdown } from '../../lib/markdown'
+import { isPendingAgent } from '../../lib/grant-state'
+import type { Agent } from '../../types/todo'
 import { cn } from '../../lib/utils'
 
 const PROTOCOL_BLOCKS = ['roles', 'handoff', 'recording', 'communication', 'language'] as const
@@ -34,7 +36,7 @@ type ProtocolBlock = { blockKey: string; body: string; confirmed: boolean; sourc
 type ProfileBlock = { blockKey: string; body: string; confirmed: boolean; source: string }
 type GateInfo = { id: string; what: string; enforcement: string; doThis: string; exitCode: number; errorCode: string | null }
 type ProtocolProject = { id: string; name: string; archived: boolean; handoffMarkdown?: string | null }
-type OnboardingAgent = { id: string; approved: boolean; hasCredential: boolean }
+type OnboardingAgent = Agent
 
 type ProfileRevision = { id: string; blockKey: string; body: string; confirmed: boolean; present: boolean; author: string; createdAt: string }
 type ProtocolRevision = { id: string; blockKey: string; body: string; confirmed: boolean; present: boolean; author: string; createdAt: string }
@@ -475,7 +477,10 @@ export const UserView: React.FC = () => {
       {/* 右内容区 */}
       <div className="flex-1 min-w-0 overflow-y-auto px-6 py-5">
         <div className="max-w-4xl mx-auto w-full flex flex-col gap-4">
-          {setupAgents.some((agent) => !agent.approved) && (
+          {/* 「还在等你点头」的口径只有一处（grant-state.ts:isPendingAgent）：
+              被拒绝过的身份是已结案的决定，不能再把它说成"正在等待批准"，
+              否则人点「去审批」进去什么都没有，只会学会忽略这条横幅 */}
+          {setupAgents.some(isPendingAgent) && (
             <div className="rounded-card border border-warning/30 bg-warning/10 px-4 py-3 flex items-center justify-between gap-3">
               <span className="text-label text-text-primary">有新接入的 AI 助手正在等待批准写入权限。</span>
               <Button type="button" variant="primary" size="sm" onClick={() => setMainView('approval')}>
