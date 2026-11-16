@@ -1709,7 +1709,18 @@ todoRepo.delete(id, 'gui', 'human')
   ipcMain.handle('protocol:decide', (e, input: { id: string; decision: 'approved' | 'rejected'; body?: string }) =>
     safeHandle(() => {
       assertFromSettings(e, 'protocol:decide')
-      return protocolRepo.decideProposal(input.id, input.decision, 'human', input.body)
+      const result = protocolRepo.decideProposal(input.id, input.decision, 'human', input.body)
+      /**
+       * 采纳 / 驳回提议之后要让界面知道（卡 `7c347b4b`）
+       *
+       * 点决定的那一页自己会重拉，但**别处看不出这次改动**：上手清单
+       * （监听所有 `event:dataChanged`）、另一个窗口里的用户页都停在
+       * 「助手已提议…」。种类取 `settings` —— 与 CLI 侧 `profile propose` /
+       * `protocol propose` 的映射同源（见 command-exec 的 CHANGE_EVENT_BY_COMMAND）。
+       * 不能借 `grant`：那会被当成"有人卡在等授权"去弹横幅。
+       */
+      broadcastDataChanged('settings', getWindows)
+      return result
     })
   )
 
@@ -1748,7 +1759,18 @@ todoRepo.delete(id, 'gui', 'human')
   ipcMain.handle('profile:decide', (e, input: { id: string; decision: 'approved' | 'rejected'; body?: string }) =>
     safeHandle(() => {
       assertFromSettings(e, 'profile:decide')
-      return profileRepo.decideProposal(input.id, input.decision, 'human', input.body)
+      const result = profileRepo.decideProposal(input.id, input.decision, 'human', input.body)
+      /**
+       * 采纳 / 驳回提议之后要让界面知道（卡 `7c347b4b`）
+       *
+       * 点决定的那一页自己会重拉，但**别处看不出这次改动**：上手清单
+       * （监听所有 `event:dataChanged`）、另一个窗口里的用户页都停在
+       * 「助手已提议…」。种类取 `settings` —— 与 CLI 侧 `profile propose` /
+       * `protocol propose` 的映射同源（见 command-exec 的 CHANGE_EVENT_BY_COMMAND）。
+       * 不能借 `grant`：那会被当成"有人卡在等授权"去弹横幅。
+       */
+      broadcastDataChanged('settings', getWindows)
+      return result
     })
   )
 
@@ -1812,7 +1834,18 @@ todoRepo.delete(id, 'gui', 'human')
   ipcMain.handle('rules:decide', (e, input: { id: string; decision: 'approved' | 'rejected'; enforcement?: string }) =>
     safeHandle(() => {
       assertFromSettings(e, 'rules:decide')
-      return rulesRepo.decideProposal(input.id, input.decision, 'human', input.enforcement as any)
+      const result = rulesRepo.decideProposal(input.id, input.decision, 'human', input.enforcement as any)
+      /**
+       * 采纳 / 驳回协作规则提议之后要让界面知道（卡 `7c347b4b`）
+       *
+       * 点决定的那一页自己会重拉，但**别处看不出这次改动**：上手清单
+       * （监听所有 `event:dataChanged`）、另一个窗口里的用户页都停在
+       * 「助手已提议…」。种类取 `settings` —— 与 CLI 侧 `profile propose` /
+       * `protocol propose` 的映射同源（见 command-exec 的 CHANGE_EVENT_BY_COMMAND）。
+       * 不能借 `grant`：那会被当成"有人卡在等授权"去弹横幅。
+       */
+      broadcastDataChanged('settings', getWindows)
+      return result
     })
   )
 

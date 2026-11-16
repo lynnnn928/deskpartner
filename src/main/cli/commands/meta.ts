@@ -133,6 +133,27 @@ export const helpCommands: CommandSpec[] = [
 
       const hit = commands.find((c) => c.name === name)
       if (!hit) {
+        /**
+         * 命令族（卡 `7c347b4b`）：`help todo` 问的其实是"这一族有哪几条" ——
+         * 而 `todo --help` 在 run.ts 里正是被改写成 `help todo`，于是 AI 最自然的
+         * 那种问法此前一律撞一句"没有这个命令"（埋点里约 19 次全失败）。
+         *
+         * 命令表没有别名与分组，`todo` 自己不是命令；所以判据只有一个：
+         * **后面还有命令时它就是族名**。命中即列出该族（成功返回，不是报错），
+         * 字段与顶层简表同源（name / desc / readOnly / risk），调用方不必再跑 schema。
+         */
+        const family = commands.filter((c) => c.name.startsWith(`${name} `))
+        if (family.length) {
+          return {
+            tip: `「${name}」是命令族，没有同名命令；下面是它下面的全部命令。看单条参数用 help <命令名>。`,
+            commands: family.map((c) => ({
+              name: c.name,
+              desc: c.desc,
+              readOnly: riskOf(c) === 'read',
+              risk: riskOf(c)
+            }))
+          }
+        }
         throw new NotFoundError(`没有这个命令: ${name}（不带参数运行 help 看全部）`)
       }
 

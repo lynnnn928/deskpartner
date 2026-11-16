@@ -149,16 +149,80 @@ function declaredActorFromArgv(argv: string[]): string | undefined {
   return undefined
 }
 
-/**
- * 调用身份：优先环境变量，其次 argv 里的显式声明，最后（仅当本机只有一份凭据）用它。
- */
 const envActor = process.env.DESKPARTNER_AGENT?.trim() || undefined
-const declaredActor = envActor || declaredActorFromArgv(argv)
-const credential = pickCredential(declaredActor)
-const callerActor = declaredActor || credential?.agentId
-const callerCredential =
-  credential && credential.agentId === callerActor ? credential.token : undefined
 const callerSession = process.env.DESKPARTNER_SESSION?.trim() || undefined
+
+/**
+ * 这次调用的身份与凭据 —— **一处判定，纯函数**（卡 `7c347b4b`）
+ *
+ * ## 为什么必须是函数、而且由 `main()` 在拿到参数之后调用
+ *
+ * 这几行原先写在**模块顶层**，而 `argv` 要到 `main()` 里才赋值。于是求值时
+ * `argv` 还是空数组，`declaredActorFromArgv([])` 恒为 undefined：
+ *
+ * - 本机有多份凭据时，`--created-by agent:x` **选不到 x 的凭据** —— 一条凭据
+ *   也拿不到，门禁按 `ambiguous_identity` 拦下；
+ * - 而 `command-core` 的报错文案还在教人「也可以在命令里带 --created-by」，
+ *   照做以后结果一样：报错教的那条路从来没生效过。
+ *
+ * 所以身份求值只能发生在**参数就绪之后**（`main()` 里紧跟 `argv` 赋值），
+ * 并抽成纯函数：凭据查询注入进来，单测才能在不起子进程的前提下复现这条。
+ * 见 `tests/main/cli/launcher-identity-7c347b4b.test.ts`。
+ */
+export interface CallerIdentity {
+  /** 这次调用自称的身份：环境变量优先，其次 `--created-by` / `--owner` */
+  declaredActor: string | undefined
+  /** 实际归属：自称优先，否则本机唯一那份凭据的身份（1.0.35 的零摩擦路径） */
+  callerActor: string | undefined
+  /** 与 callerActor 对应的 token；对不上就留空 —— **绝不借别人的凭据** */
+  callerCredential: string | undefined
+  /** 多份凭据又没声明身份时的候选，带下去由门禁按命令档位决定拦不拦 */
+  ambiguousIds: string[] | undefined
+}
+
+export function resolveCallerIdentity(
+  cliArgv: string[],
+  opts: { envActor?: string; tty: boolean },
+  lookup: {
+    pick: (id?: string) => { agentId: string; token: string } | null
+    listIds: () => string[]
+  } = { pick: pickCredential, listIds: listCredentialIds }
+): CallerIdentity {
+  const declaredActor = opts.envActor?.trim() || declaredActorFromArgv(cliArgv)
+  const credential = lookup.pick(declaredActor)
+  const callerActor = declaredActor || credential?.agentId
+  const callerCredential =
+    credential && credential.agentId === callerActor ? credential.token : undefined
+  /**
+   * 多份凭据 + 没声明身份 = 不猜（1.0.37）
+   *
+   * 此前会退回文件里的 default，于是后注册的 agent 的调用被带上先注册者的凭据：
+   * 埋点 actor、授权申请、审计全都记到别人名下（Bob 32f0bf89 实测）。
+   * 错记的身份**事后无法还原**，当时不猜就是数据不被污染的唯一机会。
+   *
+   * 只标"多份且没声明"：单人单 agent 完全不受影响，那是 1.0.35 的零摩擦路径。
+   *
+   * ⚠️ 这里只把情况**带下去**，不在这里拒绝：读命令不需要身份，
+   * 在启动器一刀切会把 `todo list` 也堵死。该不该拦由门禁按命令的档位决定
+   * （与"batch 自己不过门禁、子命令各自过"同一个原则：判据放在最懂业务的那一层）。
+   */
+  const ids = !opts.tty && !declaredActor && !callerCredential ? lookup.listIds() : []
+  return {
+    declaredActor,
+    callerActor,
+    callerCredential,
+    ambiguousIds: ids.length > 1 ? ids : undefined
+  }
+}
+
+/**
+ * 下面这四个由 `main()` 在 `argv` 就绪后填（见 `resolveCallerIdentity` 的说明）。
+ * `tryPipe` / `fallbackToHeadless` 都要等 `main()` 走到才执行，读到的就是这次调用的值。
+ */
+let declaredActor: string | undefined
+let callerActor: string | undefined
+let callerCredential: string | undefined
+let ambiguousIds: string[] | undefined
 
 /**
  * 调用方手上那份说明书的版本（G8 漂移提醒用，1.0.57）
@@ -185,23 +249,6 @@ const callerSkillVersion = process.env.DESKPARTNER_SKILL_VERSION?.trim() || unde
 const callerSurface = process.env.DESKPARTNER_SURFACE?.trim() || 'cli'
 const callerCliEnv = process.env.DESKPARTNER_CLI?.trim() || null
 
-/**
- * 多份凭据 + 没声明身份 = 不猜（1.0.37）
- *
- * 此前会退回文件里的 default，于是后注册的 agent 的调用被带上先注册者的凭据：
- * 埋点 actor、授权申请、审计全都记到别人名下（Bob 32f0bf89 实测）。
- * 错记的身份**事后无法还原**，当时不猜就是数据不被污染的唯一机会。
- *
- * 只标"多份且没声明"：单人单 agent 完全不受影响，那是 1.0.35 的零摩擦路径。
- *
- * ⚠️ 这里只把情况**带下去**，不在这里拒绝：读命令不需要身份，
- * 在启动器一刀切会把 `todo list` 也堵死。该不该拦由门禁按命令的档位决定
- * （与"batch 自己不过门禁、子命令各自过"同一个原则：判据放在最懂业务的那一层）。
- */
-const ambiguousIds =
-  !tty && !declaredActor && !callerCredential && listCredentialIds().length > 1
-    ? listCredentialIds()
-    : undefined
 
 /**
  * 读出调用方重定向进来的 stdin
@@ -598,6 +645,16 @@ async function main(): Promise<void> {
   // 参数展开放在这里，失败时能被下面的 catch 统一处理（见 expandDescFile 的说明）
   argv = expandDescFile(process.argv.slice(2))
 
+  /**
+   * 身份与凭据必须在这里求值 —— **argv 刚就绪**（卡 `7c347b4b`）。
+   * 原先在模块顶层求值，那时 argv 还是空数组，`--created-by agent:x` 选不到凭据。
+   */
+  const identity = resolveCallerIdentity(argv, { envActor, tty })
+  declaredActor = identity.declaredActor
+  callerActor = identity.callerActor
+  callerCredential = identity.callerCredential
+  ambiguousIds = identity.ambiguousIds
+
   // 先读 stdin 再连管道：stdin 读的是调用方的流，与走哪条通道无关
   const rawStdin = await readPipedStdin()
   // batch 的每行参数由服务端展平，所以它的 --desc-file 得在这里补展开
@@ -623,7 +680,12 @@ async function main(): Promise<void> {
   await fallbackToHeadless(stdin)
 }
 
-main().catch((err: unknown) => {
+/**
+ * 入口执行要能跳过（卡 `7c347b4b`）：单测要 import 本文件拿 `resolveCallerIdentity`，
+ * 不能顺带把启动器真跑一遍（那会去连管道 / spawn Electron）。
+ * 判据用 vitest 自己设的 `VITEST`，不用 NODE_ENV —— 后者在开发态也可能被设上。
+ */
+if (!process.env.VITEST) main().catch((err: unknown) => {
   /**
    * 启动器自己的失败出口 —— 走到这里的错误**没经过 `executeOne`**
    * （`--desc-file` 读不到文件、`dp skill` 主题写错、无头通道起不来…），

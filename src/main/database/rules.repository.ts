@@ -99,6 +99,28 @@ export class RulesRepository {
     })
   }
 
+  /**
+   * 该层该规则现任的版本戳；该层没有覆盖时返回 null
+   *
+   * 只读 `collaboration_rules` 里**采纳会写的那一层**（scope + project_id + rule_key）：
+   * 提议是"改这一层"，不是"改此刻解析出来的有效值"，所以不走上层继承。
+   *
+   * 取**最新**一行而不是第一行：全局层的 project_id 是 NULL，而 SQLite 的唯一键里
+   * NULL 互不相等，`ON CONFLICT(scope, project_id, rule_key)` 因此不生效 ——
+   * 全局规则每存一次就多一行，`listRules` 的 Map 取到的也是最后一行。
+   * 按最新行比对才与"此刻生效的值"一致。
+   */
+  private currentRuleUpdatedAt(scope: RulesScope, ruleKey: string): string | null {
+    const projectId = scope.scope === 'project' ? scope.projectId : null
+    const row = this.db
+      .prepare(
+        `SELECT updated_at FROM collaboration_rules WHERE scope = ? AND project_id IS ? AND rule_key = ?
+         ORDER BY updated_at DESC, rowid DESC LIMIT 1`
+      )
+      .get(scope.scope, projectId, ruleKey) as { updated_at?: string } | undefined
+    return row?.updated_at || null
+  }
+
   /** 保存单条规则配置（主用户 GUI 直接改；agent 走提议） */
   saveRule(
     scope: RulesScope,
@@ -346,7 +368,15 @@ export class RulesRepository {
       ruleKey,
       proposedEnforcement: enforcement,
       originalEnforcement: current.enforcement,
-      baseUpdatedAt: current.source === 'default' ? null : nowVersion(),
+      /**
+       * 基准版本 = **采纳时会写的那一行**现在的版本，不是提交时刻（卡 7c347b4b）。
+       *
+       * 原先这里存 `nowVersion()`，记的是一个与库内容无关的时间，采纳时也没比对，
+       * 于是"提议 → 别人改了同一条规则 → 采纳"会把别人的改动静默盖掉。
+       * 空档用 '∅' 表示（与档案/协议同口径）：该层没有覆盖时，
+       * 之后别人补上的覆盖同样是冲突。
+       */
+      baseUpdatedAt: this.currentRuleUpdatedAt(scope, ruleKey) ?? '∅',
       decidedEnforcement: null,
       proposer,
       status: 'pending',
@@ -380,6 +410,13 @@ export class RulesRepository {
           : { scope: 'global' }
       const proposed = (editedEnforcement ?? row.proposed_enforcement) as RuleEnforcement
       if (decision === 'approved') {
+        // 采纳会覆盖该层当前的规则值，先比对基准版本（卡 7c347b4b；口径同档案/协议）
+        if (!row.base_updated_at) {
+          throw new Error('这条旧提议未保存当时规则版本，无法安全覆盖；请让 agent 基于当前规则重新提交')
+        }
+        if ((this.currentRuleUpdatedAt(scope, row.rule_key) ?? '∅') !== row.base_updated_at) {
+          throw new Error('协作规则在提议后已发生变化，请重新核对当前规则后再处理')
+        }
         this.saveRule(scope, row.rule_key, proposed, actor)
       }
       const changed = this.db

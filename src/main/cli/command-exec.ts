@@ -11,6 +11,17 @@ import { isOpenStatus, todosForExecutor } from './command-text'
 import { EXIT_CODES, GLOBAL_FLAGS, actorOf, assertCallerAllowed, dedupeNoticeLines, isVersionOlder, parseFlags, riskOf, summarizeGrantTarget } from './command-core'
 import type { CliContext, Outcome } from './command-core'
 import { commandUsage, commands, findCommand, findNearCommands, maxPositionalArgs, normalizeGrantArgv } from './command-table'
+/**
+ * 猜错的动词 → 命令里真正的那个动词（卡 `7c347b4b`）
+ *
+ * `todo show` 30 天里 29 次全失败，而同前缀兄弟清单把 `get` 埋在二十条中间 ——
+ * 调用方看不出来，下次还猜。
+ *
+ * 为什么不直接加别名：命令表（`CommandSpec`）**没有别名机制**，加一条 `todo show`
+ * 会往 schema / help / MCP 的工具清单里多塞一条 —— 那是改外部契约基线。
+ * 所以同义词只在这一处认，而且只用来**指路**：能执行的命令集合一个字都没变。
+ */
+const COMMAND_SYNONYMS: Record<string, string> = { show: 'get' }
 
 /**
  * 执行单条命令并归一化结果
@@ -125,6 +136,138 @@ export function buildSessionReminder(ctx: CliContext): string {
   return sessionReminders.join('\n')
 }
 
+/**
+ * 界面刷新事件类型 —— **只许用渲染层认识的名字**（卡 `7c347b4b`）
+ *
+ * 名单对齐 `src/renderer/types/ipc.ts` 里 `event:dataChanged` 的 `type` 联合：
+ * 各 store 只认自己那一类（`category.store` 认 `category`、`agent.store` 认
+ * `agent_register` / `grant`…）。拼错一个字符的后果是**静默不刷新** ——
+ * 所以这里收成联合类型：写错是 tsc 报错，而不是等人肉眼发现界面没动。
+ */
+export type ChangeEventType =
+  | 'todo'
+  | 'category'
+  | 'project'
+  | 'settings'
+  | 'memo'
+  | 'agent_register'
+
+/**
+ * 命令名 → 写完要让界面刷新哪几类（卡 `7c347b4b`）
+ *
+ * ## 为什么不再用前缀
+ *
+ * 此前按 `todo ` / `project ` / `profile ` / `protocol ` 四个前缀判定，
+ * 其余写命令（`category add`、`memo …`、`rules …`）跑完**界面一直不刷新**：
+ * 回执 ok:true，人却看着旧数据，直到下一次不相关的刷新或重启。
+ * 前缀表的真正问题不是"漏了几条"，而是**漏了没有任何一处会红** ——
+ * 谁也说不清它现在覆盖到哪，加命令时也不会有人想起来补。
+ *
+ * 现在逐条列名：命令表里每一条非 read 命令要么在这张表里，要么在
+ * `NO_REFRESH_COMMANDS` 里带一句理由，穷举由
+ * `tests/main/cli/change-broadcast-7c347b4b.test.ts` 核对。
+ *
+ * 一条命令可以对应多类：`category rm` / `category merge` 除了分类本身，
+ * 还会改动挂在上面的待办（与 `ipc.ts` 里同类 handler 的广播口径一致）。
+ * 命令自己已经 append 过同类事件也不冲突 —— 重复事件只是多一次幂等重拉。
+ */
+export const CHANGE_EVENT_BY_COMMAND: Readonly<Record<string, readonly ChangeEventType[]>> = {
+  // ── 待办：卡片、评论、附件、提出人都在 todo.store 那一份数据里 ──
+  'todo add': ['todo'],
+  'todo update': ['todo'],
+  'todo done': ['todo'],
+  'todo close': ['todo'],
+  'todo reject': ['todo'],
+  'todo pin': ['todo'],
+  'todo unpin': ['todo'],
+  'todo rm': ['todo'],
+  'todo comment': ['todo'],
+  'todo delete-comment': ['todo'],
+  'todo attach': ['todo'],
+  'todo set-owner': ['todo'],
+
+  // ── 备忘：人看过就算送达，NotificationsView 认 memo ──
+  'memo add': ['memo'],
+  'memo ack': ['memo'],
+  'memo rm': ['memo'],
+
+  // ── 项目：侧栏列表、项目总览、handoff 草稿 ──
+  'project add': ['project'],
+  'project archive': ['project'],
+  'project unarchive': ['project'],
+  'project rm': ['project'],
+  'project handoff-propose': ['project'],
+  'project handoff-update': ['project'],
+  'project handoff-rollback': ['project'],
+
+  /**
+   * 发布记录挂在项目上：界面没有独立的 release 类型，最近的订阅方是
+   * `ProjectOverviewView`（收到 project 事件会重拉 `release:list`）。
+   */
+  'release add': ['project'],
+  'release update': ['project'],
+  'release rm': ['project'],
+
+  // ── 分类：category.store 认 category；删除 / 合并还会改动待办上的分类 ──
+  'category add': ['category'],
+  'category rm': ['category', 'todo'],
+  'category merge': ['category', 'todo'],
+
+  /**
+   * 用户档案 / 协作约定 / 协作规则：人要去审批页点头，上手清单第 3、4 步
+   * 也要当场改口说「助手已提议…」。种类取 `settings`（"人的配置"这一层，
+   * `settings.store` 跟着重拉一次，幂等只读查询、界面不会闪）。
+   * **不能借 `grant` / `agent_register`** —— 跨进程轮询把这两类当"有人正卡在
+   * 那条命令上等你点头"去弹横幅（见 change-broadcast.service.ts 的
+   * onGrantRequest / onAgentRegistered），而一条提议只是排进审批队列。
+   */
+  'profile propose': ['settings'],
+  'protocol propose': ['settings'],
+  'rules propose': ['settings'],
+
+  // ── 配置：ui set / ui reset 就是设置项本身 ──
+  'ui set': ['settings'],
+  'ui reset': ['settings'],
+
+  /**
+   * 身份名册：`agent.store` 认 `agent_register` 与 `grant`，前者是"名册变了"那一类。
+   * 用 `grant` 不行 —— 它会被当成"有人卡在那条命令上等你点头"去弹横幅
+   * （change-broadcast.service.ts 的 onGrantRequest），而收回授权不是一次申请。
+   *
+   * ⚠️ 横幅那一路还有一个 onAgentRegistered 回调，当前装配没传它
+   * （见 index.ts 构造 ChangeBroadcastService 处只给了 grant 那个），所以这里不会误弹。
+   * 将来若接上，得回来重估 `agent revoke` 该不该走这一类。
+   */
+  'agent revoke': ['agent_register']
+}
+
+/**
+ * 非只读、但确实**不需要界面刷新**的命令 —— 逐条写理由（卡 `7c347b4b`）
+ *
+ * 这张清单的意义是把"我判断它不用刷新"变成一句可被复核的话：
+ * 下次有人加写命令时，不写理由就过不了穷举核对。
+ */
+export const NO_REFRESH_COMMANDS: Readonly<Record<string, string>> = {
+  batch: 'batch 自己不写数据：子命令逐条走 executeOne，各自按自己的条目广播',
+  'telemetry clear':
+    '埋点统计没有 store 订阅（StatsView 每次进入现拉），清空不影响任何被缓存展示的列表',
+  'agent register':
+    '命令自己已经 append 过一次 agent_register，而且**只在首次注册时**发（重复注册只是改名，再来一条等于催命）—— 这里再兜底一条会重复、也会误报「新成员接入」',
+  'agent credential':
+    '凭据只落在磁盘上，界面上没有任何一处展示"这个身份有没有凭据"（渲染层不调查询凭据的那个 IPC 通道）',
+  'agent purge-credentials': '同 agent credential：凭据只落盘，界面不展示'
+}
+
+/**
+ * 一条命令写完要刷新哪几类事件（不在表里 → 空数组，等于不广播）
+ *
+ * 查表而不是判断前缀：新增写命令时**漏的是查表这一侧**，
+ * 由穷举用例把它变成一条红，而不是一次"界面没动"的口口相传。
+ */
+export function changeEventTypesOf(name: string): readonly ChangeEventType[] {
+  return CHANGE_EVENT_BY_COMMAND[name] ?? []
+}
+
 export async function executeOne(ctx: CliContext, args: string[]): Promise<Outcome> {
   const matched = findCommand(args)
   if (!matched) {
@@ -157,6 +300,18 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
       const siblings = commands.filter((c) => c.name.startsWith(`${head} `))
       if (siblings.length) {
         hint = `。${head} 下可用：${siblings.map((c) => c.name.slice(head.length + 1)).join(', ')}`
+      }
+    }
+    // 猜错动词（卡 `7c347b4b`）：`todo show` → 点名指路 `todo get`
+    //
+    // 兄弟清单（上一段）只在**知道这一族**时有用，而"这一族有哪条能看单条"这件事
+    // 恰好被埋在清单中间。同义词命中且目标命令真的存在时才补一句 ——
+    // 不存在的目标、不认识的说法一律不猜，硬凑建议等于噪音。
+    const verb = args.length >= 2 ? COMMAND_SYNONYMS[args[1]] : undefined
+    if (head && verb) {
+      const target = `${head} ${verb}`
+      if (commands.some((c) => c.name === target)) {
+        hint += `。没有 ${head} ${args[1]} 这条命令；要看单条用 \`${target}\``
       }
     }
     if (!hint) {
@@ -582,41 +737,12 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
   }
 
   /**
-   * 写入类命令成功后追加一条变更事件，
-   * 让正在运行的 GUI 通过轮询察觉到"数据被别的进程改了"。
-   * 这是通道 B（无头执行）的兜底补偿 —— 正常路径由 GUI 自广播覆盖。
+   * 写完要不要广播、广播哪几类 —— 判据在模块顶部的 `CHANGE_EVENT_BY_COMMAND`。
    *
-   * ── 为什么不再只认 `todo *`（2026-11-14，复审 round 3 第 ③ 条）──
-   *
-   * 界面各个 store 只认自己那一类事件（`project.store` 只认 `type === 'project'`）。
-   * 此前这条兜底只给 `todo *` 记事件，于是**助手在命令行建的项目，界面收不到**：
-   * 「我的工作」侧栏的项目列表、上手清单第 5 行都停在原地，直到下一次真正的
-   * project 事件（例如 handoff-propose）或者重启。上手走查里实测到过 ——
-   * `project:list` 已经有那个项目，界面还写着「它会建好项目」。
-   *
-   * 现在按命令前缀映射事件类型，并跳过只读命令。写成"前缀表 + 只读判定"是因为
-   * 事件类型必须与渲染层订阅的那几种对齐（`todo` / `project`），
-   * 拼错一个字符就是静默不刷新。
+   * 这里不再自己判断前缀：前缀漏了**没有任何一处会红**（1.0.146 走查时
+   * `category add` / `memo …` / `rules …` 写完界面都不刷新，就是它漏的），
+   * 逐条列名 + 穷举用例才能让"漏一条"变成一条测试失败（卡 `7c347b4b`）。
    */
-  const changeTypeOf = (name: string): string | null => {
-    if (name.startsWith('todo ')) return 'todo'
-    if (name.startsWith('project ')) return 'project'
-    /**
-     * 用户档案 / 协作约定（1.0.146 走查）：`profile propose` / `protocol propose` 写的是
-     * **排队等采纳的提议**，人要去审批页点头，上手清单第 3、4 步也要当场改口说
-     * 「助手已提议…」。原先这两类前缀不在表里，命令跑完界面毫不知情 ——
-     * 走查实测：`profile propose` 之后清单卡头一直停在「下一步：写下关于我」，
-     * 切一次窗口（focus 兜底）才动。
-     *
-     * 种类取 `settings`：档案与约定就是"人的配置"这一层，`settings.store` 会跟着重拉
-     * 一次（幂等只读查询，界面不会闪）。**不能借 `grant` / `agent_register`** ——
-     * 跨进程轮询把这两类当"有人正卡在那条命令上等你点头"去弹横幅
-     * （见 change-broadcast.service.ts 的 onGrantRequest / onAgentRegistered），
-     * 而一条提议只是排进审批队列，不是卡住的授权申请。
-     */
-    if (name.startsWith('profile ') || name.startsWith('protocol ')) return 'settings'
-    return null
-  }
   /**
    * 命令自己说"什么都没改"（例如 rollback 回到与当前相同的版本）就不广播：
    * 这条事件的意思是**数据被改了**，没改就没有要刷的东西，也不该让人以为变了。
@@ -624,12 +750,14 @@ export async function executeOne(ctx: CliContext, args: string[]): Promise<Outco
    */
   const changedNothing =
     data && typeof data === 'object' && (data as { changed?: boolean }).changed === false
-  const changeType = changeTypeOf(cmd.name)
-  if (changeType && riskOf(cmd) !== 'read' && !changedNothing) {
-    try {
-      ctx.deps.events.append(changeType, 'cli', { cmd: cmd.name })
-    } catch {
-      // 广播失败不能让命令本身失败
+  const changeTypes = riskOf(cmd) === 'read' ? [] : changeEventTypesOf(cmd.name)
+  if (changeTypes.length && !changedNothing) {
+    for (const changeType of changeTypes) {
+      try {
+        ctx.deps.events.append(changeType, 'cli', { cmd: cmd.name })
+      } catch {
+        // 广播失败不能让命令本身失败
+      }
     }
   }
 

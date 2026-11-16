@@ -42,7 +42,13 @@ export class ProtocolRepository {
     return getDatabase()
   }
 
-  private ensureRevisionTable(): void {
+  /**
+   * 按需建修订表（幂等）
+   *
+   * 公开而不是私有：这张表**不在迁移链里**，备份服务导出/导入它之前也得先建一次，
+   * 否则在老库上 SELECT 会以 "no such table" 让整份备份失败（卡 7c347b4b）。
+   */
+  ensureRevisionTable(): void {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS protocol_revisions (
         id TEXT PRIMARY KEY,

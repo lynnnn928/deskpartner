@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.lynnnn928/deskpartner",
   "title": "DeskPartner",
-  "description": "Shared local kanban for your AI agents (69 MCP tools, 15 guardrails). Windows desktop app.",
+  "description": "Local project memory and handoff workspace shared by multiple AI agents. Windows desktop app.",
   "repository": {
     "url": "https://github.com/lynnnn928/deskpartner",
     "source": "github"

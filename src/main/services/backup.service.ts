@@ -6,6 +6,7 @@ import { ProjectRepository } from '../database/project.repository'
 import { MemoRepository } from '../database/memo.repository'
 import { AgentRepository } from '../database/agent.repository'
 import { SettingsRepository, type SettingsImportResult } from '../database/settings.repository'
+import { ProtocolRepository } from '../database/protocol.repository'
 import { getDatabase, getDatabasePath } from '../database/index'
 import { pruneOldBackups } from '../database/migrations'
 import type { Todo } from '../../renderer/types/todo'
@@ -21,10 +22,11 @@ import type { AppSettings } from '../../renderer/types/settings'
  * v3（1.0.93）：补齐 comments / transitions，保证接手材料可随 JSON 交接
  * v4（1.0.104）：补齐档案、协议、接手说明修订、版本、协作规则及提议审计
  * v5（1.0.105）：补齐 profile/rules 修订历史（含空档与继承覆盖状态）
+ * v6（卡 7c347b4b）：补齐通知 / 事项附件 / 项目文档快照 / 协议修订
  *
- * 保持 v1/v2/v3/v4 可导入 —— 老备份文件仍然要能读。
+ * 保持 v1/v2/v3/v4/v5 可导入 —— 老备份文件仍然要能读。
  */
-export const BACKUP_FORMAT_VERSION = 5
+export const BACKUP_FORMAT_VERSION = 6
 
 /** 导出数据的 JSON 结构 */
 export interface ExportData {
@@ -58,6 +60,11 @@ export interface ExportData {
     ruleProposals: Record<string, unknown>[]
     ruleRevisions: Record<string, unknown>[]
     agentApprovalEvents: Record<string, unknown>[]
+    /** v6 起：通知、事项附件、项目文档快照、协议修订（卡 7c347b4b） */
+    notifications: Record<string, unknown>[]
+    todoAttachments: Record<string, unknown>[]
+    projectDocRevisions: Record<string, unknown>[]
+    protocolRevisions: Record<string, unknown>[]
   }
 }
 
@@ -116,6 +123,10 @@ export interface ImportResult {
     ruleProposals: number
     ruleRevisions: number
     agentApprovalEvents: number
+    notifications: number
+    todoAttachments: number
+    projectDocRevisions: number
+    protocolRevisions: number
   }
   /** 设置里被接受的字段（1.0.38，仅导入设置时才有） */
   settingsAccepted?: string[]
@@ -156,10 +167,35 @@ const AUXILIARY_TABLES = {
   permissionMatrix: ['permission_matrix', ['scope', 'project_id', 'action', 'subject', 'decision', 'updated_by', 'updated_at']],
   ruleProposals: ['rule_proposals', ['id', 'scope', 'project_id', 'category', 'rule_key', 'proposed_enforcement', 'original_enforcement', 'base_updated_at', 'decided_enforcement', 'proposer', 'status', 'decided_by', 'decided_at', 'created_at']],
   ruleRevisions: ['rule_revisions', ['id', 'scope', 'project_id', 'rule_key', 'category', 'enforcement', 'has_override', 'author', 'created_at']],
-  agentApprovalEvents: ['agent_approval_events', ['id', 'agent_id', 'agent_name', 'action', 'actor', 'created_at']]
+  agentApprovalEvents: ['agent_approval_events', ['id', 'agent_id', 'agent_name', 'action', 'actor', 'created_at']],
+  /**
+   * v6（卡 7c347b4b）：这四张表此前不在备份里，换机恢复后通知历史、卡片上的附件行、
+   * 项目文档快照序列、协议修订全部断掉，而回执仍是一次"成功"。
+   *
+   * 只备份**表行**：附件文件本体在数据目录 `attachments/`，不在 JSON 里 ——
+   * `rel_path` 是相对数据目录的路径，恢复后行指向的文件可能不存在（界面上会显示缺文件）。
+   * 追加在末尾：导入按这里的顺序执行，附件依赖已导入的事项、文档快照依赖已导入的项目。
+   */
+  notifications: ['notifications', ['id', 'type', 'title', 'summary', 'ref_id', 'actor', 'status', 'meta', 'created_at', 'read_at', 'recipient', 'read_by']],
+  todoAttachments: ['todo_attachments', ['id', 'todo_id', 'comment_id', 'seq', 'name', 'ext', 'kind', 'mime', 'bytes', 'sha256', 'rel_path', 'created_by', 'created_at']],
+  projectDocRevisions: ['project_doc_revisions', ['id', 'project_id', 'file', 'seq', 'sha256', 'bytes', 'body', 'created_at']],
+  protocolRevisions: ['protocol_revisions', ['id', 'scope', 'project_id', 'block_key', 'body', 'confirmed', 'present', 'author', 'created_at']]
 } as const
 
+/**
+ * 把「不归迁移链管」的按需建表补齐（卡 7c347b4b）
+ *
+ * `protocol_revisions` 由协议仓储在使用时 CREATE TABLE IF NOT EXISTS，从没存过协议的
+ * 历史库上根本没有这张表。而 v6 起它随备份走 —— 导出前不建，`SELECT` 会以
+ * "no such table" 让**整份备份失败**；导入前不建，备份里的修订会落不进去。
+ * 只做幂等建表，不写数据。
+ */
+function ensureLazyTables(): void {
+  new ProtocolRepository().ensureRevisionTable()
+}
+
 function readAuxiliaryTables(): ExportData['auxiliary'] {
+  ensureLazyTables()
   const db = getDatabase()
   const output = {} as Record<string, Record<string, unknown>[]>
   for (const [key, [table]] of Object.entries(AUXILIARY_TABLES)) {
@@ -326,7 +362,11 @@ export class BackupService {
       permissionMatrix: 0,
       ruleProposals: 0,
       ruleRevisions: 0,
-      agentApprovalEvents: 0
+      agentApprovalEvents: 0,
+      notifications: 0,
+      todoAttachments: 0,
+      projectDocRevisions: 0,
+      protocolRevisions: 0
     }
 
     for (const proj of data.projects ?? []) {
@@ -722,6 +762,8 @@ export class BackupService {
     // 统一使用 INSERT OR IGNORE：重复导入不覆盖用户在目标库已有的最新内容，
     // 并且每一行都进入 imported/skipped 对账，不能静默丢失。
     if (data.auxiliary) {
+      // 目标库可能还没建过协议修订表（从没存过协议）；恢复要往里写，先幂等建一次
+      ensureLazyTables()
       const projectScopedColumns = new Set(['project_id'])
       for (const [key, [table, columns]] of Object.entries(AUXILIARY_TABLES)) {
         const rows = data.auxiliary[key as keyof NonNullable<ExportData['auxiliary']>] ?? []

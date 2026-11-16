@@ -2976,6 +2976,15 @@ export const todoOwnerCommands: CommandSpec[] = [
       const id = ctx.deps.todoRepo.resolveId(raw)
       const owner = String(flags['--owner'] ?? '').trim()
       if (!owner) throw new UsageError('--owner 不能为空')
+      /**
+       * 冒名校验（卡 `7c347b4b`）：这条命令改的正是提出者，却漏了 update `--created-by`
+       * 早就有的那一段（1.0.109，`b95e6bbb`）—— 于是"声明 alice 却把提出者记成 bob"
+       * 这条 update 会拦的路，从 set-owner 能整个绕过去。
+       *
+       * 放在写库之前：拦下就必须一个字都没改。判据直接复用同一个守卫，
+       * 不另写一份 —— 两条改提出者的路必须同一条口径。
+       */
+      assertCreatedByNotImpersonating(ctx, owner)
 
       const updated = ctx.deps.todoRepo.update({
         id,

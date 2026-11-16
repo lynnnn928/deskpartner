@@ -329,7 +329,7 @@ describe('BackupService v2 导出导入', () => {
 
     const parsed = JSON.parse(backup.exportData()) as Record<string, unknown>
 
-    expect(parsed.version).toBe(5)
+    expect(parsed.version).toBe(6)
     expect(parsed.projects).toHaveLength(1)
     expect(parsed.agents).toHaveLength(1)
     expect(parsed.memos).toHaveLength(1)
@@ -590,7 +590,7 @@ describe('BackupService v2 导出导入', () => {
       VALUES ('rule-inherit-baseline', 'project', ?, 'G10', 'flow', NULL, 0, 'human', '2026-10-16T00:00:00.000Z')`).run(project.id)
 
     const json = backup.exportData()
-    expect(JSON.parse(json).version).toBe(5)
+    expect(JSON.parse(json).version).toBe(6)
     wipeAll()
     const result = backup.importData(json)
 
@@ -634,7 +634,12 @@ describe('BackupService v2 导出导入', () => {
       permissionMatrix: 0,
       ruleProposals: 0,
       ruleRevisions: 0,
-      agentApprovalEvents: 0
+      agentApprovalEvents: 0,
+      // v6（卡 7c347b4b）：通知 / 附件 / 文档快照 / 协议修订四张表进备份后新增的计数
+      notifications: 0,
+      todoAttachments: 0,
+      projectDocRevisions: 0,
+      protocolRevisions: 0
     })
     expect(result.reusedCategories).toBe(4)
 
