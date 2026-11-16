@@ -9,6 +9,7 @@ import { ReleaseRepository } from './database/release.repository'
 import { MemoRepository } from './database/memo.repository'
 import { SettingsRepository } from './database/settings.repository'
 import { BackupService } from './services/backup.service'
+import { exportToFolder, importFromFolder } from './services/backup-folder'
 import { autoUpdateService } from './services/auto-update.service'
 import { TimerService } from './services/timer.service'
 import { NotificationService } from './services/notification.service'
@@ -2028,6 +2029,41 @@ todoRepo.delete(id, 'gui', 'human')
     })
   )
 
+  /**
+   * 备份文件夹的导出 / 导入（卡 fbcd8c03）
+   *
+   * 只给一份 JSON 时，附件**行**随备份走、文件本体不走 —— 换机后卡片上的附件
+   * 点开全是"文件不存在"，回执上却写着成功。所以导出改成一个文件夹
+   * （`backup.json` + `attachments/`），导入按 sha256 逐个校验文件再复制。
+   *
+   * `backup:export` / `backup:import` 两条老通道**保留**：老的 JSON 备份
+   * 仍然要能导入（见 BackupSection 的「导入旧版 JSON」）。
+   * 取消选目录返回 `{ canceled: true }`，界面据此不出回执 —— 取消不是失败。
+   */
+  ipcMain.handle('backup:exportFolder', (e) =>
+    safeHandleAsync(async () => {
+      assertFromSettings(e, 'backup:exportFolder')
+      const parentDir = await pickFolder(e, '选择备份文件夹的保存位置')
+      if (!parentDir) return { canceled: true as const }
+      return {
+        canceled: false as const,
+        ...exportToFolder(backupService, parentDir, getDataDirPath())
+      }
+    })
+  )
+
+  ipcMain.handle('backup:importFolder', (e) =>
+    safeHandleAsync(async () => {
+      assertFromSettings(e, 'backup:importFolder')
+      const dir = await pickFolder(e, '选择备份文件夹（里面有 backup.json）')
+      if (!dir) return { canceled: true as const }
+      // 附件在数据导入成功之后才复制；没有 backup.json 会在这里抛出明确的话
+      const result = importFromFolder(backupService, dir, getDataDirPath())
+      broadcastDataChanged('todo', getWindows)
+      return { canceled: false as const, ...result }
+    })
+  )
+
   console.log('[IPC] 所有处理器已注册')
 }
 
@@ -2057,6 +2093,26 @@ function imageDataUrl(absPath: string, maxEdge: number): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * 选一个目录（备份文件夹导出/导入共用，卡 fbcd8c03）
+ *
+ * 写法与 `app:pickDataDir` 同源：有主窗口就挂在它上面当模态，
+ * 取消返回 null —— 取消不是失败，调用方据此不出回执。
+ */
+async function pickFolder(e: IpcMainInvokeEvent, title: string): Promise<string | null> {
+  const ownerWin = BrowserWindow.fromWebContents(e.sender)
+  const dialogOpts: Electron.OpenDialogOptions = {
+    title,
+    defaultPath: getDataDirPath(),
+    properties: ['openDirectory', 'createDirectory']
+  }
+  const picked = ownerWin
+    ? await dialog.showOpenDialog(ownerWin, dialogOpts)
+    : await dialog.showOpenDialog(dialogOpts)
+  if (picked.canceled || !picked.filePaths[0]) return null
+  return picked.filePaths[0]
 }
 
 /** 列表缩略图的长边（卡片里显示 56px 上下，留足 2 倍屏） */

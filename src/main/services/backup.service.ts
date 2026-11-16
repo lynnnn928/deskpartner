@@ -128,6 +128,22 @@ export interface ImportResult {
     projectDocRevisions: number
     protocolRevisions: number
   }
+  /**
+   * 附件文件本体的归宿（卡 fbcd8c03）
+   *
+   * 只有**文件夹导入**（`backup-folder.ts` 的 `importFromFolder`）才会带这一段：
+   * 单份 JSON 里根本没有文件，填个全 0 会让人以为"文件都处理过了"。
+   * 四类都要单独报 —— 复制了几个说明不了另外几个怎么了。
+   */
+  attachmentFiles?: {
+    copied: number
+    /** 目标已存在且 sha256 相同（重复导入同一份备份时属正常） */
+    skipped: number
+    /** 备份里就没有这份文件 */
+    missing: string[]
+    /** 内容与行里的 sha256 对不上，或 rel_path 越界 —— 一律没复制 */
+    mismatched: string[]
+  }
   /** 设置里被接受的字段（1.0.38，仅导入设置时才有） */
   settingsAccepted?: string[]
   /** 设置里被丢弃的字段及原因 —— 丢掉的必须能报出来，不能静默 */

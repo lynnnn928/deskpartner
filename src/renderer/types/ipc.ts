@@ -54,6 +54,63 @@ export interface UpdateStatus {
   checkedAt: string | null
 }
 
+/** 备份导入时的附件文件统计（卡 fbcd8c03，只有文件夹导入才有这一段） */
+export interface BackupAttachmentFilesResult {
+  copied: number
+  /** 目标已存在且 sha256 相同 —— 重复导入同一份备份时属正常 */
+  skipped: number
+  /** 备份里就没有这份文件 */
+  missing: string[]
+  /** 与行里的 sha256 对不上，或 rel_path 越界 —— 一律没复制 */
+  mismatched: string[]
+}
+
+/**
+ * 备份导入回执（`backup:import` 与 `backup:importFolder` 共用）
+ *
+ * 回执的判据只有一个：**"导入成功"与"只导进来一部分"不能长得一样**。
+ * 所以各表分别计数、跳过的逐条说原因、附件文件按四种归宿分开报。
+ */
+export interface BackupImportResult {
+  imported: number
+  skipped: number
+  detail?: {
+    projects: number
+    categories: number
+    todos: number
+    agents: number
+    memos: number
+    comments: number
+    transitions: number
+    profileBlocks: number
+    profileProposals: number
+    profileRevisions: number
+    protocolBlocks: number
+    protocolProposals: number
+    handoffRevisions: number
+    handoffProposals: number
+    releases: number
+    collaborationRules: number
+    permissionMatrix: number
+    ruleProposals: number
+    ruleRevisions: number
+    agentApprovalEvents: number
+    /** v6 起随备份走的四张表：少了它们，换机后通知/附件行/文档快照/协议修订全断 */
+    notifications: number
+    todoAttachments: number
+    projectDocRevisions: number
+    protocolRevisions: number
+  }
+  settingsAccepted?: string[]
+  settingsRejected?: { key: string; why: string }[]
+  preImportBackup?: string | null
+  skippedItems?: { kind: string; title: string; why: string }[]
+  /** 按名字复用（而非新建）的已有分类数量：换机恢复时会命中 */
+  reusedCategories?: number
+  /** 附件文件那一组计数（只有文件夹导入才带） */
+  attachmentFiles?: BackupAttachmentFilesResult
+}
+
 export interface IPCChannels {
   // ── 待办事项 ──
   'todo:create': { input: CreateTodoInput; result: Todo }
@@ -486,40 +543,31 @@ export interface IPCChannels {
    * 在界面上长得一模一样。演练时正是靠这个含糊的回执误判了恢复结果。
    * 现在把"各表进了多少 / 哪些被跳过、为什么 / 原件备份在哪"都带出来。
    */
-  'backup:import': {
-    input: { data: string }
-    result: {
-      imported: number
-      skipped: number
-      detail?: {
-        projects: number
-        categories: number
-        todos: number
-        agents: number
-        memos: number
-        comments: number
-        transitions: number
-        profileBlocks: number
-        profileProposals: number
-        profileRevisions: number
-        protocolBlocks: number
-        protocolProposals: number
-        handoffRevisions: number
-        handoffProposals: number
-        releases: number
-        collaborationRules: number
-        permissionMatrix: number
-        ruleProposals: number
-        ruleRevisions: number
-        agentApprovalEvents: number
-      }
-      settingsAccepted?: string[]
-      settingsRejected?: { key: string; why: string }[]
-      preImportBackup?: string | null
-      skippedItems?: { kind: string; title: string; why: string }[]
-      /** 按名字复用（而非新建）的已有分类数量：换机恢复时会命中 */
-      reusedCategories?: number
-    }
+  'backup:import': { input: { data: string }; result: BackupImportResult }
+  /**
+   * 导出成文件夹（卡 fbcd8c03）：`backup.json` + `attachments/` 原样复制
+   *
+   * 取消选目录与"导出失败"必须能分开：前者是人的决定，不该弹回执。
+   */
+  'backup:exportFolder': {
+    input: void
+    result:
+      | { canceled: true }
+      | {
+          canceled: false
+          dir: string
+          attachmentFiles: { copied: number; missing: string[] }
+        }
+  }
+  /**
+   * 从文件夹导入（卡 fbcd8c03）
+   *
+   * 与 `backup:import` 的回执同构，多出 `attachmentFiles` 那一段：
+   * 文件复制了几个、跳过几个、备份里缺了哪几份、内容校验不符的是哪几份。
+   */
+  'backup:importFolder': {
+    input: void
+    result: { canceled: true } | ({ canceled: false } & BackupImportResult)
   }
 
   // ── 事件推送（主进程→渲染进程） ──
