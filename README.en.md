@@ -4,6 +4,8 @@
 
 🪟 Windows 10 / 11 (64-bit) · Windows only for now
 
+[![lynnnn928/deskpartner MCP server](https://glama.ai/mcp/servers/lynnnn928/deskpartner/badges/score.svg)](https://glama.ai/mcp/servers/lynnnn928/deskpartner)
+
 [中文文档](README.md) · [Website](https://lynnnn928.github.io/deskpartner/) · [User Manual](https://lynnnn928.github.io/deskpartner/#manual) · [llms.txt](https://lynnnn928.github.io/deskpartner/llms.txt) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Releases](https://github.com/lynnnn928/deskpartner/releases)
 
 > **What DeskPartner Is (and Isn't) in 3 Seconds**
